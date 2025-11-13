@@ -1,0 +1,5 @@
+# EdgeSystem/requirements.txt
+numpy
+opencv-python
+scikit-learn
+pandas
