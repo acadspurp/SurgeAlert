@@ -35,7 +35,7 @@ def send_data_to_backend(water_level, sensor_flow, image_flow, image_rise, alert
     Sends sensor data to the Java Spring Boot Backend.
     Returns the JSON response from the server (containing commands).
     """
-    url = "http://localhost:8080/api/sensor-data" # Update IP if not running locally
+    url = "http://192.168.1.32:8080/api/sensor-data" # Update IP if not running locally
     
     # Keys MUST match the Java SensorDataDTO exactly
     payload = {

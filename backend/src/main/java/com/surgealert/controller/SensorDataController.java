@@ -2,7 +2,7 @@ package com.surgealert.controller;
 
 import com.surgealert.dto.SensorDataDTO;
 import com.surgealert.entity.SensorData;
-import com.surgealert.service.EmailService; //import
+import com.surgealert.service.EmailService;
 import com.surgealert.service.NotificationService;
 import com.surgealert.service.ResidentService;
 import com.surgealert.service.SensorDataService;
@@ -23,6 +23,12 @@ public class SensorDataController {
     private final ResidentService residentService;
     private final EmailService emailService;
 
+    // --- LIVE IMAGE STORAGE (Held in RAM) ---
+    public static String currentImageBase64 = "";
+
+    // --- SECURITY KEY (Must match Python settings.py) ---
+    private static final String SECRET_API_KEY = "surge-alert-secret-123";
+
     public SensorDataController(SensorDataService sensorDataService,
                                 NotificationService notificationService,
                                 ResidentService residentService,
@@ -34,35 +40,53 @@ public class SensorDataController {
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> saveSensorData(@RequestBody SensorDataDTO dto) {
-        // 1. Save Data
+    public ResponseEntity<Map<String, Object>> saveSensorData(
+            @RequestHeader(value = "X-Edge-ApiKey", required = false) String apiKey,
+            @RequestBody SensorDataDTO dto) {
+
+        // 1. SECURITY CHECK
+        if (apiKey == null || !apiKey.equals(SECRET_API_KEY)) {
+            System.out.println("Security Warning: Invalid API Key received.");
+            return ResponseEntity.status(403).body(Map.of("error", "Unauthorized"));
+        }
+
+        // 2. Save Image to Memory (for Live Feed)
+        if (dto.getSnapshotBase64() != null && !dto.getSnapshotBase64().isEmpty()) {
+            currentImageBase64 = dto.getSnapshotBase64();
+        }
+
+        // 3. Save Data to Database
         SensorData savedData = sensorDataService.saveSensorData(dto);
 
         Map<String, Object> response = new HashMap<>();
         response.put("saved_id", savedData.getId());
         response.put("status", "success");
 
-        // 2. Check Logic
+        // 4. Check Logic for Alerts
         String level = savedData.getCurrentAlertLevel();
-        
-        // Get the message template (e.g., "SurgeAlert: RED ALERT...")
+
+        // Get message template
         String messageToSend = notificationService.getAlertMessage(level);
 
-        // --- CRITICAL CHANGE HERE ---
-        // We ONLY send alerts if the level is YELLOW, ORANGE, or RED.
-        // We REMOVED "GREEN" to prevent spamming users when the river is safe.
-        if (messageToSend != null && (level.equals("YELLOW") || level.equals("ORANGE") || level.equals("RED"))) {
-            
-            // --- A. EMAIL (Server Side) ---
+        // --- LOGIC: ONLY SEND IF YELLOW, ORANGE, OR RED ---
+        // We strictly block "GREEN" here.
+        boolean isCritical = level.equalsIgnoreCase("YELLOW") ||
+                             level.equalsIgnoreCase("ORANGE") ||
+                             level.equalsIgnoreCase("RED");
+
+        if (isCritical && messageToSend != null) {
+
+            // A. EMAIL (Server Side)
             List<String> emails = residentService.getAllActiveEmails();
             if (!emails.isEmpty()) {
                 String subject = "SurgeAlert: " + level + " LEVEL WARNING";
                 for (String email : emails) {
-                    emailService.sendAlertEmail(email, subject, messageToSend);
+                    // Use the NEW email service that supports images
+                    emailService.sendAlertEmail(email, subject, messageToSend, dto.getSnapshotBase64());
                 }
             }
 
-            // --- B. SMS (Hardware Side) ---
+            // B. SMS Command (Tell Python to send SMS via Hardware)
             List<String> phoneNumbers = residentService.getAllActivePhoneNumbers();
             if (!phoneNumbers.isEmpty()) {
                 response.put("command", "SEND_SMS");
@@ -73,7 +97,7 @@ public class SensorDataController {
             }
 
         } else {
-            // If it is GREEN (Safe), we do nothing.
+            // If GREEN or Unknown, do nothing
             response.put("command", "NO_ACTION");
         }
 

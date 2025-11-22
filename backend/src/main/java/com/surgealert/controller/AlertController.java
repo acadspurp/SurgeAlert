@@ -24,31 +24,35 @@ public class AlertController {
     @GetMapping("/status")
     public ResponseEntity<AlertStatusDTO> getCurrentAlertStatus() {
         SensorDataDTO latestData = sensorDataService.getLatestSensorData();
-        
-        AlertStatusDTO response = new AlertStatusDTO();
 
+        AlertStatusDTO response = new AlertStatusDTO();
         if (latestData != null) {
-            // Online: Return actual data using correct DTO setters
+            // Online: Return actual data
             response.setWaterLevelM(latestData.getWaterLevelM());
             response.setAlertLevel(latestData.getCurrentAlertLevel());
             response.setLastUpdated(latestData.getTimestamp());
             response.setDescription("Live data from monitoring station.");
         } else {
-            // Offline: Return nulls to let Frontend handle the "Offline" look
+            // Offline: Return nulls/offline status
             response.setWaterLevelM(null);
             response.setAlertLevel("OFFLINE");
             response.setLastUpdated(LocalDateTime.now());
             response.setDescription("System is currently offline.");
         }
-
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/camera")
     public ResponseEntity<Map<String, String>> getCameraUrl() {
-        // Change this string when you connect your ESP32-Cam later
-        // Leave as empty string "" to simulate Offline/No Signal
-        String cameraUrl = ""; 
-        return ResponseEntity.ok(Collections.singletonMap("url", cameraUrl));
+        // --- UPDATE: Serve the Live Image from Memory ---
+        String imgBase64 = SensorDataController.currentImageBase64;
+        
+        // If no image has been received yet, return empty string
+        if (imgBase64 == null) {
+            imgBase64 = ""; 
+        }
+
+        // Frontend will use this as <img src="data:image/jpg;base64,...">
+        return ResponseEntity.ok(Collections.singletonMap("img_base64", imgBase64));
     }
 }

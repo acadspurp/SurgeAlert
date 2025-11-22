@@ -3,6 +3,7 @@ package com.surgealert.dto;
 import java.time.LocalDateTime;
 
 public class SensorDataDTO {
+
     private Long id;
     private LocalDateTime timestamp;
     private Double waterLevelM;
@@ -11,9 +12,13 @@ public class SensorDataDTO {
     private Double imageRiseRateMps;
     private String currentAlertLevel;
 
+    // --- NEW FIELD FOR CAMERA IMAGE ---
+    private String snapshotBase64;
+
     public SensorDataDTO() {}
 
     // Getters and Setters
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -34,4 +39,8 @@ public class SensorDataDTO {
 
     public String getCurrentAlertLevel() { return currentAlertLevel; }
     public void setCurrentAlertLevel(String currentAlertLevel) { this.currentAlertLevel = currentAlertLevel; }
+
+    // --- NEW GETTER/SETTER FOR IMAGE ---
+    public String getSnapshotBase64() { return snapshotBase64; }
+    public void setSnapshotBase64(String snapshotBase64) { this.snapshotBase64 = snapshotBase64; }
 }

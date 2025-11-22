@@ -1,5 +1,6 @@
 package com.surgealert.controller;
 
+import com.surgealert.entity.User;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseToken;
 import com.surgealert.dto.RegisterRequest;
