@@ -95,7 +95,7 @@ public class SensorDataService {
 
         if (IS_AQUARIUM_MODE) {
             // --- AQUARIUM THRESHOLDS (0.32m Max) ---
-            if (waterLevel >= 0.28) return "RED";
+            if (waterLevel >= 0.27) return "RED";
             if (waterLevel >= 0.22) return "ORANGE";
             if (waterLevel >= 0.15) return "YELLOW";
         } else {

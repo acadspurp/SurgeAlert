@@ -19,7 +19,8 @@ MODEL_PATH = os.path.join(MODEL_DIR, 'flood_prediction_model.joblib')
 SMS_TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates', 'sms_alerts')
 
 # --- SECURITY & NETWORK ---
-BACKEND_IP = os.getenv("BACKEND_IP", "192.168.1.32")
+#BACKEND_IP = os.getenv("BACKEND_IP", "192.168.1.32")
+BACKEND_IP = os.getenv("BACKEND_IP", "192.168.254.117")
 BACKEND_PORT = os.getenv("BACKEND_PORT", "8080")
 BACKEND_API_URL = f"http://{BACKEND_IP}:{BACKEND_PORT}/api"
 EDGE_API_KEY = os.getenv("EDGE_API_KEY", "surge-alert-secret-123")
@@ -48,15 +49,15 @@ ENVIRONMENT_MODE = "AQUARIUM"
 
 # --- CALIBRATION & THRESHOLDS ---
 if ENVIRONMENT_MODE == "AQUARIUM":
-    # --- AQUARIUM MODE (32 CM TANK) ---
+    # --- AQUARIUM MODE (31 CM TANK) ---
     PIXELS_TO_METERS = 0.001 
-    SENSOR_HEIGHT_FROM_MUDPLAIN = 0.32  # 32 cm total height
+    SENSOR_HEIGHT_FROM_MUDPLAIN = 0.31  # 31 cm total height
 
     # Thresholds (Meters) - Scaled for small tank
-    # 15cm (Yellow), 22cm (Orange), 28cm (Red)
+    # 15cm (Yellow), 22cm (Orange), 27cm (Red)
     WATER_LEVEL_YELLOW_THRESHOLD = 0.15
     WATER_LEVEL_ORANGE_THRESHOLD = 0.22
-    WATER_LEVEL_RED_THRESHOLD = 0.28
+    WATER_LEVEL_RED_THRESHOLD = 0.27
 
     # Tide Scaling (Demo)
     TIDE_SCALING_FACTOR = 0.025
