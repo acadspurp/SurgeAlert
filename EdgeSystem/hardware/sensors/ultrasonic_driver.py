@@ -6,19 +6,23 @@ TRIG_PIN = 23
 ECHO_PIN = 24
 
 def init_sensor():
-    """Initializes GPIO pins for the sensor."""
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(TRIG_PIN, GPIO.OUT)
-    GPIO.setup(ECHO_PIN, GPIO.IN)
-    GPIO.output(TRIG_PIN, False)
-    time.sleep(0.3) # Allow sensor to settle
+    """Initializes GPIO pins for the sensor. Call this ONCE at startup."""
+    try:
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)
+        GPIO.setup(TRIG_PIN, GPIO.OUT)
+        GPIO.setup(ECHO_PIN, GPIO.IN)
+        
+        # Ensure Trigger is Low to start
+        GPIO.output(TRIG_PIN, False)
+        time.sleep(0.3) # Allow sensor to settle
+        print("Ultrasonic Sensor Initialized.")
+    except Exception as e:
+        print(f"Error initializing Ultrasonic Sensor: {e}")
 
 def get_distance():
     """Reads the distance from the ultrasonic sensor in METERS."""
     try:
-        # Ensure pins are set up if called repeatedly
-        init_sensor() 
-        
         # Send 10us pulse
         GPIO.output(TRIG_PIN, True)
         time.sleep(0.00001)
@@ -52,5 +56,6 @@ def get_distance():
     except Exception as e:
         print(f"Sensor Error: {e}")
         return 0.0
-    finally:
-        GPIO.cleanup()
+    
+    # DO NOT PUT GPIO.cleanup() HERE. 
+    # Cleanup happens in main_loop.py when the program stops.
