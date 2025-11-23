@@ -1,250 +1,165 @@
 import time
+import cv2
+import numpy as np
 import json
 import requests
+import threading
 import base64
-import cv2
-from datetime import datetime
+import sys
+import os
 
-# Import system components
-from system_main.database_manager import DatabaseManager
-from system_main.sms_manager import SMSManager
-from system_main.data_logger import DataLogger
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from config.settings import USE_HARDWARE, BACKEND_API_URL, EDGE_API_KEY
+from database_manager import DatabaseManager
 from alert_logic.alert_manager import AlertManager
 from processing.image_processor import ImageProcessor
 from processing.sensor_data_processor import calculate_water_level
-from config.settings import USE_HARDWARE, BACKEND_API_URL, EDGE_API_KEY
 
-# --- DRIVER IMPORTS ---
+# Import Hardware Drivers or Simulators based on settings
 if USE_HARDWARE:
-    print("LOADING HARDWARE DRIVERS...")
     from hardware.camera.pi_camera_driver import PiCameraDriver
-    # UPDATED: Import the functions from the new ultrasonic driver
-    from hardware.sensors.ultrasonic_driver import init_sensor, get_distance
-    # from hardware.sensors.radar_driver import get_flow_rate # Uncomment when radar is ready
+    from hardware.sensors.ultrasonic_driver import get_distance
+    # Using generic radar driver or simulator if hardware is missing
+    try:
+        from hardware.sensors.radar_driver import get_flow_rate as get_radar_flow
+    except ImportError:
+        # Fallback if radar driver not fully implemented
+        from simulation.sensors.radar_simulator import RadarSimulator
+        rad_sim_fallback = RadarSimulator()
+        get_radar_flow = rad_sim_fallback.read_flow_rate
 else:
-    print("LOADING SIMULATION DRIVERS...")
+    from simulation.camera.camera_simulator import CameraSimulator
     from simulation.sensors.ultrasonic_simulator import UltrasonicSimulator
     from simulation.sensors.radar_simulator import RadarSimulator
-    from simulation.camera.camera_simulator import CameraSimulator
 
-# --- NETWORK FUNCTION ---
-def send_data_to_backend(water_level, sensor_flow, image_flow, image_rise, alert_level, frame=None):
-    """
-    Sends sensor data and live video frame to Java Backend.
-    """
-    url = f"{BACKEND_API_URL}/sensor-data"
-    
-    # 1. Encode Image to Base64 for Live View
-    snapshot_base64 = ""
-    if frame is not None:
-        try:
-            # Encode frame to jpg
-            retval, buffer = cv2.imencode('.jpg', frame)
-            if retval:
-                # Convert to base64 string
-                snapshot_base64 = base64.b64encode(buffer).decode('utf-8')
-        except Exception as e:
-            print(f"Error encoding frame: {e}")
-
-    # Keys MUST match the Java SensorDataDTO exactly
-    payload = {
-        "waterLevelM": water_level,
-        "sensorFlowRateMps": sensor_flow,
-        "imageFlowRateMps": image_flow,
-        "imageRiseRateMps": image_rise,
-        "currentAlertLevel": alert_level,
-        "snapshotBase64": snapshot_base64  # Matches Java DTO
-    }
-
+def send_to_backend(payload):
+    """Sends JSON payload to Java Backend in a background thread."""
     try:
-        # 2. Add Security Header
-        headers = {
-            'Content-Type': 'application/json',
-            'X-Edge-ApiKey': EDGE_API_KEY 
-        }
-        
-        response = requests.post(url, data=json.dumps(payload), headers=headers, timeout=2)
-        
-        if response.status_code == 200:
-            return response.json()
-        elif response.status_code == 403:
-             print(f" >> AUTH ERROR: Backend rejected API Key.")
-             return None
-        else:
-            print(f" >> Backend returned error: {response.status_code}")
-            return None
-
-    except requests.exceptions.ConnectionError:
-        # Expected if Java backend is offline or restarting
-        return None
+        headers = {'Content-Type': 'application/json', 'X-Edge-ApiKey': EDGE_API_KEY}
+        # Post to the Java Controller Endpoint
+        response = requests.post(f"{BACKEND_API_URL}/sensor-data", data=json.dumps(payload), headers=headers, timeout=5)
+        if response.status_code != 200:
+            print(f" [Net] Warning: Backend returned {response.status_code}")
     except Exception as e:
-        print(f" >> Error sending data: {e}")
-        return None
-
-def sync_residents_from_backend(db_manager):
-    """
-    Fetches active phone numbers from Java Backend and saves to local DB.
-    """
-    url = f"{BACKEND_API_URL}/residents/active"
-    headers = {'X-Edge-ApiKey': EDGE_API_KEY}
-    try:
-        response = requests.get(url, headers=headers, timeout=3)
-        if response.status_code == 200:
-            online_numbers = response.json() # Expecting List<String>
-            
-            # Get local numbers
-            local_numbers = db_manager.get_all_registered_phone_numbers()
-            
-            count = 0
-            for num in online_numbers:
-                if num not in local_numbers:
-                    db_manager.register_resident(num)
-                    count += 1
-            
-            if count > 0:
-                print(f" >> SYNC: Downloaded {count} new residents from Cloud.")
-    except Exception:
-        pass # Fail silently, will try again next cycle
+        print(f" [Net] Upload Error: {e}")
 
 def main():
-    """The main entry point and continuous loop for the EdgeSystem."""
-    print("--- Initializing SurgeAlert EdgeSystem ---")
-
-    # 1. Initialize all system components
-    db_manager = DatabaseManager()
-    sms_manager = SMSManager(db_manager)
-    data_logger = DataLogger(db_manager)
-    alert_manager = AlertManager()
-    image_processor = ImageProcessor()
-
-    # 2. Initialize Sensors and Camera
+    print("--- STARTING SURGE ALERT EDGE SYSTEM ---")
+    
+    # 1. Initialize Components
+    db = DatabaseManager()
+    alerter = AlertManager()
+    img_proc = ImageProcessor()
+    
+    # 2. Initialize Sensors
     if USE_HARDWARE:
-        print("--- HARDWARE MODE ACTIVE ---")
-        try:
-            camera = PiCameraDriver()
-            
-            # UPDATED: Initialize the Ultrasonic Sensor here
-            init_sensor() 
-            print("Ultrasonic Sensor Initialized.")
-            
-        except Exception as e:
-            print(f"CRITICAL ERROR: Camera/Sensor failed to start: {e}")
-            return
+        cam = PiCameraDriver()
+        # Ultrasonic init is handled inside driver import
     else:
-        print("--- SIMULATION MODE ACTIVE ---")
-        ultrasonic_sensor = UltrasonicSimulator()
-        radar_sensor = RadarSimulator()
-        camera = CameraSimulator()
-
-    previous_alert_level = None
-    last_sync_time = 0
-    SYNC_INTERVAL = 60 # Seconds between resident syncs
-
-    print("\n--- System Initialized. Starting Main Loop (Press Ctrl+C to exit) ---")
+        cam = CameraSimulator()
+        us_sim = UltrasonicSimulator()
+        rad_sim = RadarSimulator()
 
     try:
         while True:
-            # --- 3. Resident Synchronization (Periodic) ---
-            current_time = time.time()
-            if current_time - last_sync_time > SYNC_INTERVAL:
-                sync_residents_from_backend(db_manager)
-                last_sync_time = current_time
+            start_time = time.time()
 
-            # --- 4. Data Collection ---
-            if USE_HARDWARE:
-                frame = camera.capture_frame()
-                
-                # UPDATED: Use the real driver function
-                raw_distance_m = get_distance()
-                
-                # Placeholder for radar flow rate (0.0 until you wire the radar)
-                sensor_flow_rate_mps = 0.0 
-            else:
-                # Use simulators
-                raw_distance_m = ultrasonic_sensor.read_distance()
-                sensor_flow_rate_mps = radar_sensor.read_flow_rate()
-                frame = camera.capture_frame()
-
-            # --- 5. Data Processing ---
-            water_level_m = calculate_water_level(raw_distance_m)
+            # --- A. DATA COLLECTION ---
+            # 1. Camera Frame
+            frame = cam.capture_frame()
             
-            # Process Image
-            image_flow_rate_mps, image_rise_rate_mps, visualized_frame = image_processor.process_frame(frame)
+            # 2. Ultrasonic (Water Level)
+            if USE_HARDWARE:
+                raw_dist = get_distance()
+                # Radar
+                try:
+                    radar_flow = get_radar_flow()
+                except:
+                    radar_flow = 0.0
+            else:
+                raw_dist = us_sim.read_distance()
+                radar_flow = rad_sim.read_flow_rate()
 
-            combined_flow_rate = (sensor_flow_rate_mps + image_flow_rate_mps) / 2
+            # --- B. PROCESSING ---
+            # Convert raw distance to water level
+            current_wl = calculate_water_level(raw_dist)
+            
+            # Computer Vision (Optical Flow & Rise Rate)
+            img_flow, img_rise, viz_frame, raw_vectors = img_proc.process_frame(frame)
 
-            # --- 6. Alert Determination ---
-            current_alert_level = alert_manager.determine_alert_level(
-                water_level_m=water_level_m,
-                flow_rate_mps=combined_flow_rate,
-                rise_rate_mps=image_rise_rate_mps
+            # --- C. AI PREDICTION ---
+            # We use the Radar flow for prediction if available, otherwise use Image flow
+            prediction_input_flow = max(img_flow, radar_flow)
+            
+            # Predict level in 1 Hour
+            pred_level = alerter.predict_future_level(current_wl, prediction_input_flow, img_rise)
+            
+            # Determine Alert Levels
+            current_alert = alerter.determine_alert_level(current_wl)
+            pred_alert = alerter.determine_alert_level(pred_level)
+
+            # --- D. LOCAL LOGGING ---
+            db.log_sensor_data(
+                water_level=current_wl,
+                sensor_flow=radar_flow,
+                img_flow=img_flow,
+                img_rise=img_rise,
+                pred_level=pred_level,
+                alert_level=current_alert,
+                raw_vectors=raw_vectors
             )
 
-            # --- 7. Logging and Transmission ---
-            print(f"DATA: WL={water_level_m:.2f}m | Flow={combined_flow_rate:.2f}m/s | Rise={image_rise_rate_mps:.2f}m/s ==> ALERT: {current_alert_level}")
+            # --- E. BACKEND UPLOAD ---
+            # Compress Image to Base64
+            b64_img = ""
+            if viz_frame is not None:
+                _, buf = cv2.imencode('.jpg', viz_frame)
+                b64_img = base64.b64encode(buf).decode('utf-8')
 
-            # A. Log to Local Database
-            data_logger.log_cycle_data(
-                water_level=water_level_m,
-                sensor_flow=sensor_flow_rate_mps,
-                image_flow=image_flow_rate_mps,
-                image_rise=image_rise_rate_mps,
-                alert_level=current_alert_level
-            )
+            # Create Payload matching Java SensorDataDTO
+            payload = {
+                "waterLevelM": round(current_wl, 2),
+                "sensorFlowRateMps": round(radar_flow, 2),
+                "imageFlowRateMps": round(img_flow, 2),
+                "imageRiseRateMps": round(img_rise, 2),
+                "currentAlertLevel": current_alert,
+                "predictedLevel": round(pred_level, 2),         # New Field
+                "predictedAlertLevel": pred_alert,              # New Field
+                "snapshotBase64": b64_img
+            }
+            
+            # Send non-blocking
+            threading.Thread(target=send_to_backend, args=(payload,)).start()
 
-            # B. Send to Java Backend & Receive Commands
-            backend_response = send_data_to_backend(
-                water_level=water_level_m,
-                sensor_flow=sensor_flow_rate_mps,
-                image_flow=image_flow_rate_mps,
-                image_rise=image_rise_rate_mps,
-                alert_level=current_alert_level,
-                frame=visualized_frame 
-            )
+            # --- F. OFFLINE FAILSAFE (Simulated) ---
+            # If Red Alert and we pretend internet is down, logic would go here.
+            if current_alert == "RED":
+                recipients = db.get_all_registered_phone_numbers()
+                if recipients:
+                    # Log that we would have sent an SMS
+                    pass 
 
-            # --- 8. Action Logic (SMS) ---
-            sms_sent_this_cycle = False
+            # --- G. VISUALIZATION & OUTPUT ---
+            print(f"WL: {current_wl:.2f}m | Flow: {img_flow:.2f}m/s | Pred: {pred_level:.2f}m ({pred_alert})")
 
-            # Priority 1: Command from Backend (Server-Controlled)
-            if backend_response and backend_response.get("command") == "SEND_SMS":
-                print(f" >> BACKEND COMMAND: Sending SMS to residents...")
-                backend_message = backend_response.get("message")
-                recipients = backend_response.get("recipients") # Get list from server
-
-                if backend_message:
-                    # Send to specific list from server (Online Mode)
-                    sms_manager.send_alert(current_alert_level, explicit_recipients=recipients)
-                else:
-                    # Fallback
-                    sms_manager.send_alert(current_alert_level)
-                sms_sent_this_cycle = True
-
-            # Priority 2: Local Logic (Offline Fallback)
-            elif backend_response is None and current_alert_level != previous_alert_level:
-                print(f"!!! ALERT LEVEL CHANGE (Offline Mode): {previous_alert_level} -> {current_alert_level} !!!")
-                if current_alert_level != "GREEN":
-                    sms_manager.send_alert(current_alert_level)
-                    sms_sent_this_cycle = True
-
-            # Update previous state
-            previous_alert_level = current_alert_level
-
-            # --- 9. Visualization ---
-            if visualized_frame is not None:
-                cv2.imshow("SurgeAlert Live Feed", visualized_frame)
+            if viz_frame is not None:
+                cv2.imshow("SurgeAlert Edge", viz_frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
-            
-            # Small delay to prevent CPU overloading
-            time.sleep(0.1) 
+
+            # Control loop speed (approx 30 FPS or slower)
+            elapsed = time.time() - start_time
+            if elapsed < 0.033:
+                time.sleep(0.033 - elapsed)
 
     except KeyboardInterrupt:
-        print("\n--- Shutdown signal received. Exiting gracefully. ---")
+        print("Stopping...")
     finally:
-        if USE_HARDWARE and 'camera' in locals() and hasattr(camera, 'close'):
-            camera.close()
+        if USE_HARDWARE:
+            cam.close()
         cv2.destroyAllWindows()
-        print("System shutdown complete.")
 
 if __name__ == "__main__":
     main()

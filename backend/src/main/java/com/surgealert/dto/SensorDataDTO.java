@@ -1,23 +1,34 @@
 package com.surgealert.dto;
 
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class SensorDataDTO {
 
     private Long id;
     private LocalDateTime timestamp;
+
+    // Raw Sensor Data
     private Double waterLevelM;
     private Double sensorFlowRateMps;
+    
+    // Computer Vision Data
     private Double imageFlowRateMps;
     private Double imageRiseRateMps;
+    
+    // Status
     private String currentAlertLevel;
+    
+    // --- NEW FIELDS FOR AI PREDICTION ---
+    private Double predictedLevel;
+    private String predictedAlertLevel;
 
-    // --- NEW FIELD FOR CAMERA IMAGE ---
+    // Image
     private String snapshotBase64;
 
     public SensorDataDTO() {}
 
-    // Getters and Setters
+    // --- Getters and Setters ---
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -40,7 +51,13 @@ public class SensorDataDTO {
     public String getCurrentAlertLevel() { return currentAlertLevel; }
     public void setCurrentAlertLevel(String currentAlertLevel) { this.currentAlertLevel = currentAlertLevel; }
 
-    // --- NEW GETTER/SETTER FOR IMAGE ---
+    // --- NEW GETTERS/SETTERS FOR PREDICTION ---
+    public Double getPredictedLevel() { return predictedLevel; }
+    public void setPredictedLevel(Double predictedLevel) { this.predictedLevel = predictedLevel; }
+
+    public String getPredictedAlertLevel() { return predictedAlertLevel; }
+    public void setPredictedAlertLevel(String predictedAlertLevel) { this.predictedAlertLevel = predictedAlertLevel; }
+
     public String getSnapshotBase64() { return snapshotBase64; }
     public void setSnapshotBase64(String snapshotBase64) { this.snapshotBase64 = snapshotBase64; }
 }

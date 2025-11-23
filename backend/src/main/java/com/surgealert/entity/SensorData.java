@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "sensor_data")
 public class SensorData {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -28,6 +29,13 @@ public class SensorData {
     @Column(nullable = false)
     private String currentAlertLevel; // GREEN, YELLOW, ORANGE, RED
 
+    // --- NEW COLUMNS FOR AI PREDICTION ---
+    @Column(nullable = true) // Nullable because old data won't have predictions
+    private Double predictedLevel;
+
+    @Column(nullable = true)
+    private String predictedAlertLevel;
+
     @PrePersist
     protected void onCreate() {
         if (timestamp == null) {
@@ -35,7 +43,8 @@ public class SensorData {
         }
     }
 
-    // Getters and Setters
+    // --- Getters and Setters ---
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -56,4 +65,11 @@ public class SensorData {
 
     public String getCurrentAlertLevel() { return currentAlertLevel; }
     public void setCurrentAlertLevel(String currentAlertLevel) { this.currentAlertLevel = currentAlertLevel; }
+
+    // --- NEW GETTERS/SETTERS ---
+    public Double getPredictedLevel() { return predictedLevel; }
+    public void setPredictedLevel(Double predictedLevel) { this.predictedLevel = predictedLevel; }
+
+    public String getPredictedAlertLevel() { return predictedAlertLevel; }
+    public void setPredictedAlertLevel(String predictedAlertLevel) { this.predictedAlertLevel = predictedAlertLevel; }
 }

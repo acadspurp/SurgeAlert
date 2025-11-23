@@ -14,47 +14,46 @@ window.showSuccessStep = showSuccessStep;
 document.addEventListener('DOMContentLoaded', () => {
     // Set up all event listeners (mobile menu, consent checkbox, etc.)
     setupUIEventListeners();
-    
+
     // Initialize the Firebase authentication system
     initializeAuth();
-    
+
     // Initialize the main app features
     showView('home');
-    
+
     // Initial Data Fetch
     updateAlertStatus();
     fetchWeather();
     fetchTides();
-    fetchCameraFeed(); 
+    fetchCameraFeed();
 
     // Set up Polling (Refresh data automatically)
-    setInterval(updateAlertStatus, 30000); // Every 30 seconds
-    setInterval(fetchCameraFeed, 60000);   // Every 60 seconds check camera link
+    setInterval(updateAlertStatus, 30000); // Update sensor data every 30 seconds
+    
+    // UPDATE: Check camera every 3 seconds for the Live Feed effect
+    setInterval(fetchCameraFeed, 3000); 
 });
 
 // --- LIVE CAMERA LOGIC ---
 async function fetchCameraFeed() {
-    // We select the container using the classes seen in your HTML (Page 19)
-    // because the iframe container didn't have a specific ID.
-    const container = document.querySelector('#home-view .aspect-w-16'); 
-    
-    if(!container) return;
+    // We select the container using the classes seen in your HTML
+    const container = document.querySelector('#home-view .aspect-w-16');
+
+    if (!container) return;
 
     try {
         const response = await fetch('http://localhost:8080/api/public/alerts/camera');
         const data = await response.json();
-        
-        if (data.url && data.url !== "") {
-            // Online: Show Stream
-            // Only update if the src is different to avoid flickering
-            const currentIframe = container.querySelector('iframe');
-            if (!currentIframe || currentIframe.src !== data.url) {
-                container.innerHTML = `
-                    <iframe width="100%" height="450" 
-                    src="${data.url}" 
-                    title="Tullahan River Live Stream" 
-                    frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
-            }
+
+        // Backend sends: { "img_base64": "..." }
+        if (data.img_base64 && data.img_base64 !== "") {
+            // Online: Show Image (Base64 from Python)
+            // We replace the innerHTML with an Image tag instead of an Iframe
+            container.innerHTML = `
+                <img src="data:image/jpeg;base64,${data.img_base64}" 
+                     style="width: 100%; height: 450px; object-fit: cover; border-radius: 0.5rem;"
+                     alt="Live River Feed" />
+            `;
         } else {
             // Offline: Show Placeholder Image
             container.innerHTML = `
@@ -63,7 +62,7 @@ async function fetchCameraFeed() {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                     </svg>
                     <p class="text-lg font-semibold">Camera Offline</p>
-                    <p class="text-sm text-gray-400">Live feed currently unavailable</p>
+                    <p class="text-sm text-gray-400">Waiting for image data...</p>
                 </div>`;
         }
     } catch (error) {

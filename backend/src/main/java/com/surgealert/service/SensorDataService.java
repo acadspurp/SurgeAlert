@@ -13,6 +13,11 @@ import java.util.stream.Collectors;
 public class SensorDataService {
 
     private final SensorDataRepository sensorDataRepository;
+    
+    // --- CONFIGURATION SWITCH ---
+    // Set TRUE for 32cm Tank Test
+    // Set FALSE for 10m River Deployment
+    private final boolean IS_AQUARIUM_MODE = true; 
 
     public SensorDataService(SensorDataRepository sensorDataRepository) {
         this.sensorDataRepository = sensorDataRepository;
@@ -21,29 +26,35 @@ public class SensorDataService {
     public SensorData saveSensorData(SensorDataDTO dto) {
         SensorData sensorData = new SensorData();
         
-        // Set Timestamp (Use Server time if DTO time is missing)
+        // Set Basic Data
         sensorData.setTimestamp(dto.getTimestamp() != null ? dto.getTimestamp() : LocalDateTime.now());
-        
-        // Map sensor readings
         sensorData.setWaterLevelM(dto.getWaterLevelM());
         sensorData.setSensorFlowRateMps(dto.getSensorFlowRateMps());
         sensorData.setImageFlowRateMps(dto.getImageFlowRateMps());
         sensorData.setImageRiseRateMps(dto.getImageRiseRateMps());
 
-        // --- LOGIC FIX FOR AQUARIUM VS RIVER ---
-        // We prioritize the Alert Level calculated by the Python Edge device.
-        // Python knows if it's in "AQUARIUM" or "RIVER" mode. 
+        // 1. ALERT LEVEL LOGIC
+        // If hardware sends status, use it. If not, calculate it using Java fallback.
         String alertLevel = dto.getCurrentAlertLevel();
+        if (alertLevel == null || alertLevel.isEmpty()) {
+            alertLevel = calculateAlertLevel(dto.getWaterLevelM());
+        }
+        sensorData.setCurrentAlertLevel(alertLevel.toUpperCase());
 
-        if (alertLevel != null && !alertLevel.isEmpty()) {
-            // 1. Trust the Edge Device
-            sensorData.setCurrentAlertLevel(alertLevel.toUpperCase());
+        // 2. PREDICTION DATA LOGIC (Updated for Null Handling)
+        // If AI provides a level, use it.
+        // If AI is NULL (failed/loading), fallback to current Water Level so graph doesn't drop to 0.
+        if (dto.getPredictedLevel() != null) {
+            sensorData.setPredictedLevel(dto.getPredictedLevel());
         } else {
-            // 2. Fallback: If Python didn't send a level, calculate it here.
-            // NOTE: This fallback logic assumes RIVER scale (3.5m+). 
-            // If testing in Aquarium without Python logic, this might default to GREEN.
-            String calculatedLevel = calculateAlertLevelFallback(dto.getWaterLevelM());
-            sensorData.setCurrentAlertLevel(calculatedLevel);
+            sensorData.setPredictedLevel(dto.getWaterLevelM()); 
+        }
+
+        if (dto.getPredictedAlertLevel() != null) {
+            sensorData.setPredictedAlertLevel(dto.getPredictedAlertLevel());
+        } else {
+            // Calculate alert based on the predicted level we just set
+            sensorData.setPredictedAlertLevel(calculateAlertLevel(sensorData.getPredictedLevel()));
         }
 
         return sensorDataRepository.save(sensorData);
@@ -52,7 +63,7 @@ public class SensorDataService {
     public SensorDataDTO getLatestSensorData() {
         return sensorDataRepository.findFirstByOrderByTimestampDesc()
                 .map(this::convertToDTO)
-                .orElse(null); // Returns null if no data exists (Offline state)
+                .orElse(null);
     }
 
     public List<SensorDataDTO> getRecentSensorData(int hours) {
@@ -72,20 +83,28 @@ public class SensorDataService {
         dto.setImageRiseRateMps(sensorData.getImageRiseRateMps());
         dto.setCurrentAlertLevel(sensorData.getCurrentAlertLevel());
         
-        // Note: We do not send back the base64 image here to keep response light
-        // The image is usually accessed via a separate Endpoint if needed
+        // Return Prediction Data
+        dto.setPredictedLevel(sensorData.getPredictedLevel());
+        dto.setPredictedAlertLevel(sensorData.getPredictedAlertLevel());
+        
         return dto;
     }
 
-    // CENTRALIZED LOGIC FOR ALERT STATUS (FALLBACK ONLY)
-    private String calculateAlertLevelFallback(Double waterLevel) {
+    private String calculateAlertLevel(Double waterLevel) {
         if (waterLevel == null) return "GREEN";
+
+        if (IS_AQUARIUM_MODE) {
+            // --- AQUARIUM THRESHOLDS (0.32m Max) ---
+            if (waterLevel >= 0.28) return "RED";
+            if (waterLevel >= 0.22) return "ORANGE";
+            if (waterLevel >= 0.15) return "YELLOW";
+        } else {
+            // --- RIVER THRESHOLDS (10m Max) ---
+            if (waterLevel >= 9.0) return "RED";
+            if (waterLevel >= 8.0) return "ORANGE";
+            if (waterLevel >= 6.0) return "YELLOW";
+        }
         
-        // Default River Thresholds (Tullahan estimation)
-        // This is only used if Python fails to calculate logic
-        if (waterLevel < 15.0) return "GREEN"; 
-        if (waterLevel >= 15.0 && waterLevel < 16.0) return "YELLOW";
-        if (waterLevel >= 16.0 && waterLevel < 18.0) return "ORANGE";
-        return "RED";
+        return "GREEN";
     }
 }

@@ -1,59 +1,78 @@
-# EdgeSystem/alert_logic/alert_manager.py
+import joblib
+import os
+import numpy as np
+import sys
+
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from config.settings import (
-    WATER_LEVEL_RED_THRESHOLD, WATER_LEVEL_ORANGE_THRESHOLD, WATER_LEVEL_YELLOW_THRESHOLD,
-    FLOW_RATE_RED_THRESHOLD, FLOW_RATE_ORANGE_THRESHOLD, FLOW_RATE_YELLOW_THRESHOLD,
-    RISE_RATE_RED_THRESHOLD, RISE_RATE_ORANGE_THRESHOLD, RISE_RATE_YELLOW_THRESHOLD
+    MODEL_PATH, 
+    WATER_LEVEL_YELLOW_THRESHOLD, 
+    WATER_LEVEL_ORANGE_THRESHOLD, 
+    WATER_LEVEL_RED_THRESHOLD
 )
 
 class AlertManager:
-    """Determines the flood alert level based on sensor data."""
     def __init__(self):
-        print("Initialized Alert Manager.")
+        """
+        Initializes the AlertManager and attempts to load the AI model.
+        """
+        self.model = None
+        self.load_model()
 
-    def determine_alert_level(self, water_level_m, flow_rate_mps, rise_rate_mps) -> str:
+    def load_model(self):
+        """Loads the .joblib model from the path defined in settings.py."""
+        print(f" [AI] Attempting to load model from: {MODEL_PATH}")
+        try:
+            if os.path.exists(MODEL_PATH):
+                self.model = joblib.load(MODEL_PATH)
+                print(" [AI] SUCCESS: Flood Prediction Model Loaded.")
+            else:
+                print(" [AI] WARNING: Model file not found.")
+                print("      Please run 'python -m ml_model.train_model' first.")
+                self.model = None
+        except Exception as e:
+            print(f" [AI] CRITICAL ERROR loading model: {e}")
+            self.model = None
+
+    def determine_alert_level(self, water_level):
         """
-        Determines the current alert level.
-        The logic prioritizes the highest threat level from any metric.
+        Rule-Based Logic: Determines the alert level (color) based on strict thresholds.
+        Args: water_level (float)
+        Returns: str ('GREEN', 'YELLOW', 'ORANGE', 'RED')
         """
-        # Check for RED conditions (highest priority)
-        if (water_level_m >= WATER_LEVEL_RED_THRESHOLD or
-            flow_rate_mps >= FLOW_RATE_RED_THRESHOLD or
-            rise_rate_mps >= RISE_RATE_RED_THRESHOLD):
+        if water_level is None:
+            return "GREEN"
+            
+        if water_level >= WATER_LEVEL_RED_THRESHOLD:
             return "RED"
-
-        # Check for ORANGE conditions
-        if (water_level_m >= WATER_LEVEL_ORANGE_THRESHOLD or
-            flow_rate_mps >= FLOW_RATE_ORANGE_THRESHOLD or
-            rise_rate_mps >= RISE_RATE_ORANGE_THRESHOLD):
+        elif water_level >= WATER_LEVEL_ORANGE_THRESHOLD:
             return "ORANGE"
-
-        # Check for YELLOW conditions
-        if (water_level_m >= WATER_LEVEL_YELLOW_THRESHOLD or
-            flow_rate_mps >= FLOW_RATE_YELLOW_THRESHOLD or
-            rise_rate_mps >= RISE_RATE_YELLOW_THRESHOLD):
+        elif water_level >= WATER_LEVEL_YELLOW_THRESHOLD:
             return "YELLOW"
+        else:
+            return "GREEN"
 
-        # If none of the above, conditions are normal
-        return "GREEN"
+    def predict_future_level(self, current_level, flow_rate, rise_rate):
+        """
+        AI Logic: Predicts water level 1 hour into the future.
+        Input order must match train_model.py: [water_level, flow_rate, rise_rate]
+        """
+        # Fallback if model failed to load
+        if self.model is None:
+            return current_level
 
-
-# --- How to Test This Module ---
-if __name__ == '__main__':
-    manager = AlertManager()
-    print("Testing Alert Manager with different scenarios...")
-
-    # Scenario 1: Normal
-    level = manager.determine_alert_level(1.0, 0.5, 0.01)
-    print(f"Scenario: Normal -> Result: {level}") # Expected: GREEN
-
-    # Scenario 2: Rising water
-    level = manager.determine_alert_level(1.6, 0.6, 0.06)
-    print(f"Scenario: Rising Water -> Result: {level}") # Expected: YELLOW
-
-    # Scenario 3: High flow rate
-    level = manager.determine_alert_level(2.0, 1.6, 0.1)
-    print(f"Scenario: High Flow -> Result: {level}") # Expected: ORANGE
-
-    # Scenario 4: Critical water level
-    level = manager.determine_alert_level(3.6, 1.0, 0.1)
-    print(f"Scenario: Critical Level -> Result: {level}") # Expected: RED
+        try:
+            # Prepare input vector
+            features = np.array([[current_level, flow_rate, rise_rate]])
+            
+            # Predict
+            predicted_level = self.model.predict(features)[0]
+            
+            # Safety clamp: Water level cannot be negative
+            return max(0.0, float(predicted_level))
+            
+        except Exception as e:
+            print(f" [AI] Prediction Error: {e}")
+            return current_level
