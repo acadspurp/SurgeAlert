@@ -19,23 +19,28 @@ from processing.sensor_data_processor import calculate_water_level
 
 # Import Hardware Drivers or Simulators based on settings
 if USE_HARDWARE:
+    print(" [System] Loading Hardware Drivers...")
     from hardware.camera.pi_camera_driver import PiCameraDriver
-    from hardware.sensors.ultrasonic_driver import get_distance
-    # Using generic radar driver or simulator if hardware is missing
+    from hardware.sensors.ultrasonic_driver import get_distance, init_sensor as init_ultrasonic
+    
+    # Radar Driver (RCWL-0516)
     try:
-        from hardware.sensors.radar_driver import get_flow_rate as get_radar_flow
+        from hardware.sensors.radar_driver import get_flow_rate as get_radar_flow, init_radar
     except ImportError:
-        # Fallback if radar driver not fully implemented
-        from simulation.sensors.radar_simulator import RadarSimulator
-        rad_sim_fallback = RadarSimulator()
-        get_radar_flow = rad_sim_fallback.read_flow_rate
+        print(" [System] Warning: Radar driver not found. Using dummy.")
+        def get_radar_flow(): return 0.0
+        def init_radar(): pass
+
 else:
+    print(" [System] Loading Simulators...")
     from simulation.camera.camera_simulator import CameraSimulator
     from simulation.sensors.ultrasonic_simulator import UltrasonicSimulator
     from simulation.sensors.radar_simulator import RadarSimulator
 
 def send_to_backend(payload):
-    """Sends JSON payload to Java Backend in a background thread."""
+    """
+    Sends JSON payload to Java Backend in a background thread.
+    """
     try:
         headers = {'Content-Type': 'application/json', 'X-Edge-ApiKey': EDGE_API_KEY}
         # Post to the Java Controller Endpoint
@@ -55,8 +60,17 @@ def main():
     
     # 2. Initialize Sensors
     if USE_HARDWARE:
-        cam = PiCameraDriver()
-        # Ultrasonic init is handled inside driver import
+        try:
+            # Initialize Camera
+            cam = PiCameraDriver()
+            
+            # Initialize Sensors (GPIO)
+            init_ultrasonic()
+            init_radar()
+            
+        except Exception as e:
+            print(f" [FATAL] Hardware Initialization Failed: {e}")
+            return
     else:
         cam = CameraSimulator()
         us_sim = UltrasonicSimulator()
@@ -67,23 +81,19 @@ def main():
             start_time = time.time()
 
             # --- A. DATA COLLECTION ---
-            # 1. Camera Frame
+            # 1. Capture Image
             frame = cam.capture_frame()
             
-            # 2. Ultrasonic (Water Level)
+            # 2. Read Sensors
             if USE_HARDWARE:
                 raw_dist = get_distance()
-                # Radar
-                try:
-                    radar_flow = get_radar_flow()
-                except:
-                    radar_flow = 0.0
+                radar_flow = get_radar_flow() # Returns simulated m/s based on motion
             else:
                 raw_dist = us_sim.read_distance()
                 radar_flow = rad_sim.read_flow_rate()
 
             # --- B. PROCESSING ---
-            # Convert raw distance to water level
+            # Convert raw distance to water level (Math logic in sensor_data_processor.py)
             current_wl = calculate_water_level(raw_dist)
             
             # Computer Vision (Optical Flow & Rise Rate)
@@ -93,29 +103,31 @@ def main():
             # We use the Radar flow for prediction if available, otherwise use Image flow
             prediction_input_flow = max(img_flow, radar_flow)
             
-            # Predict level in 1 Hour
+            # Predict level in 1 Hour using ML Model
             pred_level = alerter.predict_future_level(current_wl, prediction_input_flow, img_rise)
             
-            # Determine Alert Levels
+            # Determine Alert Levels (Rule Based)
             current_alert = alerter.determine_alert_level(current_wl)
             pred_alert = alerter.determine_alert_level(pred_level)
 
             # --- D. LOCAL LOGGING ---
+            # Log to SQLite on the Pi
             db.log_sensor_data(
                 water_level=current_wl,
                 sensor_flow=radar_flow,
-                img_flow=img_flow,
-                img_rise=img_rise,
+                image_flow=img_flow,
+                image_rise=img_rise,
                 pred_level=pred_level,
                 alert_level=current_alert,
                 raw_vectors=raw_vectors
             )
 
             # --- E. BACKEND UPLOAD ---
-            # Compress Image to Base64
+            # Compress Image to Base64 for Dashboard viewing
             b64_img = ""
             if viz_frame is not None:
-                _, buf = cv2.imencode('.jpg', viz_frame)
+                # Compress to 50% quality to save bandwidth
+                _, buf = cv2.imencode('.jpg', viz_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
                 b64_img = base64.b64encode(buf).decode('utf-8')
 
             # Create Payload matching Java SensorDataDTO
@@ -125,41 +137,39 @@ def main():
                 "imageFlowRateMps": round(img_flow, 2),
                 "imageRiseRateMps": round(img_rise, 2),
                 "currentAlertLevel": current_alert,
-                "predictedLevel": round(pred_level, 2),         # New Field
-                "predictedAlertLevel": pred_alert,              # New Field
+                "predictedLevel": round(pred_level, 2), 
+                "predictedAlertLevel": pred_alert,
                 "snapshotBase64": b64_img
             }
             
-            # Send non-blocking
+            # Send non-blocking (don't wait for Java to reply)
             threading.Thread(target=send_to_backend, args=(payload,)).start()
 
             # --- F. OFFLINE FAILSAFE (Simulated) ---
-            # If Red Alert and we pretend internet is down, logic would go here.
+            # If Red Alert and internet is down, we would send SMS via GSM here
             if current_alert == "RED":
                 recipients = db.get_all_registered_phone_numbers()
                 if recipients:
-                    # Log that we would have sent an SMS
-                    pass 
+                    # print(f" [FAILSAFE] Sending Offline SMS to {len(recipients)} residents...")
+                    pass
 
             # --- G. VISUALIZATION & OUTPUT ---
-            print(f"WL: {current_wl:.2f}m | Flow: {img_flow:.2f}m/s | Pred: {pred_level:.2f}m ({pred_alert})")
+            print(f"WL: {current_wl:.2f}m | Radar: {radar_flow} | CamFlow: {img_flow:.2f} | Pred: {pred_level:.2f}m")
 
-            if viz_frame is not None:
-                cv2.imshow("SurgeAlert Edge", viz_frame)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-
-            # Control loop speed (approx 30 FPS or slower)
+            # Control loop speed (approx 10 FPS / 0.1s delay)
             elapsed = time.time() - start_time
-            if elapsed < 0.033:
-                time.sleep(0.033 - elapsed)
+            if elapsed < 0.1:
+                time.sleep(0.1 - elapsed)
 
     except KeyboardInterrupt:
         print("Stopping...")
     finally:
         if USE_HARDWARE:
             cam.close()
-        cv2.destroyAllWindows()
+            # Clean up GPIO
+            import RPi.GPIO as GPIO
+            GPIO.cleanup()
+            print("Hardware Released.")
 
 if __name__ == "__main__":
     main()

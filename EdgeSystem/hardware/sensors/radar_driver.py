@@ -1,31 +1,34 @@
-# EdgeSystem/hardware/sensors/radar_driver.py
+import RPi.GPIO as GPIO
+import time
+import random
+from config.settings import RADAR_PIN
 
-# This is a placeholder driver.
-# If you do not have a real Radar Sensor yet, this code
-# prevents the system from crashing by returning 0.0.
+def init_radar():
+    """Initializes the RCWL-0516 Radar pin."""
+    try:
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(RADAR_PIN, GPIO.IN)
+        print(f"Radar Sensor (RCWL-0516) Initialized on GPIO {RADAR_PIN}.")
+    except Exception as e:
+        print(f"Error initializing Radar: {e}")
 
 def get_flow_rate():
     """
-    Reads the flow rate from the Doppler radar sensor.
+    Reads the RCWL-0516 Doppler Radar.
+    RCWL-0516 is a motion sensor, not a speed sensor.
     
-    Returns:
-        float: Flow rate in m/s. Returns 0.0 if sensor fails or is missing.
+    Logic:
+    - If HIGH (1): Water surface is turbulent/moving -> Return approx 1.5 m/s
+    - If LOW (0): Water is calm -> Return 0.0 m/s
     """
     try:
-        # --- HARDWARE IMPLEMENTATION AREA ---
-        # If you had a real TF-Luna or Radar connected via Serial (UART),
-        # you would uncomment the following lines:
-        
-        # import serial
-        # ser = serial.Serial('/dev/ttyS0', 9600, timeout=1)
-        # data = ser.read(9)
-        # ... parsing logic ...
-        # return flow_value
-        
-        # --- FOR NOW: RETURN 0.0 (SAFE MODE) ---
-        return 0.0
-        
+        if GPIO.input(RADAR_PIN):
+            # Motion Detected (Turbulence)
+            # Return a random value between 1.2 and 1.8 to simulate flow
+            return round(random.uniform(1.2, 1.8), 2)
+        else:
+            # No Motion (Calm)
+            return 0.0
     except Exception as e:
-        # Log error but do not crash the main loop
-        print(f"Radar Driver Error: {e}")
+        print(f"Radar Read Error: {e}")
         return 0.0
