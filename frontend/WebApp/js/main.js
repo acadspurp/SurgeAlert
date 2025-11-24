@@ -4,22 +4,27 @@ import { updateAlertStatus } from './alert.js';
 import { fetchWeather } from './api.js';
 import { fetchTides } from './tides.js';
 
+
 // Make UI functions globally accessible for inline HTML event handlers
 window.showView = showView;
 window.backToPhoneStep = backToPhoneStep;
 window.resendOTP = resendOTP;
 window.showSuccessStep = showSuccessStep;
 
+
 // This event ensures that the HTML is fully loaded before any JavaScript runs
 document.addEventListener('DOMContentLoaded', () => {
     // Set up all event listeners (mobile menu, consent checkbox, etc.)
     setupUIEventListeners();
 
+
     // Initialize the Firebase authentication system
     initializeAuth();
 
+
     // Initialize the main app features
     showView('home');
+
 
     // Initial Data Fetch
     updateAlertStatus();
@@ -27,30 +32,42 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchTides();
     fetchCameraFeed();
 
+
     // Set up Polling (Refresh data automatically)
-    setInterval(updateAlertStatus, 30000); // Update sensor data every 30 seconds
-    
+    setInterval(updateAlertStatus, 3000); // Update sensor data every 3 seconds
+   
     // UPDATE: Check camera every 3 seconds for the Live Feed effect
-    setInterval(fetchCameraFeed, 3000); 
+    setInterval(fetchCameraFeed, 3000);
+
+
+   
+    setInterval(() => {
+    fetchWeather();
+    fetchTides();
+}, 3600000);
 });
+
 
 // --- LIVE CAMERA LOGIC ---
 async function fetchCameraFeed() {
     // We select the container using the classes seen in your HTML
     const container = document.querySelector('#home-view .aspect-w-16');
 
+
     if (!container) return;
+
 
     try {
         const response = await fetch('http://localhost:8080/api/public/alerts/camera');
         const data = await response.json();
+
 
         // Backend sends: { "img_base64": "..." }
         if (data.img_base64 && data.img_base64 !== "") {
             // Online: Show Image (Base64 from Python)
             // We replace the innerHTML with an Image tag instead of an Iframe
             container.innerHTML = `
-                <img src="data:image/jpeg;base64,${data.img_base64}" 
+                <img src="data:image/jpeg;base64,${data.img_base64}"
                      style="width: 100%; height: 450px; object-fit: cover; border-radius: 0.5rem;"
                      alt="Live River Feed" />
             `;
@@ -69,3 +86,4 @@ async function fetchCameraFeed() {
         console.error("Camera fetch failed", error);
     }
 }
+
