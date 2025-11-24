@@ -9,6 +9,7 @@ import com.surgealert.service.SensorDataService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +25,7 @@ public class SensorDataController {
     private final EmailService emailService;
 
     // --- LIVE IMAGE STORAGE (Held in RAM) ---
+    // We keep this for speed, but we will add a fallback to the DB
     public static String currentImageBase64 = "";
 
     // --- SECURITY KEY (Must match Python settings.py) ---
@@ -51,6 +53,7 @@ public class SensorDataController {
         }
 
         // 2. Save Image to Memory (for Live Feed)
+        // Also saves to DB via service if DTO has it
         if (dto.getSnapshotBase64() != null && !dto.getSnapshotBase64().isEmpty()) {
             currentImageBase64 = dto.getSnapshotBase64();
         }
@@ -64,7 +67,7 @@ public class SensorDataController {
 
         // 4. Check Logic for Alerts
         String level = savedData.getCurrentAlertLevel();
-
+        
         // Get message template
         String messageToSend = notificationService.getAlertMessage(level);
 
@@ -75,13 +78,11 @@ public class SensorDataController {
                              level.equalsIgnoreCase("RED");
 
         if (isCritical && messageToSend != null) {
-
             // A. EMAIL (Server Side)
             List<String> emails = residentService.getAllActiveEmails();
             if (!emails.isEmpty()) {
                 String subject = "SurgeAlert: " + level + " LEVEL WARNING";
                 for (String email : emails) {
-                    // Use the NEW email service that supports images
                     emailService.sendAlertEmail(email, subject, messageToSend, dto.getSnapshotBase64());
                 }
             }
@@ -95,9 +96,7 @@ public class SensorDataController {
             } else {
                 response.put("command", "NO_RECIPIENTS");
             }
-
         } else {
-            // If GREEN or Unknown, do nothing
             response.put("command", "NO_ACTION");
         }
 

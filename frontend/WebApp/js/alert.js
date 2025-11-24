@@ -1,5 +1,5 @@
 import { API_BASE_URL } from './config.js';
-import { fetchAlertGuide } from './api.js'; // CHANGED: Now importing from api.js
+import { fetchAlertGuide } from './api.js';
 
 // Variable to store the guide so we don't fetch it every single time
 let CACHED_GUIDE = null;
@@ -26,7 +26,7 @@ export async function updateAlertStatus() {
         // 2. Fetch Sensor Data from Backend
         const response = await fetch(`${API_BASE_URL}/public/alerts/status`);
         if (!response.ok) throw new Error('Network response was not ok');
-
+        
         const data = await response.json();
 
         // --- HANDLE OFFLINE STATE ---
@@ -59,10 +59,12 @@ export async function updateAlertStatus() {
         waterLevelEl.textContent = currentLevel.toFixed(2) + ' m';
         
         const timeString = new Date(data.lastUpdated).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
         // You need to create a <p id="last-updated"> in your HTML first for this to work
         if(document.getElementById('last-updated')) {
             document.getElementById('last-updated').textContent = `As of ${timeString}`;
         }
+
         // USE THE CACHED GUIDE HERE
         if (CACHED_GUIDE && (CACHED_GUIDE[levelKey] || CACHED_GUIDE['green'])) {
             const guide = CACHED_GUIDE[levelKey] || CACHED_GUIDE['green'];
@@ -105,7 +107,6 @@ export async function updateAlertStatus() {
 // --- HELPER FUNCTIONS ---
 function resetClasses(leftCard, actionsCard, h2) {
     if(!leftCard || !actionsCard || !h2) return;
-
     const bgClasses = ['bg-green-100', 'bg-yellow-100', 'bg-orange-100', 'bg-red-100', 'bg-gray-200'];
     const borderClasses = ['border-green-500', 'border-yellow-400', 'border-orange-500', 'border-red-600', 'border-gray-400'];
     const textClasses = ['text-green-800', 'text-yellow-800', 'text-orange-800', 'text-red-800', 'text-gray-600'];
@@ -117,7 +118,6 @@ function resetClasses(leftCard, actionsCard, h2) {
 
 function updateColors(levelKey, leftCard, actionsCard, h2) {
     resetClasses(leftCard, actionsCard, h2);
-
     if(!leftCard) return;
 
     if (levelKey === 'green') {
@@ -138,3 +138,41 @@ function updateColors(levelKey, leftCard, actionsCard, h2) {
         h2.classList.add('text-red-800');
     }
 }
+
+// --- LIVE CAMERA LOGIC ---
+async function fetchCameraFeed() {
+    // We select the container using the classes seen in your HTML
+    const container = document.querySelector('#home-view .aspect-w-16');
+    if (!container) return;
+
+    try {
+        // Use API_BASE_URL variable here
+        const response = await fetch(`${API_BASE_URL}/public/alerts/camera`);
+        const data = await response.json();
+
+        // Backend sends: { "img_base64": "..." }
+        if (data.img_base64 && data.img_base64 !== "") {
+            // Online: Show Image (Base64 from Python)
+            container.innerHTML = `
+                <img src="data:image/jpeg;base64,${data.img_base64}" 
+                     style="width: 100%; height: 450px; object-fit: cover; border-radius: 0.5rem;"
+                     alt="Live River Feed" />
+            `;
+        } else {
+            // Offline: Show Placeholder Image
+            container.innerHTML = `
+                <div class="flex flex-col items-center justify-center w-full bg-gray-900 text-white rounded-lg" style="height: 450px;">
+                    <svg class="w-16 h-16 mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                    </svg>
+                    <p class="text-lg font-semibold">Camera Offline</p>
+                    <p class="text-sm text-gray-400">Waiting for image data...</p>
+                </div>`;
+        }
+    } catch (error) {
+        console.error("Camera fetch failed", error);
+    }
+}
+
+// Expose to main.js if needed, otherwise main.js calls it via loop
+window.fetchCameraFeed = fetchCameraFeed;

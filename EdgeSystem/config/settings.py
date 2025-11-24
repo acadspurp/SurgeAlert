@@ -20,7 +20,8 @@ SMS_TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates', 'sms_alerts')
 
 # --- SECURITY & NETWORK ---
 #BACKEND_IP = os.getenv("BACKEND_IP", "192.168.1.32")
-BACKEND_IP = os.getenv("BACKEND_IP", "192.168.254.117")
+#BACKEND_IP = os.getenv("BACKEND_IP", "192.168.254.117")
+BACKEND_IP = os.getenv("BACKEND_IP", "192.168.100.1")
 BACKEND_PORT = os.getenv("BACKEND_PORT", "8080")
 BACKEND_API_URL = f"http://{BACKEND_IP}:{BACKEND_PORT}/api"
 EDGE_API_KEY = os.getenv("EDGE_API_KEY", "surge-alert-secret-123")

@@ -24,8 +24,8 @@ public class AlertController {
     @GetMapping("/status")
     public ResponseEntity<AlertStatusDTO> getCurrentAlertStatus() {
         SensorDataDTO latestData = sensorDataService.getLatestSensorData();
-
         AlertStatusDTO response = new AlertStatusDTO();
+
         if (latestData != null) {
             // Online: Return actual data
             response.setWaterLevelM(latestData.getWaterLevelM());
@@ -44,12 +44,22 @@ public class AlertController {
 
     @GetMapping("/camera")
     public ResponseEntity<Map<String, String>> getCameraUrl() {
-        // --- UPDATE: Serve the Live Image from Memory ---
+        // 1. Try to get from RAM (Fastest)
         String imgBase64 = SensorDataController.currentImageBase64;
-        
-        // If no image has been received yet, return empty string
+
+        // 2. If RAM is empty (Server restarted), try to fetch the last known image from DB
+        if (imgBase64 == null || imgBase64.isEmpty()) {
+            SensorDataDTO latest = sensorDataService.getLatestSensorData();
+            if (latest != null && latest.getSnapshotBase64() != null) {
+                imgBase64 = latest.getSnapshotBase64();
+                // Refill RAM cache
+                SensorDataController.currentImageBase64 = imgBase64;
+            }
+        }
+
+        // If still null, return empty string
         if (imgBase64 == null) {
-            imgBase64 = ""; 
+            imgBase64 = "";
         }
 
         // Frontend will use this as <img src="data:image/jpg;base64,...">

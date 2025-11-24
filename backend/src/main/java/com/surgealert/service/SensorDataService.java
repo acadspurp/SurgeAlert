@@ -13,11 +13,9 @@ import java.util.stream.Collectors;
 public class SensorDataService {
 
     private final SensorDataRepository sensorDataRepository;
-    
-    // --- CONFIGURATION SWITCH ---
-    // Set TRUE for 32cm Tank Test
-    // Set FALSE for 10m River Deployment
-    private final boolean IS_AQUARIUM_MODE = true; 
+
+    // REMOVED IS_AQUARIUM_MODE to prevent logic conflict with Edge System.
+    // We now strictly trust the Edge system's judgment.
 
     public SensorDataService(SensorDataRepository sensorDataRepository) {
         this.sensorDataRepository = sensorDataRepository;
@@ -25,7 +23,7 @@ public class SensorDataService {
 
     public SensorData saveSensorData(SensorDataDTO dto) {
         SensorData sensorData = new SensorData();
-        
+
         // Set Basic Data
         sensorData.setTimestamp(dto.getTimestamp() != null ? dto.getTimestamp() : LocalDateTime.now());
         sensorData.setWaterLevelM(dto.getWaterLevelM());
@@ -33,30 +31,37 @@ public class SensorDataService {
         sensorData.setImageFlowRateMps(dto.getImageFlowRateMps());
         sensorData.setImageRiseRateMps(dto.getImageRiseRateMps());
 
-        // 1. ALERT LEVEL LOGIC
-        // If hardware sends status, use it. If not, calculate it using Java fallback.
+        // --- 1. ALERT LEVEL LOGIC (TRUST THE EDGE) ---
+        // If hardware (Edge) sends a status, use it explicitly.
         String alertLevel = dto.getCurrentAlertLevel();
+        
         if (alertLevel == null || alertLevel.isEmpty()) {
-            alertLevel = calculateAlertLevel(dto.getWaterLevelM());
+            // Only calculate as a fallback if Edge sent nothing
+            alertLevel = calculateFallbackAlertLevel(dto.getWaterLevelM());
         }
         sensorData.setCurrentAlertLevel(alertLevel.toUpperCase());
 
-        // 2. PREDICTION DATA LOGIC (Updated for Null Handling)
-        // If AI provides a level, use it.
-        // If AI is NULL (failed/loading), fallback to current Water Level so graph doesn't drop to 0.
+        // --- 2. PREDICTION DATA LOGIC (TRUST THE EDGE) ---
         if (dto.getPredictedLevel() != null) {
             sensorData.setPredictedLevel(dto.getPredictedLevel());
         } else {
-            sensorData.setPredictedLevel(dto.getWaterLevelM()); 
+            // Fallback to current level if AI failed
+            sensorData.setPredictedLevel(dto.getWaterLevelM());
         }
 
-        if (dto.getPredictedAlertLevel() != null) {
-            sensorData.setPredictedAlertLevel(dto.getPredictedAlertLevel());
+        // Trust Edge's predicted alert level
+        String predictedAlert = dto.getPredictedAlertLevel();
+        if (predictedAlert != null && !predictedAlert.isEmpty()) {
+            sensorData.setPredictedAlertLevel(predictedAlert);
         } else {
-            // Calculate alert based on the predicted level we just set
-            sensorData.setPredictedAlertLevel(calculateAlertLevel(sensorData.getPredictedLevel()));
+            // Fallback calculation
+            sensorData.setPredictedAlertLevel(calculateFallbackAlertLevel(sensorData.getPredictedLevel()));
         }
-
+        
+        // Note: The image (SnapshotBase64) is not saved to the DB entity here 
+        // because the SensorData entity doesn't usually store the full image string 
+        // to keep the DB light. It is handled in memory by the Controller.
+        
         return sensorDataRepository.save(sensorData);
     }
 
@@ -82,29 +87,25 @@ public class SensorDataService {
         dto.setImageFlowRateMps(sensorData.getImageFlowRateMps());
         dto.setImageRiseRateMps(sensorData.getImageRiseRateMps());
         dto.setCurrentAlertLevel(sensorData.getCurrentAlertLevel());
-        
+
         // Return Prediction Data
         dto.setPredictedLevel(sensorData.getPredictedLevel());
         dto.setPredictedAlertLevel(sensorData.getPredictedAlertLevel());
-        
+
         return dto;
     }
 
-    private String calculateAlertLevel(Double waterLevel) {
+    // This is now only a FALLBACK method.
+    // Real thresholds should be managed in Python (EdgeSystem/config/settings.py)
+    private String calculateFallbackAlertLevel(Double waterLevel) {
         if (waterLevel == null) return "GREEN";
-
-        if (IS_AQUARIUM_MODE) {
-            // --- AQUARIUM THRESHOLDS (0.32m Max) ---
-            if (waterLevel >= 0.27) return "RED";
-            if (waterLevel >= 0.22) return "ORANGE";
-            if (waterLevel >= 0.15) return "YELLOW";
-        } else {
-            // --- RIVER THRESHOLDS (10m Max) ---
-            if (waterLevel >= 9.0) return "RED";
-            if (waterLevel >= 8.0) return "ORANGE";
-            if (waterLevel >= 6.0) return "YELLOW";
-        }
         
+        // Default safe fallbacks if Edge logic fails completely
+        // Assuming "Aquarium" scale for safety as default fallback
+        if (waterLevel >= 0.27) return "RED";
+        if (waterLevel >= 0.22) return "ORANGE";
+        if (waterLevel >= 0.15) return "YELLOW";
+
         return "GREEN";
     }
 }

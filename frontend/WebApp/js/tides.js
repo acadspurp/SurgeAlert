@@ -1,9 +1,10 @@
+import { API_BASE_URL } from './config.js';
+
 export async function fetchTides() {
-    // POINT THIS TO YOUR BACKEND
-    const url = 'http://localhost:8080/api/external/tides';
+    // POINT THIS TO YOUR BACKEND DYNAMICALLY
+    const url = `${API_BASE_URL}/external/tides`;
     
     const container = document.getElementById('tide-data-container');
-
     try {
         const response = await fetch(url);
         if (!response.ok) {
@@ -27,7 +28,6 @@ export async function fetchTides() {
 }
 
 // --- UI LOGIC REMAINS UNCHANGED BELOW ---
-
 function updateTideUI(tides) {
     const container = document.getElementById('tide-data-container');
     
@@ -63,15 +63,14 @@ function updateTideUI(tides) {
             html += `
                 <li class="flex items-center justify-between p-2 bg-gray-50 rounded-md">
                     <span class="font-semibold ${color} flex items-center">
-                        ${icon}
-                        ${tideType}
+                        ${icon} ${tideType}
                     </span>
                     <strong>${timeString}</strong>
                 </li>
             `;
         });
     }
-
+    
     html += '</ul>';
     container.innerHTML = html;
 }
