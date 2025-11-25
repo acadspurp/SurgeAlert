@@ -23,8 +23,8 @@ class DataLogger:
             #current_alert_level=alert_level
             water_level=water_level,         # Match param name in db_manager
             sensor_flow=sensor_flow,         # Match param name in db_manager
-            img_flow=image_flow,             # <--- CORRECTED
-            img_rise=image_rise,             # <--- CORRECTED
+            img_flow=img_flow,             # <--- CORRECTED
+            img_rise=img_rise,             # <--- CORRECTED
             pred_level=0.0,                  # Added this (DB expects it now)
             alert_level=alert_level,         # Match param name in db_manager
             raw_vectors=[]                   # Added this (DB expects it now)

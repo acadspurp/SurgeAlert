@@ -48,10 +48,13 @@ class SMSManager:
             return
 
         message = self.get_alert_message(alert_level)
-        
+
         # 1. Determine Recipients
         # Logic: If the Backend provided specific numbers (Online), use them.
         #        If not (Offline/Fail-safe), look in the local Raspberry Pi database.
+        source = ""
+        recipients = []
+
         if explicit_recipients and len(explicit_recipients) > 0:
             recipients = explicit_recipients
             source = "Java Backend Command"
@@ -70,11 +73,11 @@ class SMSManager:
         # This block simulates the GSM hardware. It prints to the console so 
         # you can visually verify it works during your defense.
         print(f"\n[MOCK SMS HARDWARE] --------------------------------")
-        print(f" TYPE: {alert_level} Alert")
-        print(f" SOURCE: {source}")
-        print(f" MESSAGE: \"{message}\"")
-        print(f" RECIPIENTS ({recipient_count}): {recipients}")
-        print(f" STATUS: Sent via Simulation Driver [SUCCESS]")
+        print(f"  TYPE: {alert_level} Alert")
+        print(f"  SOURCE: {source}")
+        print(f"  MESSAGE: \"{message}\"")
+        print(f"  RECIPIENTS ({recipient_count}): {recipients}")
+        print(f"  STATUS: Sent via Simulation Driver [SUCCESS]")
         print(f"----------------------------------------------------\n")
 
         # 3. Log to Database (Crucial for Reports)

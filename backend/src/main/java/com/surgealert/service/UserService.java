@@ -1,9 +1,10 @@
 package com.surgealert.service;
 
-import com.surgealert.dto.RegisterRequest;
 import com.surgealert.entity.User;
 import com.surgealert.repository.UserRepository;
 import org.springframework.stereotype.Service;
+
+import java.util.Map;
 
 @Service
 public class UserService {
@@ -14,24 +15,27 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    // This is the new method AuthController is looking for
-    public User registerUser(RegisterRequest request, String firebaseUid) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-             // Return existing user if they log in again
-             return userRepository.findByEmail(request.getEmail()).orElseThrow();
+    public User registerUser(Map<String, String> request) {
+        String username = request.get("username");
+        String password = request.get("password");
+        String fullName = request.get("fullName");
+
+        if (userRepository.existsByUsername(username)) {
+            throw new RuntimeException("Username already taken");
         }
 
         User user = new User();
-        user.setFirebaseUid(firebaseUid); // Saves the ID from Firebase
-        user.setEmail(request.getEmail());
-        user.setFullName(request.getFullName());
-        // Default to ADMIN if role is missing
-        user.setRole(request.getRole() != null ? request.getRole() : "ADMIN");
-        
+        user.setUsername(username);
+        user.setPassword(password); 
+        user.setFullName(fullName);
+        user.setRole("USER"); 
+
         return userRepository.save(user);
     }
-    
-    public User findByEmail(String email) {
-        return userRepository.findByEmail(email).orElse(null);
+
+    public User login(String username, String password) {
+        return userRepository.findByUsername(username)
+                .filter(user -> user.getPassword().equals(password))
+                .orElse(null);
     }
 }

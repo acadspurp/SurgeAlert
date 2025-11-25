@@ -15,6 +15,7 @@ import java.util.Map;
 @RequestMapping("/api/residents")
 @CrossOrigin(origins = "*")
 public class ResidentController {
+
     private final ResidentService residentService;
 
     public ResidentController(ResidentService residentService) {
@@ -60,9 +61,10 @@ public class ResidentController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }
     }
-    
+
+    // --- UPDATED to return full Resident objects for Admin Dashboard ---
     @GetMapping("/active")
-    public ResponseEntity<List<String>> getActivePhoneNumbers() {
-        return ResponseEntity.ok(residentService.getAllActivePhoneNumbers());
+    public ResponseEntity<List<Resident>> getActiveResidents() {
+        return ResponseEntity.ok(residentService.getAllActiveResidents());
     }
 }

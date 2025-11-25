@@ -13,8 +13,9 @@ import java.util.stream.Collectors;
 
 @Service
 public class ResidentService {
+
     private final ResidentRepository residentRepository;
-    
+
     // In-memory storage for OTPs (Key: PhoneNumber, Value: OTP)
     private final Map<String, String> otpStorage = new ConcurrentHashMap<>();
 
@@ -27,7 +28,7 @@ public class ResidentService {
         // Generate random 6-digit code
         String otp = String.format("%06d", new Random().nextInt(999999));
         otpStorage.put(phoneNumber, otp);
-        
+
         // Log to console (Simulating SMS sending)
         System.out.println(">>> GENERATED OTP for " + phoneNumber + ": " + otp);
         return otp;
@@ -53,21 +54,28 @@ public class ResidentService {
         resident.setEmail(request.getEmail());
         resident.setFullName(request.getFullName());
         resident.setAddress(request.getAddress());
-        
+
         return residentRepository.save(resident);
     }
 
     public void unregisterResident(String phoneNumber) {
         Resident resident = residentRepository.findByPhoneNumber(phoneNumber)
                 .orElseThrow(() -> new RuntimeException("Phone number not found"));
+        
         resident.setIsActive(false);
         residentRepository.save(resident);
     }
 
+    // Used by SensorController (Needs list of strings)
     public List<String> getAllActivePhoneNumbers() {
         return residentRepository.findByIsActiveTrue().stream()
                 .map(Resident::getPhoneNumber)
                 .collect(Collectors.toList());
+    }
+
+    // Used by Admin Panel (Needs full details: Name, Address, Phone)
+    public List<Resident> getAllActiveResidents() {
+        return residentRepository.findByIsActiveTrue();
     }
 
     public List<String> getAllActiveEmails() {

@@ -4,25 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>SurgeAlert</title>
-
-
-    <!-- 1. TAILWIND -->
+    <!-- TAILWIND -->
     <script src="https://cdn.tailwindcss.com"></script>
-
-
-    <!-- 2. LEAFLET CSS -->
+    <!-- LEAFLET CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
-
-    <!-- 3. CUSTOM STYLES -->
+    <!-- CUSTOM STYLES -->
     <link href="styles.css" rel="stylesheet" />
-   
     <!-- LEAFLET JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body class="bg-gray-100">
     <div id="app" class="flex flex-col min-h-screen">
-       
+        
         <!-- HEADER -->
         <header class="bg-white shadow-md sticky top-0 z-50">
             <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -46,7 +39,7 @@
                     <!-- Mobile Button -->
                     <div class="-mr-2 flex md:hidden">
                         <button type="button" id="mobile-menu-button" class="bg-gray-200 p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700">
-                            <svg class="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" /></svg>
+                           <svg class="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" /></svg>
                         </button>
                     </div>
                 </div>
@@ -57,48 +50,46 @@
                     <a href="#" onclick="showView('home')" class="block px-3 py-2 text-white hover:bg-blue-500">Home</a>
                     <a href="#" onclick="showView('maps')" class="block px-3 py-2 text-white hover:bg-blue-500">Maps</a>
                     <a href="#" onclick="showView('about')" class="block px-3 py-2 text-white hover:bg-blue-500">About</a>
+                    <a href="#" onclick="showView('login')" id="mobile-login-btn" class="block px-3 py-2 text-white hover:bg-blue-500">Login</a>
+                    <a href="#" onclick="handleLogout()" id="mobile-logout-btn" class="block px-3 py-2 text-white hover:bg-red-500" style="display:none;">Logout</a>
                 </div>
             </div>
         </header>
 
-
         <!-- MAIN CONTENT -->
         <main id="main-content" class="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-           
+            
             <!-- HOME VIEW -->
             <div id="home-view">
                 <div class="text-center mb-8">
                     <h1 class="text-4xl font-bold text-gray-800 mb-2 main-title">SurgeAlert</h1>
-                    <p class="text-lg text-gray-600 subtitle">Intelligent flood monitoring and alert system for Barangay Marulas, Valenzuela City.</p>
+                    <p class="text-lg text-gray-600 subtitle">Intelligent flood monitoring and alert system.</p>
                 </div>
-
 
                 <!-- MAIN GRID -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                   
+                    
                     <!-- LEFT COLUMN (2/3 width) -->
                     <div class="md:col-span-2 space-y-8">
-                       
+                        
                         <!-- 1. CAMERA CARD -->
                         <div class="custom-card">
-                            <h2 class="text-2xl font-semibold mb-4 text-gray-700 section-title">Live Camera Feed - Tullahan River</h2>
-                            <div class="aspect-w-16 aspect-h-9 bg-black rounded-lg overflow-hidden video-wrapper">
+                            <h2 class="text-2xl font-semibold mb-4 text-gray-700 section-title">Live Camera Feed</h2>
+                            <div class="aspect-w-16 aspect-h-9 bg-black rounded-lg overflow-hidden video-wrapper" style="height:350px;">
                                 <div class="flex items-center justify-center h-full text-gray-400">Loading Camera Feed...</div>
                             </div>
                             <div class="mt-4 text-sm text-gray-500">
-                                <p>This is a live feed from SurgeAlert Cam. It provides a real-time visual of the river's condition.</p>
+                                <p>Live feed from Tullahan River monitoring station.</p>
                             </div>
                         </div>
 
-
-                        <!-- 2. WATER LEVEL CARD (Extra Padding Added via ID) -->
+                        <!-- 2. WATER LEVEL CARD -->
                         <div id="left-alert-card" class="custom-card">
                             <div class="text-center">
                                 <p class="text-sm text-gray-600 mb-1">Current water level:</p>
                                 <p id="water-level" class="text-5xl font-bold text-navy-900">--.-- m</p>
                                 <p id="alert-level" class="text-lg mt-2 font-semibold">LOADING...</p>
                             </div>
-                           
                             <!-- Legend -->
                             <div class="mt-6 pt-4 border-t border-gray-200">
                                 <h3 class="font-semibold mb-2">Legend:</h3>
@@ -111,22 +102,18 @@
                             </div>
                         </div>
 
-
-                        <!-- 3. WEATHER FORECAST (Moved to Left) -->
-                        <div class="custom-card">
+                         <!-- 3. WEATHER FORECAST -->
+                         <div class="custom-card">
                             <h2 class="text-2xl font-semibold mb-4 text-gray-700 section-title">Weather Forecast</h2>
-                            <div id="weather-forecast" class="grid grid-cols-2 gap-4 text-center">
+                            <div id="weather-forecast" class="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center">
                                 <p class="col-span-full text-gray-500">Loading Weather Data...</p>
                             </div>
                         </div>
-
-
                     </div>
-
 
                     <!-- RIGHT COLUMN (1/3 width) -->
                     <div class="space-y-8">
-                       
+                        
                         <!-- 1. ACTIONS CARD -->
                         <div id="actions-card" class="custom-card border-l-8 border-green-500 pl-6">
                             <h2 class="text-2xl font-semibold mb-4 text-gray-700 section-title">Actions</h2>
@@ -134,7 +121,6 @@
                                 System is running normally.
                             </div>
                         </div>
-
 
                         <!-- 2. TIDE FORECAST -->
                         <div id="tide-forecast-card" class="custom-card">
@@ -144,28 +130,22 @@
                             </div>
                         </div>
 
-
-                        <!-- 3. BUTTONS CARD (Moved to Bottom) -->
+                        <!-- 3. BUTTONS -->
                         <div class="custom-card">
                             <div class="space-y-4">
                                 <button onclick="showView('maps')" class="custom-btn btn-blue w-full flex justify-start">
-                                    <!-- Icon -->
                                     <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                                     Nearest Evacuation Site
                                 </button>
                                 <button onclick="showView('register')" class="custom-btn btn-green w-full flex justify-start">
-                                    <!-- Icon -->
-                                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+                                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
                                     Subscribe for SMS Alert
                                 </button>
                             </div>
                         </div>
-
-
                     </div>
                 </div>
             </div>
-
 
             <!-- MAP VIEW -->
             <div id="maps-view" class="hidden">
@@ -175,15 +155,15 @@
                 </div>
             </div>
 
-
             <!-- LOGIN VIEW -->
             <div id="login-view" class="hidden">
                 <div class="max-w-sm mx-auto custom-card mt-10">
                     <h2 class="text-2xl font-semibold mb-6 text-center section-title">Login</h2>
                     <form id="login-form">
                         <div class="mb-4">
-                            <label class="block text-gray-700 text-sm font-medium mb-2">Email</label>
-                            <input type="email" id="login-email" class="custom-input" required>
+                            <label class="block text-gray-700 text-sm font-medium mb-2">Username</label>
+                            <!-- FIXED: ID is now login-username and type is text -->
+                            <input type="text" id="login-username" class="custom-input" required>
                         </div>
                         <div class="mb-6">
                             <label class="block text-gray-700 text-sm font-medium mb-2">Password</label>
@@ -194,11 +174,11 @@
                 </div>
             </div>
 
-
             <!-- REGISTER VIEW -->
             <div id="register-view" class="hidden">
                 <div class="max-w-md mx-auto custom-card mt-10">
                     <h2 class="text-2xl font-semibold mb-2 text-center section-title">Subscribe for SMS Alerts</h2>
+                    
                     <div id="phone-step">
                         <form id="phone-form">
                             <div class="mb-4">
@@ -216,22 +196,25 @@
                                 <label class="block text-gray-700 text-sm font-medium mb-2">Address</label>
                                 <input type="text" id="register-address" class="custom-input" required>
                             </div>
-                             <div class="mb-6 flex items-center">
+                            <div class="mb-6 flex items-center">
                                 <input type="checkbox" id="privacy-consent" class="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded">
                                 <label for="privacy-consent" class="ml-2 text-sm text-gray-700">I agree to Data Privacy</label>
                             </div>
                             <button type="submit" id="send-otp-btn" class="custom-btn btn-green w-full">Send Verification Code</button>
                         </form>
                     </div>
+
                     <div id="otp-step" class="hidden">
                         <form id="otp-form">
                             <div class="mb-4">
+                                <label class="block text-center mb-2">Enter OTP</label>
                                 <input type="text" id="otp-code" class="custom-input text-center text-2xl tracking-widest" maxlength="6" required>
                             </div>
                             <button type="submit" class="custom-btn btn-green w-full mb-2">Verify</button>
                             <button type="button" onclick="backToPhoneStep()" class="w-full text-blue-600 py-2 text-sm text-center block">Change Phone</button>
                         </form>
                     </div>
+
                     <div id="success-step" class="hidden">
                         <div class="text-center">
                             <h3 class="text-xl font-semibold text-gray-800 mb-2">Registered!</h3>
@@ -241,7 +224,6 @@
                 </div>
             </div>
 
-
             <!-- ABOUT VIEW -->
             <div id="about-view" class="hidden">
                 <div class="custom-card max-w-4xl mx-auto">
@@ -250,19 +232,16 @@
                 </div>
             </div>
 
-
         </main>
-       
+        
         <footer class="bg-white mt-auto">
             <div class="container mx-auto px-4 py-4 text-center text-gray-600">
                 © 2025 SurgeAlert. All rights reserved.
             </div>
         </footer>
     </div>
-   
+
+    <!-- MAIN SCRIPT -->
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
-
-
-

@@ -1,7 +1,6 @@
 import { API_BASE_URL } from './config.js';
 import { fetchAlertGuide } from './api.js';
 
-// Variable to store the guide so we don't fetch it every single time
 let CACHED_GUIDE = null;
 
 export async function updateAlertStatus() {
@@ -15,105 +14,70 @@ export async function updateAlertStatus() {
     if(!waterLevelEl || !alertLevelEl) return;
 
     try {
-        // 1. LOAD THE GUIDE (If we haven't already)
+        // 1. Load Guide
         if (!CACHED_GUIDE) {
             CACHED_GUIDE = await fetchAlertGuide();
-            if (!CACHED_GUIDE) {
-                console.warn("Alert Guide could not be loaded. Using defaults or empty.");
-            }
         }
 
-        // 2. Fetch Sensor Data from Backend
+        // 2. Fetch Status
         const response = await fetch(`${API_BASE_URL}/public/alerts/status`);
         if (!response.ok) throw new Error('Network response was not ok');
-        
-        const data = await response.json();
+        const data = await response.json(); 
 
-        // --- HANDLE OFFLINE STATE ---
-        if (data.waterLevelM === null || data.alertLevel === 'OFFLINE') {
+        // Handle Offline/Null
+        if (data.alertLevel === 'OFFLINE' || data.waterLevelM === null) {
             waterLevelEl.textContent = "--.-- m";
             alertLevelEl.textContent = "SENSOR OFFLINE";
             alertLevelEl.className = "text-lg mt-2 font-semibold text-gray-500";
-            
             if(leftCard) resetClasses(leftCard, actionsCard, h2);
             if(leftCard) leftCard.classList.add('bg-gray-200');
-            
-            if(actionsCard) actionsCard.classList.add('border-gray-400');
-            if(h2) h2.classList.add('text-gray-600');
-
-            if(alertDescEl) {
-                alertDescEl.innerHTML = `
-                    <div class="p-4 bg-gray-100 rounded text-gray-600">
-                        <strong>System Status: Offline</strong><br/>
-                        Waiting for connection to monitoring sensors.
-                    </div>`;
-            }
             return;
         }
 
-        // --- HANDLE ONLINE STATE ---
+        // Handle Online
         const currentLevel = data.waterLevelM;
-        const levelKey = data.alertLevel.toLowerCase(); // 'green', 'yellow', etc.
+        const levelKey = data.alertLevel.toLowerCase();
 
-        // Update Text
         waterLevelEl.textContent = currentLevel.toFixed(2) + ' m';
         
-        const timeString = new Date(data.lastUpdated).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        
-        // You need to create a <p id="last-updated"> in your HTML first for this to work
-        if(document.getElementById('last-updated')) {
-            document.getElementById('last-updated').textContent = `As of ${timeString}`;
-        }
-
-        // USE THE CACHED GUIDE HERE
+        // Update Guide Text
         if (CACHED_GUIDE && (CACHED_GUIDE[levelKey] || CACHED_GUIDE['green'])) {
             const guide = CACHED_GUIDE[levelKey] || CACHED_GUIDE['green'];
-            
             alertLevelEl.textContent = guide.title;
-
-            // Update Actions Description
-            let html = '';
-            html += `<div class="mb-2"><strong>${guide.title}</strong><br/><em>${guide.title_tl}</em></div>`;
-            html += `<p class="mb-2 text-gray-700">${guide.short_en}</p>`;
-            html += `<p class="mb-4 text-gray-700"><em>${guide.short_tl}</em></p>`;
             
-            html += `<h4 class="font-semibold mb-2">Actions / Gabay</h4>`;
-            html += `<ol class="list-decimal list-inside space-y-2 text-sm">`;
+            // Build Actions HTML
+            let html = `<div class="mb-2"><strong>${guide.title}</strong><br/><em>${guide.title_tl}</em></div>`;
+            html += `<p class="mb-2 text-gray-700">${guide.short_en}</p>`;
+            html += `<h4 class="font-semibold mb-2 mt-4">Actions / Gabay</h4><ol class="list-decimal list-inside space-y-2 text-sm">`;
             
             if(guide.actions) {
                 guide.actions.forEach(act => {
-                    html += `<li><strong>${act.en}</strong><div class="text-gray-700 ml-4">${act.tl}</div></li>`;
+                    html += `<li><strong>${act.en}</strong><div class="text-gray-700 ml-4 mb-2"><em>${act.tl}</em></div></li>`;
                 });
             }
             html += `</ol>`;
             
             if(alertDescEl) alertDescEl.innerHTML = html;
         } else {
-            // Fallback if Guide failed to load
             alertLevelEl.textContent = `LEVEL: ${data.alertLevel}`;
         }
 
-        // Update Colors
         updateColors(levelKey, leftCard, actionsCard, h2);
 
     } catch (error) {
-        console.error("Failed to fetch alert status:", error);
-        waterLevelEl.textContent = "--.-- m";
-        alertLevelEl.textContent = "CONNECTION ERROR";
-        if(leftCard) leftCard.classList.add('bg-gray-200');
+        console.error("Failed to fetch status:", error);
     }
 }
 
-// --- HELPER FUNCTIONS ---
 function resetClasses(leftCard, actionsCard, h2) {
-    if(!leftCard || !actionsCard || !h2) return;
+    if(!leftCard) return;
     const bgClasses = ['bg-green-100', 'bg-yellow-100', 'bg-orange-100', 'bg-red-100', 'bg-gray-200'];
     const borderClasses = ['border-green-500', 'border-yellow-400', 'border-orange-500', 'border-red-600', 'border-gray-400'];
     const textClasses = ['text-green-800', 'text-yellow-800', 'text-orange-800', 'text-red-800', 'text-gray-600'];
-
+    
     leftCard.classList.remove(...bgClasses);
-    actionsCard.classList.remove(...borderClasses);
-    h2.classList.remove(...textClasses);
+    if(actionsCard) actionsCard.classList.remove(...borderClasses);
+    if(h2) h2.classList.remove(...textClasses);
 }
 
 function updateColors(levelKey, leftCard, actionsCard, h2) {
@@ -122,57 +86,41 @@ function updateColors(levelKey, leftCard, actionsCard, h2) {
 
     if (levelKey === 'green') {
         leftCard.classList.add('bg-green-100');
-        actionsCard.classList.add('border-green-500');
-        h2.classList.add('text-green-800');
+        if(actionsCard) actionsCard.classList.add('border-green-500');
+        if(h2) h2.classList.add('text-green-800');
     } else if (levelKey === 'yellow') {
         leftCard.classList.add('bg-yellow-100');
-        actionsCard.classList.add('border-yellow-400');
-        h2.classList.add('text-yellow-800');
+        if(actionsCard) actionsCard.classList.add('border-yellow-400');
+        if(h2) h2.classList.add('text-yellow-800');
     } else if (levelKey === 'orange') {
         leftCard.classList.add('bg-orange-100');
-        actionsCard.classList.add('border-orange-500');
-        h2.classList.add('text-orange-800');
+        if(actionsCard) actionsCard.classList.add('border-orange-500');
+        if(h2) h2.classList.add('text-orange-800');
     } else if (levelKey === 'red') {
         leftCard.classList.add('bg-red-100');
-        actionsCard.classList.add('border-red-600');
-        h2.classList.add('text-red-800');
+        if(actionsCard) actionsCard.classList.add('border-red-600');
+        if(h2) h2.classList.add('text-red-800');
     }
 }
 
-// --- LIVE CAMERA LOGIC ---
-async function fetchCameraFeed() {
-    // We select the container using the classes seen in your HTML
-    const container = document.querySelector('#home-view .aspect-w-16');
+export async function fetchCameraFeed() {
+    const container = document.querySelector('#home-view .aspect-w-16'); 
     if (!container) return;
 
     try {
-        // Use API_BASE_URL variable here
         const response = await fetch(`${API_BASE_URL}/public/alerts/camera`);
         const data = await response.json();
-
-        // Backend sends: { "img_base64": "..." }
+        
         if (data.img_base64 && data.img_base64 !== "") {
-            // Online: Show Image (Base64 from Python)
             container.innerHTML = `
                 <img src="data:image/jpeg;base64,${data.img_base64}" 
-                     style="width: 100%; height: 450px; object-fit: cover; border-radius: 0.5rem;"
+                     style="width: 100%; height: 100%; object-fit: cover; border-radius: 0.5rem;"
                      alt="Live River Feed" />
             `;
         } else {
-            // Offline: Show Placeholder Image
-            container.innerHTML = `
-                <div class="flex flex-col items-center justify-center w-full bg-gray-900 text-white rounded-lg" style="height: 450px;">
-                    <svg class="w-16 h-16 mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                    </svg>
-                    <p class="text-lg font-semibold">Camera Offline</p>
-                    <p class="text-sm text-gray-400">Waiting for image data...</p>
-                </div>`;
+            // Keep placeholder (loading/offline state)
         }
     } catch (error) {
         console.error("Camera fetch failed", error);
     }
 }
-
-// Expose to main.js if needed, otherwise main.js calls it via loop
-window.fetchCameraFeed = fetchCameraFeed;

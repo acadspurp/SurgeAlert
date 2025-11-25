@@ -3,3 +3,6 @@ numpy
 opencv-python
 scikit-learn
 pandas
+requests
+python-dotenv
+joblib

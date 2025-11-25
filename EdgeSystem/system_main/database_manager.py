@@ -19,7 +19,7 @@ class DatabaseManager:
         """Creates necessary tables if they don't exist."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
+
             # 1. Residents Table (For Offline SMS Fail-safe)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS residents (
@@ -40,7 +40,7 @@ class DatabaseManager:
                 )
             """)
 
-            # 3. Sensor Data (Updated for AI Prediction and Raw Data)
+            # 3. Sensor Data (UPDATED with predicted_alert_level)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS sensor_data (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,14 +51,14 @@ class DatabaseManager:
                     image_rise_rate_mps REAL,
                     predicted_level REAL,
                     current_alert_level TEXT,
+                    predicted_alert_level TEXT,
                     raw_cv_vectors TEXT
                 )
             """)
             conn.commit()
-            # print(" [DB] Database tables checked/created successfully.")
 
     # --- SENSOR LOGGING ---
-    def log_sensor_data(self, water_level, sensor_flow, img_flow, img_rise, pred_level, alert_level, raw_vectors):
+    def log_sensor_data(self, water_level, sensor_flow, img_flow, img_rise, pred_level, alert_level, pred_alert_level, raw_vectors):
         """Logs all sensor reading, AI predictions, and raw vectors to local DB."""
         try:
             # Convert raw list of vectors to JSON string for storage
@@ -70,9 +70,9 @@ class DatabaseManager:
                 cursor.execute("""
                     INSERT INTO sensor_data 
                     (timestamp, water_level_m, sensor_flow_rate_mps, image_flow_rate_mps, 
-                     image_rise_rate_mps, predicted_level, current_alert_level, raw_cv_vectors)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (timestamp, water_level, sensor_flow, img_flow, img_rise, pred_level, alert_level, raw_vectors_json))
+                     image_rise_rate_mps, predicted_level, current_alert_level, predicted_alert_level, raw_cv_vectors)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (timestamp, water_level, sensor_flow, img_flow, img_rise, pred_level, alert_level, pred_alert_level, raw_vectors_json))
                 conn.commit()
         except Exception as e:
             print(f" [DB] Error logging sensor data: {e}")
@@ -95,7 +95,7 @@ class DatabaseManager:
                 conn.commit()
             return True
         except sqlite3.IntegrityError:
-            return False # Already registered
+            return False  # Already registered
 
     # --- ALERT LOGGING ---
     def log_sent_alert(self, alert_level, message, recipient_count):

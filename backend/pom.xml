@@ -67,12 +67,6 @@
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>com.google.firebase</groupId>
-            <artifactId>firebase-admin</artifactId>
-            <version>9.2.0</version>
-        </dependency>
-
         <!-- Lombok (optional, for reducing boilerplate) -->
         <dependency>
             <groupId>org.projectlombok</groupId>
