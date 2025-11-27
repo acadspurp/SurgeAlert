@@ -8,6 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js Library (REQUIRED FOR GRAPH) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         .bg-navy { background-color: #0C324A; }
@@ -19,14 +21,14 @@
 <body class="bg-gray-100">
 
     <div class="flex h-screen overflow-hidden">
-        
+
         <!-- SIDEBAR -->
         <aside class="w-64 bg-navy text-white flex flex-col shadow-lg transition-all duration-300" id="sidebar">
             <div class="p-6 flex items-center justify-center border-b border-gray-700">
                 <i class="fa-solid fa-water text-2xl mr-2 text-teal-400"></i>
                 <span class="text-xl font-bold tracking-wide">SurgeAlert</span>
             </div>
-            
+
             <!-- User Info -->
             <div class="p-4 border-b border-gray-700 bg-opacity-50 bg-black">
                 <div class="flex items-center space-x-3">
@@ -73,11 +75,14 @@
         <!-- MAIN CONTENT -->
         <main class="flex-1 overflow-y-auto relative">
             <div class="p-6">
-                
+
                 <!-- 1. DASHBOARD OVERVIEW -->
                 <div id="view-dashboard" class="view-section">
                     <h1 class="text-2xl font-bold text-navy mb-6">System Dashboard</h1>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    
+                    <!-- TOP METRICS GRID -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        
                         <!-- Water Level -->
                         <div class="bg-white p-5 rounded-xl shadow border-l-4 border-blue-500">
                             <div class="flex justify-between items-start">
@@ -88,18 +93,32 @@
                                 <div class="p-2 bg-blue-100 rounded-lg text-blue-600"><i class="fa-solid fa-water"></i></div>
                             </div>
                         </div>
+
+                        <!-- AI Prediction (NEW) -->
+                        <div class="bg-white p-5 rounded-xl shadow border-l-4 border-indigo-500">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-xs text-gray-500 uppercase font-bold">AI Prediction (+1hr)</p>
+                                    <h3 class="text-2xl font-bold text-gray-800" id="dash-prediction">-- m</h3>
+                                    <p class="text-xs font-semibold mt-1 text-gray-500" id="dash-pred-alert">Calculating...</p>
+                                </div>
+                                <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600"><i class="fa-solid fa-brain"></i></div>
+                            </div>
+                        </div>
+
                         <!-- Status -->
                         <div class="bg-white p-5 rounded-xl shadow border-l-4 border-green-500">
                             <div class="flex justify-between items-start">
                                 <div>
-                                    <p class="text-xs text-gray-500 uppercase font-bold">Status</p>
+                                    <p class="text-xs text-gray-500 uppercase font-bold">System Status</p>
                                     <h3 class="text-2xl font-bold text-green-600" id="dash-status">Normal</h3>
                                 </div>
-                                <div class="p-2 bg-green-100 rounded-lg text-green-600"><i class="fa-solid fa-check-circle"></i></div>
+                                <div class="p-2 bg-green-100 rounded-lg text-green-600"><i class="fa-solid fa-signal"></i></div>
                             </div>
                         </div>
-                         <!-- Subscribers -->
-                         <div class="bg-white p-5 rounded-xl shadow border-l-4 border-purple-500">
+
+                        <!-- Subscribers -->
+                        <div class="bg-white p-5 rounded-xl shadow border-l-4 border-purple-500">
                             <div class="flex justify-between items-start">
                                 <div>
                                     <p class="text-xs text-gray-500 uppercase font-bold">Subscribers</p>
@@ -109,6 +128,37 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- GRAPH ROW (NEW) -->
+                    <div class="bg-white p-5 rounded-xl shadow mb-8">
+                        <h3 class="text-lg font-bold text-navy mb-4 border-b pb-2">24-Hour Water Level Trend</h3>
+                        <div class="relative" style="height: 350px; width: 100%;">
+                            <!-- THIS IS THE GRAPH CANVAS -->
+                            <canvas id="waterLevelChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- MEDIA & TIDES ROW -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        
+                        <!-- Live Camera Feed -->
+                        <div class="bg-white p-5 rounded-xl shadow lg:col-span-2">
+                            <h3 class="text-lg font-bold text-navy mb-4 border-b pb-2">Live Camera Feed</h3>
+                            <div class="aspect-w-16 aspect-h-9 bg-black rounded-lg overflow-hidden flex items-center justify-center" style="height: 400px;">
+                                <img id="admin-camera-image" src="" alt="Live Feed" class="object-cover w-full h-full hidden">
+                                <div id="admin-camera-placeholder" class="text-gray-400">Waiting for live feed...</div>
+                            </div>
+                        </div>
+
+                        <!-- Tide Forecast -->
+                        <div class="bg-white p-5 rounded-xl shadow">
+                            <h3 class="text-lg font-bold text-navy mb-4 border-b pb-2">Tide Forecast</h3>
+                            <div id="admin-tides-list" class="space-y-4 overflow-y-auto" style="max-height: 400px;">
+                                <p class="text-sm text-gray-500">Loading tide data...</p>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- 2. RESIDENTS VIEW -->
@@ -136,7 +186,6 @@
                 <div id="view-templates" class="view-section hidden">
                     <h1 class="text-2xl font-bold text-navy mb-6">Manage SMS Templates</h1>
                     <div class="grid grid-cols-1 gap-6" id="templates-container">
-                        <!-- JS Injected Templates -->
                         <div class="text-gray-500">Loading templates...</div>
                     </div>
                 </div>

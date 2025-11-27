@@ -1,9 +1,15 @@
 import { API_BASE_URL } from './config.js';
 
 // --- SESSION MANAGEMENT ---
+
 export const getUser = () => {
     const userStr = localStorage.getItem('surge_user');
-    return userStr ? JSON.parse(userStr) : null;
+    try {
+        return userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+        console.error("Error parsing user from storage", e);
+        return null;
+    }
 };
 
 export const setUser = (user) => {
@@ -15,14 +21,14 @@ export const clearUser = () => {
 };
 
 // --- API CALLS ---
+
 export async function login(username, password) {
     try {
-        console.log(`Attempting login for: ${username}`); // Debug Log
+        console.log(`Sending login request for: ${username}`);
         const response = await fetch(`${API_BASE_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            // This sends {"username": "admin", "password": "..."} matching your Controller
-            body: JSON.stringify({ username, password }) 
+            body: JSON.stringify({ username, password })
         });
 
         if (!response.ok) {
@@ -31,7 +37,7 @@ export async function login(username, password) {
         }
 
         const user = await response.json();
-        console.log("Login Response:", user); // Debug Log
+        console.log("BACKEND RESPONSE (User):", user);
         setUser(user);
         return user;
     } catch (error) {
@@ -42,18 +48,38 @@ export async function login(username, password) {
 
 export function handleLogout() {
     clearUser();
-    
-    // Redirect logic
-    if (window.location.pathname.includes('admin.html')) {
-        window.location.href = 'index.html';
+    // Force redirect to home page
+    window.location.href = 'index.html';
+}
+
+// --- INITIALIZATION & UI ---
+
+export function updateAuthUI(user) {
+    const loginBtn = document.getElementById('login-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const mobileLoginBtn = document.getElementById('mobile-login-btn');
+    const mobileLogoutBtn = document.getElementById('mobile-logout-btn');
+
+    // Toggle buttons based on login state
+    if (user) {
+        // Desktop
+        if(loginBtn) loginBtn.style.display = 'none';
+        if(logoutBtn) logoutBtn.style.display = 'inline-block';
+        // Mobile
+        if(mobileLoginBtn) mobileLoginBtn.style.display = 'none';
+        if(mobileLogoutBtn) mobileLogoutBtn.style.display = 'block';
     } else {
-        window.location.reload();
+        // Desktop
+        if(loginBtn) loginBtn.style.display = 'inline-block';
+        if(logoutBtn) logoutBtn.style.display = 'none';
+        // Mobile
+        if(mobileLoginBtn) mobileLoginBtn.style.display = 'block';
+        if(mobileLogoutBtn) mobileLogoutBtn.style.display = 'none';
     }
 }
 
-// --- INITIALIZATION ---
 export function initializeAuth() {
-    // Expose logout globally for HTML onclick events
+    // Expose logout globally so HTML onclick works
     window.handleLogout = handleLogout;
 
     const user = getUser();
@@ -64,7 +90,7 @@ export function initializeAuth() {
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            // FIXED: Getting element by correct ID 'login-username'
+
             const usernameInput = document.getElementById('login-username');
             const passInput = document.getElementById('login-password');
             const submitBtn = loginForm.querySelector('button[type="submit"]');
@@ -77,46 +103,41 @@ export function initializeAuth() {
                 submitBtn.textContent = "Logging in...";
 
                 const user = await login(username, password);
-                
-                // Check Role exactly as it appears in DB (ADMIN)
-                if(user.role === 'ADMIN' || user.role === 'HEAD_ADMIN') {
+
+                // --- CRITICAL ROLE CHECK & REDIRECT LOGIC ---
+                const rawRole = user.role || "";
+                // Normalize: "Admin", "admin", "ADMIN " -> "ADMIN"
+                const normalizedRole = String(rawRole).toUpperCase().trim();
+
+                console.log("Detected Role:", normalizedRole);
+
+                if (normalizedRole === 'ADMIN' || normalizedRole === 'HEAD_ADMIN') {
+                    console.log("Admin detected. Redirecting to Dashboard...");
+                    alert('Login successful! Redirecting to Admin Dashboard.');
+                    // Use href to navigate to the admin page
                     window.location.href = 'admin.html';
                 } else {
+                    // Standard User Logic (Stay on Home Page)
                     alert('Login successful! Welcome ' + (user.fullName || user.username));
-                    document.getElementById('login-view').classList.add('hidden');
-                    document.getElementById('home-view').classList.remove('hidden');
+
+                    // Hide Login View, Show Home View
+                    const loginView = document.getElementById('login-view');
+                    const homeView = document.getElementById('home-view');
+                    if(loginView) loginView.classList.add('hidden');
+                    if(homeView) homeView.classList.remove('hidden');
+
                     updateAuthUI(user);
                 }
+
             } catch (error) {
                 alert('Login failed: ' + error.message);
             } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = "Login";
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Login";
+                }
                 loginForm.reset();
             }
         });
-    }
-}
-
-function updateAuthUI(user) {
-    const loginBtn = document.getElementById('login-btn');
-    const logoutBtn = document.getElementById('logout-btn');
-    const mobileLoginBtn = document.getElementById('mobile-login-btn');
-    const mobileLogoutBtn = document.getElementById('mobile-logout-btn');
-
-    if (user) {
-        // User is Logged In
-        if(loginBtn) loginBtn.style.display = 'none';
-        if(logoutBtn) logoutBtn.style.display = 'inline-block';
-        // Mobile
-        if(mobileLoginBtn) mobileLoginBtn.style.display = 'none';
-        if(mobileLogoutBtn) mobileLogoutBtn.style.display = 'block';
-    } else {
-        // User is Logged Out
-        if(loginBtn) loginBtn.style.display = 'inline-block';
-        if(logoutBtn) logoutBtn.style.display = 'none';
-        // Mobile
-        if(mobileLoginBtn) mobileLoginBtn.style.display = 'block';
-        if(mobileLogoutBtn) mobileLogoutBtn.style.display = 'none';
     }
 }

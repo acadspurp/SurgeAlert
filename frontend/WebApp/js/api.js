@@ -36,7 +36,8 @@ export async function fetchWeather() {
             96: { description: 'Thunderstorm with Hail', icon: '⛈️' },
             99: { description: 'Heavy Thunderstorm with Hail', icon: '⛈️' },
         };
-        return weatherMap[code] || { description: 'Unknown', icon: '❓' };
+        // FIX: Default to 'Clear Sky' instead of 'Unknown' to avoid UI errors
+        return weatherMap[code] || { description: 'Clear Sky', icon: '☀️' };
     };
 
     try {
