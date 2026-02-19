@@ -1,5 +1,6 @@
 package com.surgealert.service;
 
+import com.surgealert.dto.ResidentAdminDTO;
 import com.surgealert.dto.ResidentRequest;
 import com.surgealert.entity.Resident;
 import com.surgealert.repository.ResidentRepository;
@@ -28,7 +29,6 @@ public class ResidentService {
         // Generate random 6-digit code
         String otp = String.format("%06d", new Random().nextInt(999999));
         otpStorage.put(phoneNumber, otp);
-
         // Log to console (Simulating SMS sending)
         System.out.println(">>> GENERATED OTP for " + phoneNumber + ": " + otp);
         return otp;
@@ -59,23 +59,21 @@ public class ResidentService {
     }
 
     public void unregisterResident(String phoneNumber) {
+        // Note: Because we use the AttributeEncryptor, findByPhoneNumber automatically encrypts the input
+        // to search the DB, finds the row, and decrypts it back to the object.
         Resident resident = residentRepository.findByPhoneNumber(phoneNumber)
                 .orElseThrow(() -> new RuntimeException("Phone number not found"));
-        
+
         resident.setIsActive(false);
         residentRepository.save(resident);
     }
 
-    // Used by SensorController (Needs list of strings)
+    // --- USED FOR SMS ALERTS (INTERNAL USE - RETURNS RAW DATA) ---
+    // The system needs the REAL phone numbers to send alerts.
     public List<String> getAllActivePhoneNumbers() {
         return residentRepository.findByIsActiveTrue().stream()
                 .map(Resident::getPhoneNumber)
                 .collect(Collectors.toList());
-    }
-
-    // Used by Admin Panel (Needs full details: Name, Address, Phone)
-    public List<Resident> getAllActiveResidents() {
-        return residentRepository.findByIsActiveTrue();
     }
 
     public List<String> getAllActiveEmails() {
@@ -83,5 +81,45 @@ public class ResidentService {
                 .map(Resident::getEmail)
                 .filter(email -> email != null && !email.isEmpty())
                 .collect(Collectors.toList());
+    }
+
+    // --- USED FOR ADMIN DASHBOARD (EXTERNAL USE - RETURNS MASKED DATA) ---
+    // We strictly convert to DTO here to hide sensitive info
+    public List<ResidentAdminDTO> getAllActiveResidentsForAdmin() {
+        return residentRepository.findByIsActiveTrue().stream()
+                .map(this::maskResidentData)
+                .collect(Collectors.toList());
+    }
+
+    // MASKING HELPER
+    private ResidentAdminDTO maskResidentData(Resident resident) {
+        String rawPhone = resident.getPhoneNumber();
+        String rawAddress = resident.getAddress();
+        String rawName = resident.getFullName();
+
+        // 1. Mask Phone: Keep only last 4 digits (e.g. ******6789)
+        String maskedPhone = "******" + (rawPhone.length() > 4 ? rawPhone.substring(rawPhone.length() - 4) : rawPhone);
+
+        // 2. Mask Address: Show only Barangay/City (Assumes format: "Street, Barangay, City")
+        // Logic: Removes everything before the first comma. If no comma, shows text as is.
+        String maskedAddress = rawAddress;
+        if (rawAddress.contains(",")) {
+            maskedAddress = rawAddress.substring(rawAddress.indexOf(",") + 1).trim();
+        }
+
+        // 3. Abbreviate Name: "Juan Dela Cruz" -> "J. Cruz"
+        String abbreviatedName = rawName;
+        String[] parts = rawName.trim().split("\\s+");
+        if (parts.length > 1) {
+            // First Initial + . + Last Word
+            abbreviatedName = parts[0].charAt(0) + ". " + parts[parts.length - 1];
+        }
+
+        return new ResidentAdminDTO(
+                abbreviatedName,
+                maskedPhone,
+                maskedAddress,
+                resident.getEmail()
+        );
     }
 }

@@ -1,7 +1,7 @@
 package com.surgealert.controller;
 
+import com.surgealert.dto.ResidentAdminDTO;
 import com.surgealert.dto.ResidentRequest;
-import com.surgealert.entity.Resident;
 import com.surgealert.service.ResidentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -55,6 +55,11 @@ public class ResidentController {
     @DeleteMapping("/{phoneNumber}")
     public ResponseEntity<?> unregisterResident(@PathVariable String phoneNumber) {
         try {
+            // Note: The phoneNumber coming from the URL might be the FULL number (if the frontend has it)
+            // or the masked one. 
+            // SECURITY NOTE: In a real app, you shouldn't allow deleting by phone number via URL 
+            // if the admin can't see the full number. 
+            // For this project, we assume the Admin knows the number or searches for it internally.
             residentService.unregisterResident(phoneNumber);
             return ResponseEntity.ok("Phone number unregistered successfully");
         } catch (Exception e) {
@@ -62,9 +67,9 @@ public class ResidentController {
         }
     }
 
-    // --- UPDATED to return full Resident objects for Admin Dashboard ---
+    // --- UPDATED to return MASKED DTO objects for Admin Dashboard ---
     @GetMapping("/active")
-    public ResponseEntity<List<Resident>> getActiveResidents() {
-        return ResponseEntity.ok(residentService.getAllActiveResidents());
+    public ResponseEntity<List<ResidentAdminDTO>> getActiveResidents() {
+        return ResponseEntity.ok(residentService.getAllActiveResidentsForAdmin());
     }
 }
