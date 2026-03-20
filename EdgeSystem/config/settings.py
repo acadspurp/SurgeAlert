@@ -34,9 +34,8 @@ LK_MAX_LEVEL = 2
 LK_CRITERIA = (3, 10, 0.03)
 
 # --- SYSTEM CONFIGURATION ---
-# Set True = Use Real Sensors (Pi Camera, Ultrasonic)
-# Set False = Use Simulation Files (FORCE SIMULATION)
-USE_HARDWARE = False
+# Set True = Use Real Sensors (Pi Camera, Ultrasonic, HLK Radar)
+USE_HARDWARE = True
 
 # --- DEPLOYMENT ENVIRONMENT ---
 # Set to "RIVER" to support high water levels (like 17.75m)
@@ -56,10 +55,6 @@ if ENVIRONMENT_MODE == "AQUARIUM":
     # Tide Scaling (Demo)
     TIDE_SCALING_FACTOR = 0.025
 
-    # Simulator Ranges
-    SIM_ULTRASONIC_MIN_DIST = 0.02
-    SIM_ULTRASONIC_MAX_DIST = 0.30
-
 else:
     # --- RIVER MODE (20 METER DEPTH CONFIG) ---
     PIXELS_TO_METERS = 0.01
@@ -75,17 +70,15 @@ else:
     # Real river uses real tide height (1:1 ratio)
     TIDE_SCALING_FACTOR = 1.0
 
-    # Simulator Ranges
-    SIM_ULTRASONIC_MIN_DIST = 0.5
-    SIM_ULTRASONIC_MAX_DIST = 9.5
-
-# Common Simulator Settings
-SIM_RADAR_MIN_FLOW = 0.0
-SIM_RADAR_MAX_FLOW = 1.8
-SIM_CAMERA_SAMPLE_IMAGE_PATH = os.path.join(BASE_DIR, 'simulation', 'camera', 'sample_images', 'sample_water.jpg')
-SIM_CAMERA_SEQUENCE_PATH = os.path.join(BASE_DIR, 'simulation', 'camera', 'sample_images', 'river_sequence')
-
-# Hardware Pins
-RADAR_PIN = 17
+# --- HARDWARE PINS & PORTS ---
+# Ultrasonic Pins (GPIO)
 TRIG_PIN = 23
 ECHO_PIN = 24
+
+# Radar Port (HLK-LD2415H uses UART, not GPIO)
+RADAR_PORT = "/dev/ttyUSB0" 
+RADAR_BAUDRATE = 9600
+
+# GSM Module Port (SIM7600G-H uses UART AT Commands)
+GSM_PORT = "/dev/ttyUSB2"
+GSM_BAUDRATE = 115200

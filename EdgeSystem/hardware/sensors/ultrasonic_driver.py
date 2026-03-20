@@ -1,61 +1,49 @@
-import RPi.GPIO as GPIO
 import time
+import random
 from config.settings import TRIG_PIN, ECHO_PIN
 
+try:
+    import RPi.GPIO as GPIO
+    IS_PI = True
+except (ImportError, RuntimeError):
+    IS_PI = False
+    print(" [Hardware] RPi.GPIO not found. Using Simulated Distance Data.")
+
 def init_sensor():
-    """Initializes GPIO pins for the JSN-SR04T."""
+    if not IS_PI: return 
     try:
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
         GPIO.setup(TRIG_PIN, GPIO.OUT)
         GPIO.setup(ECHO_PIN, GPIO.IN)
-        
-        # Ensure Trigger is Low to start
         GPIO.output(TRIG_PIN, False)
-        time.sleep(0.5) # JSN-SR04T needs longer to settle
-        print("JSN-SR04T Waterproof Sensor Initialized.")
+        time.sleep(0.5) 
+        print("JSN-SR04T Initialized.")
     except Exception as e:
         print(f"Error initializing Ultrasonic: {e}")
 
 def get_distance():
-    """Reads distance in METERS using JSN-SR04T timing."""
+    if not IS_PI:
+        # Simulates a water distance between 1.5m and 4.0m
+        return round(random.uniform(1.5, 4.0), 3)
+
     try:
-        # JSN-SR04T requires a slightly longer trigger pulse (at least 10us, doing 20us to be safe)
         GPIO.output(TRIG_PIN, True)
-        time.sleep(0.00002) # 20 microseconds
+        time.sleep(0.00002) 
         GPIO.output(TRIG_PIN, False)
 
         pulse_start = time.time()
-        pulse_end = time.time()
         timeout_start = time.time()
 
-        # Wait for Echo HIGH
         while GPIO.input(ECHO_PIN) == 0:
             pulse_start = time.time()
-            if pulse_start - timeout_start > 0.1:
-                return 0.0 # Timeout (Sensor didn't fire)
+            if pulse_start - timeout_start > 0.1: return 0.0 
 
-        # Wait for Echo LOW
         while GPIO.input(ECHO_PIN) == 1:
             pulse_end = time.time()
-            if pulse_end - pulse_start > 0.1:
-                return 0.0 # Timeout (Object too far)
+            if pulse_end - pulse_start > 0.1: return 0.0 
 
-        pulse_duration = pulse_end - pulse_start
-
-        # Distance calculation (Speed of Sound = 34300 cm/s)
-        distance_cm = pulse_duration * 17150
-        distance_m = distance_cm / 100
-
-        # FILTER: JSN-SR04T has a minimum distance of ~20cm (0.2m).
-        # If reading is less than 0.18m, it's likely noise/blind zone error.
-        if distance_m < 0.18:
-            # We return 0.0 or the previous known value to avoid false "Flood" alerts
-            # For now, return 0.20 to simulate 'sensor is right at the water'
-            return 0.20 
-
-        return round(distance_m, 3)
-
-    except Exception as e:
-        print(f"Sensor Error: {e}")
+        distance_m = ((pulse_end - pulse_start) * 17150) / 100
+        return round(max(0.20, distance_m), 3)
+    except:
         return 0.0
