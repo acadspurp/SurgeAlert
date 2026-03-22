@@ -20,6 +20,15 @@ BACKEND_PORT = os.getenv("BACKEND_PORT", "8080")
 BACKEND_API_URL = f"http://{BACKEND_IP}:{BACKEND_PORT}/api"
 EDGE_API_KEY = os.getenv("EDGE_API_KEY", "surge-alert-secret-123")
 
+# --- SECURE MQTT SETTINGS (HiveMQ Cloud Serverless) ---
+# Replace these with your actual HiveMQ Cloud details
+MQTT_BROKER = os.getenv("MQTT_BROKER", "YOUR_HIVEMQ_URL.s1.eu.hivemq.cloud") 
+MQTT_PORT = 8883 # Port 8883 is required for MQTTS (SSL/TLS)
+MQTT_USERNAME = os.getenv("MQTT_USERNAME", "YOUR_HIVEMQ_USERNAME")
+MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "YOUR_HIVEMQ_PASSWORD")
+MQTT_TOPIC_SENSOR = "surgealert/sensor-data"
+
+
 # --- CAMERA ---
 CAMERA_INDEX = 0
 IMAGE_WIDTH = 640

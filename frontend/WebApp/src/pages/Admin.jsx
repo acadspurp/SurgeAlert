@@ -9,11 +9,13 @@ import {
     fetchTemplates as fetchTemplatesAPI, saveTemplate as saveTemplateAPI,
     fetchSensorData
 } from '../services/api.js';
+import { useSensorMqtt } from '../hooks/useSensorMqtt.js';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler);
 
 export default function Admin() {
     const navigate = useNavigate();
+    const mqttData = useSensorMqtt();
 
     // Auth Guard
     const user = getUser();
@@ -153,6 +155,45 @@ export default function Admin() {
 
     useEffect(() => {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
+        
+        if (mqttData) {
+            // Update Dashboard Data state via MQTT
+            const newDash = { ...dashData };
+            newDash.waterLevel = (mqttData.waterLevelM !== null && mqttData.waterLevelM !== undefined) ? mqttData.waterLevelM.toFixed(2) + ' m' : '--';
+
+            const level = mqttData.currentAlertLevel || 'OFFLINE';
+            newDash.status = level;
+            if (level === 'RED') newDash.statusColor = 'text-red-600';
+            else if (level === 'ORANGE') newDash.statusColor = 'text-orange-500';
+            else if (level === 'YELLOW') newDash.statusColor = 'text-yellow-500';
+            else if (level === 'GREEN') newDash.statusColor = 'text-green-600';
+            else newDash.statusColor = 'text-gray-500';
+
+            const val = (mqttData.predictedLevel !== null) ? mqttData.predictedLevel : mqttData.waterLevelM;
+            newDash.prediction = val.toFixed(2) + ' m';
+
+            const pLevel = mqttData.predictedAlertLevel || "Stable";
+            newDash.predTrend = `Trend: ${pLevel}`;
+            if (pLevel === 'RED') newDash.predColor = 'text-red-600';
+            else if (pLevel === 'ORANGE') newDash.predColor = 'text-orange-500';
+            else if (pLevel === 'YELLOW') newDash.predColor = 'text-yellow-500';
+            else newDash.predColor = 'text-green-600';
+
+            setDashData(newDash);
+
+            // Update Camera Feed via MQTT
+            if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
+                setCameraImg(`data:image/jpeg;base64,${mqttData.snapshotBase64}`);
+            }
+
+            // Also reload chart data whenever MQTT publishes, but to save DB calls, we might not want to over-query it. 
+            // In a better approach, we'd append to chart array directly, but reloadChart is easiest for now.
+            loadChartData();
+        }
+    }, [mqttData]);
+
+    useEffect(() => {
+        if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
 
         loadDashboardData();
         loadCameraFeed();
@@ -161,16 +202,10 @@ export default function Admin() {
         loadResidents();
         loadTemplates();
 
-        const pollInterval = setInterval(() => {
-            loadDashboardData();
-            loadCameraFeed();
-            loadChartData();
-        }, 3000);
-
+        // Removed the 3-second HTTP interval. Real-time changes are pushed by WSS MQTT hook above.
         const tideInterval = setInterval(loadTideData, 3600000);
 
         return () => {
-            clearInterval(pollInterval);
             clearInterval(tideInterval);
         };
     }, []);

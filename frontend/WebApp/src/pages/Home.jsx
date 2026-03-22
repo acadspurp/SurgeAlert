@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchAlertStatus, fetchAlertGuide, fetchCameraFeed, fetchWeatherData, fetchTidesData, getWeatherInfo } from '../services/api.js';
+import { useSensorMqtt } from '../hooks/useSensorMqtt.js';
 
 let CACHED_GUIDE = null;
 
@@ -14,6 +15,7 @@ function getAlertColors(levelKey) {
 
 export default function Home() {
     const navigate = useNavigate();
+    const mqttData = useSensorMqtt();
 
     // State
     const [waterLevel, setWaterLevel] = useState('--.-- m');
@@ -126,23 +128,53 @@ export default function Home() {
     };
 
     useEffect(() => {
-        loadAlertStatus();
+        if (mqttData) {
+            setIsOffline(false);
+            const currentLevel = mqttData.waterLevelM;
+            const levelKey = mqttData.currentAlertLevel ? mqttData.currentAlertLevel.toLowerCase() : 'green';
+
+            setWaterLevel(currentLevel.toFixed(2) + ' m');
+            setAlertLevelKey(levelKey);
+
+            if (CACHED_GUIDE && (CACHED_GUIDE[levelKey] || CACHED_GUIDE['green'])) {
+                const guide = CACHED_GUIDE[levelKey] || CACHED_GUIDE['green'];
+                setAlertLevelText(guide.title);
+
+                let html = `<div class="mb-2"><strong>${guide.title}</strong><br/><em>${guide.title_tl}</em></div>`;
+                html += `<p class="mb-2 text-gray-700">${guide.short_en}</p>`;
+                html += `<h4 class="font-semibold mb-2 mt-4">Actions / Gabay</h4><ol class="list-decimal list-inside space-y-2 text-sm">`;
+
+                if (guide.actions) {
+                    guide.actions.forEach(act => {
+                        html += `<li><strong>${act.en}</strong><div class="text-gray-700 ml-4 mb-2"><em>${act.tl}</em></div></li>`;
+                    });
+                }
+                html += `</ol>`;
+                setAlertHtml(html);
+            } else {
+                setAlertLevelText(`LEVEL: ${mqttData.currentAlertLevel}`);
+            }
+
+            if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
+                setCameraImg(`data:image/jpeg;base64,${mqttData.snapshotBase64}`);
+            }
+        }
+    }, [mqttData]);
+
+    useEffect(() => {
+        loadAlertStatus(); // initial load fallback
         loadWeather();
         loadTides();
-        loadCamera();
+        loadCamera(); // initial load fallback
 
-        const alertInterval = setInterval(() => {
-            loadAlertStatus();
-            loadCamera();
-        }, 3000);
-
+        // Note: Real-time sensor and camera updates are now automatically handled by WSS MQTT hook above
+        // We only poll weather/tides hourly
         const weatherInterval = setInterval(() => {
             loadWeather();
             loadTides();
         }, 3600000);
 
         return () => {
-            clearInterval(alertInterval);
             clearInterval(weatherInterval);
         };
     }, []);

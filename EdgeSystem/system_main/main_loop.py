@@ -11,7 +11,9 @@ import os
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config.settings import BACKEND_API_URL, EDGE_API_KEY
+from config.settings import BACKEND_API_URL, EDGE_API_KEY, MQTT_BROKER, MQTT_PORT, MQTT_USERNAME, MQTT_PASSWORD, MQTT_TOPIC_SENSOR
+import paho.mqtt.client as mqtt
+import ssl
 from system_main.database_manager import DatabaseManager
 from alert_logic.alert_manager import AlertManager
 from processing.image_processor import ImageProcessor
@@ -25,20 +27,32 @@ from hardware.camera.pi_camera_driver import PiCameraDriver
 from hardware.sensors.ultrasonic_driver import get_distance, init_sensor as init_ultrasonic
 from hardware.sensors.radar_driver import get_flow_rate as get_radar_flow, init_radar, close_radar
 
-def send_to_backend(payload):
-    """Sends JSON payload to Java Backend in a background thread."""
+def send_to_backend(payload, mqtt_client):
+    """Sends JSON payload to Java Backend via Secure MQTT in a background thread."""
     try:
-        headers = {'Content-Type': 'application/json', 'X-Edge-ApiKey': EDGE_API_KEY}
-        response = requests.post(f"{BACKEND_API_URL}/sensor-data", data=json.dumps(payload), headers=headers, timeout=5)
-        if response.status_code != 200:
-            print(f" [Net] Warning: Backend returned {response.status_code}")
+        # Publish to HiveMQ Cloud. payload is converted to JSON.
+        mqtt_client.publish(MQTT_TOPIC_SENSOR, json.dumps(payload), qos=1)
+        print(f" [Net] Data published to MQTT topic: {MQTT_TOPIC_SENSOR}")
     except Exception as e:
-        # Silenced during local data collection so it doesn't spam the console
+        print(f" [Net] MQTT Publish Error: {e}")
         pass
 
 def main():
     print("--- STARTING SURGE ALERT EDGE SYSTEM (DATA COLLECTION MODE) ---")
     
+    # 0. Initialize MQTT Client for HiveMQ Cloud (MQTTS)
+    mqtt_client = mqtt.Client(client_id="SurgeAlertEdge", protocol=mqtt.MQTTv311)
+    mqtt_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+    mqtt_client.tls_set(tls_version=ssl.PROTOCOL_TLS) # Enable SSL/TLS for secure connection
+    
+    try:
+        print(f" [Net] Connecting to Secure MQTT Broker at {MQTT_BROKER}...")
+        mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        mqtt_client.loop_start() # Start background thread for MQTT network traffic
+        print(" [Net] MQTT Connected Successfully!")
+    except Exception as e:
+        print(f" [Net] MQTT Connection Failed: {e}")
+
     # 1. Initialize Components
     db = DatabaseManager()
     alerter = AlertManager()
@@ -119,8 +133,8 @@ def main():
                     "snapshotBase64": b64_img
                 }
 
-                # 3. Send to Java Backend via Thread
-                threading.Thread(target=send_to_backend, args=(payload,)).start()
+                # 3. Send to Java Backend via MQTT in Thread
+                threading.Thread(target=send_to_backend, args=(payload, mqtt_client)).start()
 
                 # Reset the timer!
                 last_log_time = current_time 
@@ -167,6 +181,9 @@ def main():
             pass
             
         print("System Offline.")
+        if mqtt_client:
+            mqtt_client.loop_stop()
+            mqtt_client.disconnect()
 
 if __name__ == "__main__":
     main()

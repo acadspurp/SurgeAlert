@@ -67,6 +67,13 @@
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
+        <!-- Eclipse Paho MQTT (For MQTTS connections) -->
+        <dependency>
+            <groupId>org.eclipse.paho</groupId>
+            <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+            <version>1.2.5</version>
+        </dependency>
+
         <!-- Lombok (optional, for reducing boilerplate) -->
         <dependency>
             <groupId>org.projectlombok</groupId>
