@@ -163,8 +163,9 @@ export async function fetchActiveResidents() {
     return await response.json();
 }
 
-export async function deleteResident(phone) {
-    await fetch(`${API_BASE_URL}/residents/${phone}`, { method: 'DELETE' });
+export async function deleteResident(id) {
+    const response = await fetch(`${API_BASE_URL}/residents/id/${id}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error('Delete failed');
 }
 
 // --- ADMIN: TEMPLATES ---

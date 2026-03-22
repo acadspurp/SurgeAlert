@@ -49,14 +49,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const name = document.getElementById('register-name').value;
             const email = document.getElementById('register-email').value; // NEW: Get Email
             const phone = document.getElementById('register-phone').value;
-            const address = document.getElementById('register-address').value;
 
             // Store data temporarily
             tempRegistrationData = {
                 fullName: name,
                 email: email, // NEW: Add to object
-                phoneNumber: phone,
-                address: address
+                phoneNumber: phone
             };
 
             try {

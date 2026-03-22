@@ -24,11 +24,6 @@ public class Resident {
     @Column(nullable = false)
     private String fullName;
 
-    // --- ENCRYPTED COLUMN ---
-    @Convert(converter = AttributeEncryptor.class)
-    @Column(nullable = false)
-    private String address;
-
     @Column(nullable = false)
     private LocalDateTime registrationDate;
 
@@ -52,9 +47,6 @@ public class Resident {
 
     public String getFullName() { return fullName; }
     public void setFullName(String fullName) { this.fullName = fullName; }
-
-    public String getAddress() { return address; }
-    public void setAddress(String address) { this.address = address; }
 
     public LocalDateTime getRegistrationDate() { return registrationDate; }
     public void setRegistrationDate(LocalDateTime registrationDate) { this.registrationDate = registrationDate; }

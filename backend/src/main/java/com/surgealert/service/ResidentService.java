@@ -5,6 +5,7 @@ import com.surgealert.dto.ResidentRequest;
 import com.surgealert.entity.Resident;
 import com.surgealert.repository.ResidentRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -53,19 +54,22 @@ public class ResidentService {
         resident.setPhoneNumber(request.getPhoneNumber());
         resident.setEmail(request.getEmail());
         resident.setFullName(request.getFullName());
-        resident.setAddress(request.getAddress());
 
         return residentRepository.save(resident);
     }
 
+    @Transactional
     public void unregisterResident(String phoneNumber) {
-        // Note: Because we use the AttributeEncryptor, findByPhoneNumber automatically encrypts the input
-        // to search the DB, finds the row, and decrypts it back to the object.
         Resident resident = residentRepository.findByPhoneNumber(phoneNumber)
                 .orElseThrow(() -> new RuntimeException("Phone number not found"));
+        residentRepository.delete(resident);
+    }
 
-        resident.setIsActive(false);
-        residentRepository.save(resident);
+    @Transactional
+    public void unregisterResidentById(Long id) {
+        Resident resident = residentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Resident not found"));
+        residentRepository.delete(resident);
     }
 
     // --- USED FOR SMS ALERTS (INTERNAL USE - RETURNS RAW DATA) ---
@@ -93,32 +97,23 @@ public class ResidentService {
 
     // MASKING HELPER
     private ResidentAdminDTO maskResidentData(Resident resident) {
-        String rawPhone = resident.getPhoneNumber();
-        String rawAddress = resident.getAddress();
-        String rawName = resident.getFullName();
+        String rawPhone = resident.getPhoneNumber() != null ? resident.getPhoneNumber() : "";
+        String rawName = resident.getFullName() != null ? resident.getFullName() : "";
 
-        // 1. Mask Phone: Keep only last 4 digits (e.g. ******6789)
+        // 1. Mask Phone: Keep only last 4 digits (e.g. ******6789); full number is AES-encrypted in DB
         String maskedPhone = "******" + (rawPhone.length() > 4 ? rawPhone.substring(rawPhone.length() - 4) : rawPhone);
 
-        // 2. Mask Address: Show only Barangay/City (Assumes format: "Street, Barangay, City")
-        // Logic: Removes everything before the first comma. If no comma, shows text as is.
-        String maskedAddress = rawAddress;
-        if (rawAddress.contains(",")) {
-            maskedAddress = rawAddress.substring(rawAddress.indexOf(",") + 1).trim();
-        }
-
-        // 3. Abbreviate Name: "Juan Dela Cruz" -> "J. Cruz"
+        // 2. Abbreviate Name: "Juan Dela Cruz" -> "J. Cruz"
         String abbreviatedName = rawName;
         String[] parts = rawName.trim().split("\\s+");
         if (parts.length > 1) {
-            // First Initial + . + Last Word
             abbreviatedName = parts[0].charAt(0) + ". " + parts[parts.length - 1];
         }
 
         return new ResidentAdminDTO(
+                resident.getId(),
                 abbreviatedName,
                 maskedPhone,
-                maskedAddress,
                 resident.getEmail()
         );
     }

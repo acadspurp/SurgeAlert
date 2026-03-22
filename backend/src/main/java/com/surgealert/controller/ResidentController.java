@@ -55,13 +55,19 @@ public class ResidentController {
     @DeleteMapping("/{phoneNumber}")
     public ResponseEntity<?> unregisterResident(@PathVariable String phoneNumber) {
         try {
-            // Note: The phoneNumber coming from the URL might be the FULL number (if the frontend has it)
-            // or the masked one. 
-            // SECURITY NOTE: In a real app, you shouldn't allow deleting by phone number via URL 
-            // if the admin can't see the full number. 
-            // For this project, we assume the Admin knows the number or searches for it internally.
             residentService.unregisterResident(phoneNumber);
             return ResponseEntity.ok("Phone number unregistered successfully");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    /** Admin UI uses masked phone only; delete by database id instead. */
+    @DeleteMapping("/id/{id}")
+    public ResponseEntity<?> unregisterResidentById(@PathVariable Long id) {
+        try {
+            residentService.unregisterResidentById(id);
+            return ResponseEntity.ok("Resident unregistered successfully");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }

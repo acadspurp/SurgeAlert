@@ -202,10 +202,9 @@ async function loadResidents() {
             tr.innerHTML = `
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${res.fullName || 'N/A'}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${res.phoneNumber}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${res.address || 'N/A'}</td>
                 <td class="px-6 py-4 whitespace-nowrap"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Active</span></td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button class="text-red-600 hover:text-red-900" onclick="deleteResident('${res.phoneNumber}')">Delete</button>
+                    <button class="text-red-600 hover:text-red-900" onclick="deleteResident(${res.id})">Delete</button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -227,10 +226,10 @@ window.switchView = function(viewName) {
     });
 };
 
-window.deleteResident = async (phone) => {
-    if (!confirm('Are you sure you want to delete ' + phone + '?')) return;
+window.deleteResident = async (id) => {
+    if (!confirm('Remove this subscriber (ID ' + id + ')?')) return;
     try {
-        await fetch(`${API_BASE_URL}/residents/${phone}`, { method: 'DELETE' });
+        await fetch(`${API_BASE_URL}/residents/id/${id}`, { method: 'DELETE' });
         loadResidents();
         loadDashboardData();
     } catch (e) { alert('Delete failed'); }

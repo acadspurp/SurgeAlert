@@ -9,7 +9,6 @@ export default function Register() {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
-    const [address, setAddress] = useState('');
     const [consent, setConsent] = useState(false);
     const [otpCode, setOtpCode] = useState('');
 
@@ -45,8 +44,7 @@ export default function Register() {
             await registerResident({
                 fullName: name,
                 email: email,
-                phoneNumber: phone,
-                address: address
+                phoneNumber: phone
             });
 
             // 3. Show Success
@@ -91,12 +89,6 @@ export default function Register() {
                                     <span className="inline-flex items-center px-3 text-sm text-gray-900 bg-gray-200 border border-r-0 border-gray-300 rounded-l-lg">+63</span>
                                     <input type="tel" id="register-phone" className="custom-input rounded-l-none" maxLength="10" placeholder="9123456789" required value={phone} onChange={(e) => setPhone(e.target.value)} />
                                 </div>
-                            </div>
-
-                            {/* Address */}
-                            <div className="mb-6">
-                                <label className="block text-gray-700 text-sm font-medium mb-2">Address</label>
-                                <input type="text" id="register-address" className="custom-input" required value={address} onChange={(e) => setAddress(e.target.value)} />
                             </div>
 
                             {/* Consent */}
