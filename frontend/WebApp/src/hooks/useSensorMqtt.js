@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import mqtt from 'mqtt/dist/mqtt.js';
+//import mqtt from 'mqtt/dist/mqtt.js';
+import mqtt from 'mqtt';
 import { MQTT_BROKER_URL, MQTT_USERNAME, MQTT_PASSWORD, MQTT_TOPIC_SENSOR } from '../config.js';
 
 export function useSensorMqtt() {
@@ -10,6 +11,7 @@ export function useSensorMqtt() {
         const client = mqtt.connect(MQTT_BROKER_URL, {
             username: MQTT_USERNAME,
             password: MQTT_PASSWORD,
+            protocol: 'ws',
             protocolId: 'MQTT',
             protocolVersion: 4,
             clean: true,
