@@ -1,110 +1,154 @@
 SURGEALERT/
-├── backend/
-│   ├── src/main/java/com/surgealert/
-│   │   ├── config/
-│   │   │   ├── ActionPlanSeeder.java
-│   │   │   ├── AppConfig.java
-│   │   │   ├── EvacuationSiteSeeder.java
-│   │   │   ├── SecurityConfig.java
-│   │   │   └── TemplateSeeder.java
-│   │   ├── controller/
-│   │   │   ├── ActionPlanController.java
-│   │   │   ├── AlertController.java
-│   │   │   ├── AlertTemplateController.java
-│   │   │   ├── AuthController.java
-│   │   │   ├── EvacuationSiteController.java
-│   │   │   ├── ExternalApiController.java
-│   │   │   ├── ResidentController.java
-│   │   │   └── SensorDataController.java
-│   │   ├── dto/
-│   │   │   ├── ActionPlanDTO.java
-│   │   │   ├── AlertStatusDTO.java
-│   │   │   ├── AlertTemplateDTO.java
-│   │   │   ├── EvacuationSiteDTO.java
-│   │   │   ├── RegisterRequest.java
-│   │   │   ├── ResidentAdminDTO.java
-│   │   │   ├── ResidentRequest.java
-│   │   │   ├── SensorDataDTO.java
-│   │   │   ├── TideResponse.java
-│   │   │   └── WeatherResponse.java
-│   │   ├── entity/
-│   │   │   ├── ActionPlan.java
-│   │   │   ├── Alert.java
-│   │   │   ├── AlertTemplate.java
-│   │   │   ├── EvacuationSite.java
-│   │   │   ├── Resident.java
-│   │   │   ├── SensorData.java
-│   │   │   └── User.java
-│   │   ├── repository/
-│   │   │   ├── [All Repository Files].java
-│   │   ├── service/
-│   │   │   ├── ActionPlanService.java
-│   │   │   ├── AlertService.java
-│   │   │   ├── EmailService.java
-│   │   │   ├── EvacuationSiteService.java
-│   │   │   ├── ExternalApiService.java
-│   │   │   ├── NotificationService.java
-│   │   │   ├── ResidentService.java
-│   │   │   ├── SensorDataService.java
-│   │   │   └── UserService.java
-│   │   └── util/
-│   │       ├── AttributeEncryptor.java
-│   │       └── SurgeAlertApplication.java
-│   ├── src/main/resources/
-│   │   ├── application.properties
-│   │   └── firebase-service-account.json
-│   └── pom.xml (implied by Maven structure)
+├── .vscode/
+│   └── settings.json
 │
-├── EdgeSystem/
+├── backend/                      # Java Spring Boot API
+│   ├── src/main/
+│   │   ├── java/com/surgealert/
+│   │   │   ├── config/           # Security, MQTT, and Database Seeders
+│   │   │   │   ├── ActionPlanSeeder.java
+│   │   │   │   ├── AppConfig.java
+│   │   │   │   ├── EvacuationSiteSeeder.java
+│   │   │   │   ├── MqttConfig.java
+│   │   │   │   ├── SecurityConfig.java
+│   │   │   │   ├── SurgeEncryptionEnvironmentPostProcessor.java
+│   │   │   │   └── TemplateSeeder.java
+│   │   │   ├── controller/       # API Endpoints
+│   │   │   │   ├── ActionPlanController.java
+│   │   │   │   ├── AlertController.java
+│   │   │   │   ├── AlertTemplateController.java
+│   │   │   │   ├── AuthController.java
+│   │   │   │   ├── EvacuationSiteController.java
+│   │   │   │   ├── ExternalApiController.java
+│   │   │   │   ├── ResidentController.java
+│   │   │   │   └── SensorDataController.java
+│   │   │   ├── dto/              # Data Transfer Objects
+│   │   │   │   ├── ActionPlanDTO.java
+│   │   │   │   ├── AlertStatusDTO.java
+│   │   │   │   ├── AlertTemplateDTO.java
+│   │   │   │   ├── EvacuationSiteDTO.java
+│   │   │   │   ├── RegisterRequest.java
+│   │   │   │   ├── ResidentAdminDTO.java
+│   │   │   │   ├── ResidentRequest.java
+│   │   │   │   ├── SensorDataDTO.java
+│   │   │   │   ├── TideResponse.java
+│   │   │   │   └── WeatherResponse.java
+│   │   │   ├── entity/           # Database Models
+│   │   │   │   ├── ActionPlan.java
+│   │   │   │   ├── Alert.java
+│   │   │   │   ├── AlertTemplate.java
+│   │   │   │   ├── EvacuationSite.java
+│   │   │   │   ├── Resident.java
+│   │   │   │   ├── SensorData.java
+│   │   │   │   └── User.java
+│   │   │   ├── repository/       # Database Interfaces
+│   │   │   │   ├── ActionPlanRepository.java
+│   │   │   │   ├── AlertRepository.java
+│   │   │   │   ├── AlertTemplateRepository.java
+│   │   │   │   ├── EvacuationSiteRepository.java
+│   │   │   │   ├── ResidentRepository.java
+│   │   │   │   ├── SensorDataRepository.java
+│   │   │   │   └── UserRepository.java
+│   │   │   ├── service/          # Business Logic
+│   │   │   │   ├── ActionPlanService.java
+│   │   │   │   ├── AlertService.java
+│   │   │   │   ├── EmailService.java
+│   │   │   │   ├── EvacuationSiteService.java
+│   │   │   │   ├── ExternalApiService.java
+│   │   │   │   ├── MqttSubscriberService.java
+│   │   │   │   ├── NotificationService.java
+│   │   │   │   ├── ResidentService.java
+│   │   │   │   ├── SensorDataService.java
+│   │   │   │   └── UserService.java
+│   │   │   ├── util/
+│   │   │   │   └── AttributeEncryptor.java
+│   │   │   └── SurgeAlertApplication.java
+│   │   └── resources/
+│   │       ├── db/
+│   │       │   └── manual-drop-resident-address.sql
+│   │       ├── META-INF/spring/
+│   │       │   └── org.springframework.boot.env.EnvironmentPostProcessor.imports
+│   │       ├── application.properties
+│   │       └── firebase-service-account.json
+│   ├── target/
+│   └── pom.xml                   # Maven Dependencies
+│
+├── EdgeSystem/                   # Python IoT & ML System (Raspberry Pi)
 │   ├── alert_logic/
-│   │   ├── alert_manager.py
-│   │   └── __init__.py
+│   │   ├── __init__.py
+│   │   └── alert_manager.py      # Rule-based threshold logic
 │   ├── config/
-│   │   ├── settings.py
-│   │   └── __init__.py
+│   │   ├── __init__.py
+│   │   └── settings.py           # Ports, API keys, thresholds
 │   ├── data/
 │   │   ├── processed_data/
 │   │   ├── raw_sensor_logs/
-│   │   └── historical_tides.csv
-│   ├── database/
-│   │   └── surgealert.db
-│   ├── hardware/
+│   │   ├── __init__.py
+│   │   └── historical_tides.csv  # Tide fallback data
+│   ├── hardware/                 # Pure Physical Hardware Drivers
 │   │   ├── camera/
-│   │   ├── sensors/
-│   │   └── __init__.py
+│   │   │   ├── __init__.py
+│   │   │   └── pi_camera_driver.py
+│   │   └── sensors/
+│   │       ├── __init__.py
+│   │       ├── radar_driver.py
+│   │       └── ultrasonic_driver.py
 │   ├── ml_model/
 │   │   ├── trained_models/
-│   │   ├── model_predictor.py
-│   │   ├── train_model.py
-│   │   └── __init__.py
+│   │   │   └── flood_prediction_model.joblib  # <-- Only the master model remains
+│   │   ├── __init__.py
+│   │   ├── model_predictor.py    # Loads .joblib and runs inference
+│   │   └── train_model.py        # Script to retrain the model from scratch
 │   ├── processing/
-│   │   ├── image_processor.py
+│   │   ├── __init__.py
+│   │   ├── image_processor.py    # Optical flow & CV logic
 │   │   ├── sensor_data_processor.py
-│   │   ├── tide_manager.py
-│   │   └── __init__.py
+│   │   └── tide_manager.py       # Live tide API integration
 │   ├── system_main/
+│   │   ├── __init__.py
 │   │   ├── data_logger.py
-│   │   ├── database_manager.py
-│   │   ├── main_loop.py
-│   │   ├── sms_manager.py
-│   │   └── __init__.py
-│   ├── .env
-│   ├── requirements.txt
-│   └── README.md
+│   │   ├── database_manager.py   # Local SQLite Edge Database
+│   │   ├── main_loop.py          # Core loop (combines sensors, ML, MQTT)
+│   │   └── sms_manager.py        # Offline SIM7600G-H SMS fail-safe
+│   ├── venv/                     # Python Virtual Environment
+│   ├── .env                      # Edge-specific secrets
+│   ├── README.md
+│   └── requirements.txt          # Python dependencies
 │
-└── frontend/WebApp/
-    ├── js/
-    │   ├── admin.js
-    │   ├── alert.js
-    │   ├── api.js
-    │   ├── auth.js
-    │   ├── charts.js
+└── frontend/WebApp/              # React / Vite Single Page Application
+    ├── dist/                     # Compiled Production Build
+    │   ├── assets/
+    │   │   ├── index-Bgh6fyxh.css
+    │   │   └── index-dP4hQ2mf.js
+    │   ├── favicon.svg
+    │   ├── icons.svg
+    │   └── index.html
+    ├── node_modules/
+    ├── src/                      # Active React Source Code
+    │   ├── components/
+    │   │   ├── Footer.jsx
+    │   │   └── Header.jsx
+    │   ├── hooks/
+    │   │   └── useSensorMqtt.js  # Live MQTT WebSocket listener
+    │   ├── pages/
+    │   │   ├── About.jsx
+    │   │   ├── Admin.jsx         # React Admin Dashboard
+    │   │   ├── Home.jsx
+    │   │   ├── Login.jsx
+    │   │   ├── Maps.jsx
+    │   │   └── Register.jsx
+    │   ├── services/
+    │   │   ├── api.js            # Axios/Fetch calls to Java Backend
+    │   │   └── auth.js           # JWT / Session management
+    │   ├── App.jsx               # React Router Hub
     │   ├── config.js
-    │   ├── main.js
-    │   ├── map.js
-    │   ├── tides.js
-    │   └── ui.js
-    ├── admin.html
-    ├── index.html
+    │   ├── index.css             # Tailwind Directives
+    │   └── main.jsx              # React DOM render entry
+    ├── index.html                # Vite Entry Point
+    ├── MQTT_SETUP_GUIDE.md
+    ├── package-lock.json
+    ├── package.json              # Node dependencies (React, Vite, Tailwind, MQTT)
+    ├── project_tree
+    ├── README.md
     ├── styles.css
-    └── README.md
+    └── vite.config.js
