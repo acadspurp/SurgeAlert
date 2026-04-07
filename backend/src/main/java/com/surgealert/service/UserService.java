@@ -12,6 +12,7 @@ public class UserService {
     private final UserRepository userRepository;
 
     public UserService(UserRepository userRepository) {
+
         this.userRepository = userRepository;
     }
 
@@ -26,7 +27,7 @@ public class UserService {
 
         User user = new User();
         user.setUsername(username);
-        user.setPassword(password); 
+        user.setPassword(password);
         user.setFullName(fullName);
         user.setRole(request.getOrDefault("role", "USER"));
 

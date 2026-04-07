@@ -49,6 +49,16 @@ export async function fetchAlertStatus() {
     return await response.json();
 }
 
+export async function overrideAlert(level, reason = "") {
+    const response = await fetch(`${API_BASE_URL}/public/alerts/override`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level, reason })
+    });
+    if (!response.ok) throw new Error('Failed to override alert');
+    return await response.json();
+}
+
 // --- CAMERA FEED ---
 export async function fetchCameraFeed() {
     const response = await fetch(`${API_BASE_URL}/public/alerts/camera`);
@@ -188,5 +198,53 @@ export async function saveTemplate(type, template) {
 export async function fetchSensorData(hours = 24) {
     const response = await fetch(`${API_BASE_URL}/sensor-data/recent?hours=${hours}`);
     if (!response.ok) throw new Error('Failed to fetch sensor data');
+    return await response.json();
+}
+
+// --- ADMIN: REPORTS ---
+export async function downloadReport(startDate, endDate, includeTelemetry, includeAI) {
+    // Return the URL for direct download or fetch blob
+    const response = await fetch(`${API_BASE_URL}/sensor-data/reports/export?startDate=${startDate}&endDate=${endDate}&includeTelemetry=${includeTelemetry}&includeAI=${includeAI}`);
+    if (!response.ok) throw new Error('Failed to generate report');
+    return await response.blob();
+}
+
+// --- ADMIN: USER MANAGEMENT ---
+export async function fetchAdminUsers() {
+    const response = await fetch(`${API_BASE_URL}/admin/users`);
+    if (!response.ok) throw new Error('Failed to fetch users');
+    return await response.json();
+}
+
+export async function createAdminUser(user) {
+    const response = await fetch(`${API_BASE_URL}/admin/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user)
+    });
+    if (!response.ok) throw new Error('Failed to create user');
+    return await response.json();
+}
+
+export async function updateAdminUser(id, user) {
+    const response = await fetch(`${API_BASE_URL}/admin/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user)
+    });
+    if (!response.ok) throw new Error('Failed to update user');
+    return await response.json();
+}
+
+export async function deleteAdminUser(id) {
+    const response = await fetch(`${API_BASE_URL}/admin/users/${id}`, {
+        method: 'DELETE'
+    });
+    if (!response.ok) throw new Error('Failed to delete user');
+}
+
+export async function fetchSystemLogs() {
+    const response = await fetch(`${API_BASE_URL}/admin/logs`);
+    if (!response.ok) throw new Error('Failed to fetch logs');
     return await response.json();
 }

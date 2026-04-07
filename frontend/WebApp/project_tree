@@ -103,7 +103,7 @@ SURGEALERT/
 │   │   ├── __init__.py
 │   │   ├── image_processor.py    # Optical flow & CV logic
 │   │   ├── sensor_data_processor.py
-│   │   └── tide_manager.py       # Live tide API integration
+│   │   └── tide_manager.py       
 │   ├── system_main/
 │   │   ├── __init__.py
 │   │   ├── data_logger.py

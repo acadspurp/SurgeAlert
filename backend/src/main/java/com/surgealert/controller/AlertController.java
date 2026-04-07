@@ -15,6 +15,8 @@ import java.util.Map;
 @CrossOrigin(origins = "*")
 public class AlertController {
 
+    public static String overrideLevel = null;
+
     private final SensorDataService sensorDataService;
 
     public AlertController(SensorDataService sensorDataService) {
@@ -25,6 +27,15 @@ public class AlertController {
     public ResponseEntity<AlertStatusDTO> getCurrentAlertStatus() {
         SensorDataDTO latestData = sensorDataService.getLatestSensorData();
         AlertStatusDTO response = new AlertStatusDTO();
+
+        // 1. If there's an override, apply it IMMEDIATELY
+        if (overrideLevel != null) {
+            response.setWaterLevelM(latestData != null ? latestData.getWaterLevelM() : 0.0);
+            response.setAlertLevel(overrideLevel);
+            response.setLastUpdated(LocalDateTime.now());
+            response.setDescription("MANUAL OVERRIDE ACTIVE.");
+            return ResponseEntity.ok(response);
+        }
 
         if (latestData != null) {
             // Online: Return actual data
@@ -41,6 +52,25 @@ public class AlertController {
         }
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/override")
+    public ResponseEntity<Map<String, String>> setOverride(@RequestBody Map<String, String> body) {
+        String level = body.get("level");
+        String reason = body.get("reason");
+        if (level == null || level.trim().isEmpty() || level.equalsIgnoreCase("NORMAL")) {
+            overrideLevel = null;
+            UserController.addLog("Admin cleared manual override. System returned to AUTO.");
+        } else {
+            overrideLevel = level.toUpperCase().trim();
+            String logMsg = "Admin invoked MANUAL OVERRIDE to " + overrideLevel;
+            if (reason != null && !reason.trim().isEmpty()) {
+                logMsg += " (Reason: " + reason + ")";
+            }
+            UserController.addLog(logMsg);
+        }
+        return ResponseEntity.ok(Collections.singletonMap("status", "success"));
+    }
+
 
     @GetMapping("/camera")
     public ResponseEntity<Map<String, String>> getCameraUrl() {

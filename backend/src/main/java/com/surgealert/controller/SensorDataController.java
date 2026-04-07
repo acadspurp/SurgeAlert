@@ -116,4 +116,47 @@ public class SensorDataController {
     public ResponseEntity<?> getRecentSensorData(@RequestParam(defaultValue = "24") int hours) {
         return ResponseEntity.ok(sensorDataService.getRecentSensorData(hours));
     }
+
+    @GetMapping("/reports/export")
+    public ResponseEntity<String> generateReport(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(defaultValue = "true") boolean includeTelemetry,
+            @RequestParam(defaultValue = "true") boolean includeAI) {
+        
+        StringBuilder csv = new StringBuilder("Timestamp");
+        if (includeTelemetry) csv.append(",WaterLevel(m),SensorFlowRate(m/s),OpticalFlowRate(m/s),CurrentAlertLevel");
+        if (includeAI) csv.append(",PredictedLevel(m)");
+        csv.append("\n");
+
+        List<SensorDataDTO> data = sensorDataService.getRecentSensorData(24 * 30); // Max 30 days
+        for (SensorDataDTO d : data) {
+            // Apply simple date filter logic if requested
+            if (startDate != null && endDate != null && !startDate.isEmpty() && !endDate.isEmpty()) {
+                if (d.getTimestamp() != null) {
+                    String dateStr = d.getTimestamp().toLocalDate().toString();
+                    if (dateStr.compareTo(startDate) < 0 || dateStr.compareTo(endDate) > 0) continue;
+                }
+            }
+
+            csv.append(d.getTimestamp() != null ? d.getTimestamp().toString() : "");
+            
+            if (includeTelemetry) {
+                csv.append(",").append(d.getWaterLevelM() != null ? d.getWaterLevelM() : "")
+                   .append(",").append(d.getSensorFlowRateMps() != null ? d.getSensorFlowRateMps() : "")
+                   .append(",").append(d.getImageFlowRateMps() != null ? d.getImageFlowRateMps() : "")
+                   .append(",").append(d.getCurrentAlertLevel() != null ? d.getCurrentAlertLevel() : "");
+            }
+            if (includeAI) {
+                csv.append(",").append(d.getPredictedLevel() != null ? d.getPredictedLevel() : "");
+            }
+            csv.append("\n");
+        }
+        
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.add("Content-Disposition", "attachment; filename=\"SurgeAlert_Report.csv\"");
+        headers.add("Content-Type", "text/csv; charset=UTF-8");
+        
+        return new ResponseEntity<>(csv.toString(), headers, org.springframework.http.HttpStatus.OK);
+    }
 }
