@@ -26,6 +26,7 @@ export default function Home() {
     const [weatherCards, setWeatherCards] = useState([]);
     const [tides, setTides] = useState([]);
     const [tidesError, setTidesError] = useState(null);
+    const [isTidesLoading, setIsTidesLoading] = useState(true);
     const [isOffline, setIsOffline] = useState(false);
 
     // Data fetching functions
@@ -111,10 +112,11 @@ export default function Home() {
     };
 
     const loadTides = async () => {
+        setIsTidesLoading(true);
         try {
             const data = await fetchTidesData();
             if (data.error) {
-                setTidesError(data.error);
+                setTidesError('Tide data is temporarily unavailable.');
                 setTides([]);
             } else {
                 setTidesError(null);
@@ -124,6 +126,8 @@ export default function Home() {
             console.error('Failed to fetch tide data:', error);
             setTidesError('Could not load tide data.');
             setTides([]);
+        } finally {
+            setIsTidesLoading(false);
         }
     };
 
@@ -198,11 +202,14 @@ export default function Home() {
                     {/* 1. CAMERA CARD */}
                     <div className="custom-card">
                         <h2 className="text-2xl font-semibold mb-4 text-gray-700 section-title">Live Camera Feed</h2>
-                        <div className="aspect-w-16 aspect-h-9 bg-black rounded-lg overflow-hidden video-wrapper" style={{ height: '350px' }}>
+                        <div className="aspect-w-16 aspect-h-9 bg-black rounded-lg overflow-hidden video-wrapper relative" style={{ height: '350px' }}>
                             {cameraImg ? (
                                 <img src={cameraImg} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '0.5rem' }} alt="Live River Feed" />
                             ) : (
-                                <div className="flex items-center justify-center h-full text-gray-400">Loading Camera Feed...</div>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 bg-gray-900 border-2 border-dashed border-gray-700 m-8 rounded-xl animate-pulse">
+                                    <i className="fa-solid fa-video mb-2 text-2xl"></i>
+                                    Waiting for Camera Feed...
+                                </div>
                             )}
                         </div>
                         <div className="mt-4 text-sm text-gray-500">
@@ -214,17 +221,30 @@ export default function Home() {
                     <div id="left-alert-card" className={`custom-card ${isOffline ? 'bg-gray-200' : colors.bg}`}>
                         <div className="text-center">
                             <p className="text-sm text-gray-600 mb-1">Current water level:</p>
-                            <p id="water-level" className="text-5xl font-bold text-navy-900">{waterLevel}</p>
-                            <p id="alert-level" className={`text-lg mt-2 font-semibold ${isOffline ? 'text-gray-500' : ''}`}>{alertLevelText}</p>
+                            <div className="flex flex-col items-center justify-center">
+                                {waterLevel === '--.-- m' ? (
+                                    <div className="w-32 h-12 bg-gray-300 rounded-full animate-pulse my-2"></div>
+                                ) : (
+                                    <p id="water-level" className="text-5xl font-bold text-navy-900">{waterLevel}</p>
+                                )}
+                                <span className={`text-xs font-bold px-3 py-1 rounded-full mt-2 ${isOffline ? 'bg-gray-300 text-gray-500' : 'bg-white bg-opacity-50 text-gray-800 border border-gray-300'}`}>
+                                    {isOffline ? 'Offline' : `${alertLevelKey === 'green' ? 'Normal Flow' : 'Above Threshold'}`}
+                                </span>
+                            </div>
+                            <p id="alert-level" className={`text-lg mt-4 font-semibold ${isOffline ? 'text-gray-500' : ''}`}>
+                                {alertLevelKey === 'red' && <span className="mr-2">⚠️</span>}
+                                {alertLevelKey === 'green' && <span className="mr-2">✅</span>}
+                                {alertLevelText}
+                            </p>
                         </div>
                         {/* Legend */}
                         <div className="mt-6 pt-4 border-t border-gray-200">
                             <h3 className="font-semibold mb-2">Legend:</h3>
                             <ul className="space-y-1 text-sm">
-                                <li className="flex items-center"><span className="h-4 w-4 rounded-full bg-green-500 mr-2"></span> Green: Normal (&lt;15m)</li>
+                                <li className="flex items-center"><span className="h-4 w-4 rounded-full bg-green-500 mr-2 flex items-center justify-center text-[10px] text-white">✓</span> Green: Normal (&lt;15m)</li>
                                 <li className="flex items-center"><span className="h-4 w-4 rounded-full bg-yellow-400 mr-2"></span> Yellow: Caution (15m - 16m)</li>
                                 <li className="flex items-center"><span className="h-4 w-4 rounded-full bg-orange-500 mr-2"></span> Orange: Prepare (16m - 18m)</li>
-                                <li className="flex items-center"><span className="h-4 w-4 rounded-full bg-red-600 mr-2"></span> Red: Evacuate (&gt;18m)</li>
+                                <li className="flex items-center"><span className="h-4 w-4 rounded-full bg-red-600 mr-2 flex items-center justify-center text-[10px] text-white">!</span> Red: Danger (&gt;18m)</li>
                             </ul>
                         </div>
                     </div>
@@ -263,9 +283,19 @@ export default function Home() {
                         <h2 className="text-2xl font-semibold mb-4 text-gray-700 section-title">Tide Forecast</h2>
                         <div id="tide-data-container">
                             {tidesError ? (
-                                <p className="text-red-500 text-sm">{tidesError}</p>
+                                <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg text-sm text-blue-800 flex items-start">
+                                    <span className="mr-2 mt-0.5">ℹ️</span>
+                                    <p>Tide data is temporarily unavailable. Please check back later.</p>
+                                </div>
+                            ) : isTidesLoading ? (
+                                <div className="space-y-3">
+                                    <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4"></div>
+                                    <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div>
+                                </div>
                             ) : tides.length === 0 ? (
-                                <p className="text-sm text-gray-500">Loading...</p>
+                                <div className="bg-gray-50 border border-gray-100 p-3 rounded-lg text-sm text-gray-600">
+                                    No tide data available for today.
+                                </div>
                             ) : (
                                 <>
                                     <p className="text-sm text-gray-500 mb-2">Data for: <strong>{today}</strong></p>

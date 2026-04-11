@@ -101,3 +101,17 @@ header {
 
 /* Mobile menu background */
 .bg-navy-900 { background-color: #0C324A; }
+
+/* Simple tooltips (used in Admin) */
+.tooltip-parent { position: relative; }
+.tooltip-text {
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 160ms ease, transform 160ms ease;
+    z-index: 60;
+}
+.tooltip-parent:hover .tooltip-text,
+.tooltip-parent:focus-within .tooltip-text {
+    opacity: 1;
+    transform: translateY(0);
+}

@@ -63,7 +63,7 @@ public class MqttSubscriberService {
 
                     // 4. Alert & Email Logic
                     String level = savedData.getCurrentAlertLevel();
-                    String messageToSend = notificationService.getAlertMessage(level);
+                    String messageToSend = notificationService.getAlertMessage(level, savedData.getWaterLevelM());
 
                     boolean isCritical = level.equalsIgnoreCase("YELLOW") ||
                                          level.equalsIgnoreCase("ORANGE") ||

@@ -9,6 +9,8 @@ import com.surgealert.service.SensorDataService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -69,7 +71,7 @@ public class SensorDataController {
         String level = savedData.getCurrentAlertLevel();
         
         // Get message template
-        String messageToSend = notificationService.getAlertMessage(level);
+        String messageToSend = notificationService.getAlertMessage(level, savedData.getWaterLevelM());
 
         // --- LOGIC: ONLY SEND IF YELLOW, ORANGE, OR RED ---
         // We strictly block "GREEN" here.
@@ -124,33 +126,79 @@ public class SensorDataController {
             @RequestParam(defaultValue = "true") boolean includeTelemetry,
             @RequestParam(defaultValue = "true") boolean includeAI) {
         
-        StringBuilder csv = new StringBuilder("Timestamp");
-        if (includeTelemetry) csv.append(",WaterLevel(m),SensorFlowRate(m/s),OpticalFlowRate(m/s),CurrentAlertLevel");
-        if (includeAI) csv.append(",PredictedLevel(m)");
-        csv.append("\n");
+        // "Good-looking" CSV template with a title block, summary rows, then data table.
+        List<SensorDataDTO> all = sensorDataService.getRecentSensorData(24 * 30); // Max 30 days
 
-        List<SensorDataDTO> data = sensorDataService.getRecentSensorData(24 * 30); // Max 30 days
-        for (SensorDataDTO d : data) {
-            // Apply simple date filter logic if requested
-            if (startDate != null && endDate != null && !startDate.isEmpty() && !endDate.isEmpty()) {
-                if (d.getTimestamp() != null) {
-                    String dateStr = d.getTimestamp().toLocalDate().toString();
-                    if (dateStr.compareTo(startDate) < 0 || dateStr.compareTo(endDate) > 0) continue;
-                }
+        // Filter by date range when provided (YYYY-MM-DD)
+        List<SensorDataDTO> filtered = all.stream().filter(d -> {
+            if (d == null || d.getTimestamp() == null) return false;
+            if (startDate != null && endDate != null && !startDate.isBlank() && !endDate.isBlank()) {
+                String dateStr = d.getTimestamp().toLocalDate().toString();
+                return !(dateStr.compareTo(startDate) < 0 || dateStr.compareTo(endDate) > 0);
             }
+            return true;
+        }).toList();
 
-            csv.append(d.getTimestamp() != null ? d.getTimestamp().toString() : "");
-            
+        // Compute summary stats (telemetry only)
+        Stats wlStats = new Stats();
+        Stats frStats = new Stats();
+        for (SensorDataDTO d : filtered) {
             if (includeTelemetry) {
-                csv.append(",").append(d.getWaterLevelM() != null ? d.getWaterLevelM() : "")
-                   .append(",").append(d.getSensorFlowRateMps() != null ? d.getSensorFlowRateMps() : "")
-                   .append(",").append(d.getImageFlowRateMps() != null ? d.getImageFlowRateMps() : "")
-                   .append(",").append(d.getCurrentAlertLevel() != null ? d.getCurrentAlertLevel() : "");
+                wlStats.accept(d.getWaterLevelM());
+                frStats.accept(d.getSensorFlowRateMps());
+            }
+        }
+
+        StringBuilder csv = new StringBuilder();
+        csv.append(csvRow("SurgeAlert Report")).append("\n");
+        csv.append(csvRow("")).append("\n");
+
+        csv.append(csvRow("Metric", "Value")).append("\n");
+        csv.append(csvRow("Generated At", java.time.LocalDateTime.now().toString())).append("\n");
+        csv.append(csvRow("Date Range", (startDate == null || startDate.isBlank() ? "—" : startDate) + " to " + (endDate == null || endDate.isBlank() ? "—" : endDate))).append("\n");
+        csv.append(csvRow("Rows Exported", String.valueOf(filtered.size()))).append("\n");
+
+        if (includeTelemetry) {
+            csv.append(csvRow("")).append("\n");
+            csv.append(csvRow("Telemetry Summary", "")).append("\n");
+            csv.append(csvRow("Water Level (m) - Min", wlStats.minStr(2))).append("\n");
+            csv.append(csvRow("Water Level (m) - Avg", wlStats.avgStr(2))).append("\n");
+            csv.append(csvRow("Water Level (m) - Max", wlStats.maxStr(2))).append("\n");
+            csv.append(csvRow("Flow Rate (m/s) - Min", frStats.minStr(2))).append("\n");
+            csv.append(csvRow("Flow Rate (m/s) - Avg", frStats.avgStr(2))).append("\n");
+            csv.append(csvRow("Flow Rate (m/s) - Max", frStats.maxStr(2))).append("\n");
+        }
+
+        csv.append("\n");
+        csv.append(csvRow("Data")).append("\n");
+
+        // Header row
+        StringBuilder header = new StringBuilder();
+        header.append(csvCell("Timestamp"));
+        if (includeTelemetry) {
+            header.append(",").append(csvCell("Water Level (m)"))
+                  .append(",").append(csvCell("Sensor Flow Rate (m/s)"))
+                  .append(",").append(csvCell("Optical Flow Rate (m/s)"))
+                  .append(",").append(csvCell("Current Alert Level"));
+        }
+        if (includeAI) {
+            header.append(",").append(csvCell("Predicted Level (m)"));
+        }
+        csv.append(header).append("\n");
+
+        for (SensorDataDTO d : filtered) {
+            StringBuilder row = new StringBuilder();
+            row.append(csvCell(d.getTimestamp().toString()));
+            if (includeTelemetry) {
+                row.append(",").append(csvCell(numOrBlank(d.getWaterLevelM())))
+                   .append(",").append(csvCell(numOrBlank(d.getSensorFlowRateMps())))
+                   .append(",").append(csvCell(numOrBlank(d.getImageFlowRateMps())))
+                   .append(",").append(csvCell(d.getCurrentAlertLevel() != null ? d.getCurrentAlertLevel() : ""));
             }
             if (includeAI) {
-                csv.append(",").append(d.getPredictedLevel() != null ? d.getPredictedLevel() : "");
+                row.append(",").append(csvCell(numOrBlank(d.getPredictedLevel())));
             }
-            csv.append("\n");
+            csv.append(row).append("\n");
         }
         
         org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
@@ -158,5 +206,57 @@ public class SensorDataController {
         headers.add("Content-Type", "text/csv; charset=UTF-8");
         
         return new ResponseEntity<>(csv.toString(), headers, org.springframework.http.HttpStatus.OK);
+    }
+
+    private static String numOrBlank(Double v) {
+        return v == null ? "" : String.valueOf(v);
+    }
+
+    private static String csvRow(String... cols) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < cols.length; i++) {
+            if (i > 0) sb.append(",");
+            sb.append(csvCell(cols[i] == null ? "" : cols[i]));
+        }
+        return sb.toString();
+    }
+
+    private static String csvCell(String raw) {
+        String s = raw == null ? "" : raw;
+        boolean needsQuotes = s.contains(",") || s.contains("\"") || s.contains("\n") || s.contains("\r");
+        if (s.contains("\"")) s = s.replace("\"", "\"\"");
+        return needsQuotes ? ("\"" + s + "\"") : s;
+    }
+
+    private static class Stats {
+        private double min = Double.POSITIVE_INFINITY;
+        private double max = Double.NEGATIVE_INFINITY;
+        private BigDecimal sum = BigDecimal.ZERO;
+        private long count = 0;
+
+        void accept(Double v) {
+            if (v == null) return;
+            double d = v;
+            if (Double.isNaN(d) || Double.isInfinite(d)) return;
+            if (d < min) min = d;
+            if (d > max) max = d;
+            sum = sum.add(BigDecimal.valueOf(d));
+            count++;
+        }
+
+        String minStr(int scale) {
+            if (count == 0) return "—";
+            return BigDecimal.valueOf(min).setScale(scale, RoundingMode.HALF_UP).toPlainString();
+        }
+
+        String maxStr(int scale) {
+            if (count == 0) return "—";
+            return BigDecimal.valueOf(max).setScale(scale, RoundingMode.HALF_UP).toPlainString();
+        }
+
+        String avgStr(int scale) {
+            if (count == 0) return "—";
+            return sum.divide(BigDecimal.valueOf(count), scale, RoundingMode.HALF_UP).toPlainString();
+        }
     }
 }

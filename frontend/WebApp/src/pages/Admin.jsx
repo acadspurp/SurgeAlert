@@ -8,11 +8,13 @@ import {
     fetchActiveResidents, deleteResident as deleteResidentAPI,
     fetchTemplates as fetchTemplatesAPI, saveTemplate as saveTemplateAPI,
     fetchSensorData, overrideAlert, downloadReport,
-    fetchAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser, fetchSystemLogs
+    fetchAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser, fetchSystemLogs, fetchEvacuationSites
 } from '../services/api.js';
 import { useSensorMqtt } from '../hooks/useSensorMqtt.js';
+import annotationPlugin from 'chartjs-plugin-annotation';
+import Papa from 'papaparse';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend, annotationPlugin);
 
 export default function Admin() {
     const navigate = useNavigate();
@@ -55,6 +57,8 @@ export default function Admin() {
     // Residents & Templates
     const [residents, setResidents] = useState([]);
     const [templates, setTemplates] = useState([]);
+    const [editingTemplateType, setEditingTemplateType] = useState(null);
+    const [templateDrafts, setTemplateDrafts] = useState({});
 
     // Admin Users State
     const [adminUsers, setAdminUsers] = useState([]);
@@ -64,6 +68,17 @@ export default function Admin() {
     const [showUserModal, setShowUserModal] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
     const [userForm, setUserForm] = useState({ fullName: '', username: '', password: '', role: 'ADMIN' });
+
+    // New Features State
+    const [demoMode, setDemoMode] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [trendIndicators, setTrendIndicators] = useState({ waterLevel: '-', flowRate: '-' });
+    const prevReadings = useRef({ waterLevel: null, flowRate: null });
+    const [lastMqttAt, setLastMqttAt] = useState(null);
+    const [secondsSinceUpdate, setSecondsSinceUpdate] = useState(null);
+    const [evacuationSites, setEvacuationSites] = useState([]);
+    const evacuationSitesRef = useRef([]);
 
     const displayName = user ? (user.fullName || user.username) : 'Admin';
 
@@ -142,7 +157,26 @@ export default function Admin() {
     const loadTemplates = async () => {
         try {
             const data = await fetchTemplatesAPI();
-            setTemplates(data);
+            const safe = Array.isArray(data) ? data : [];
+            const order = ['GREEN', 'YELLOW', 'ORANGE', 'RED', 'OTP', 'MANUAL'];
+            safe.sort((a, b) => {
+                const ai = order.indexOf(String(a?.alertType || '').toUpperCase());
+                const bi = order.indexOf(String(b?.alertType || '').toUpperCase());
+                const ax = ai === -1 ? 999 : ai;
+                const bx = bi === -1 ? 999 : bi;
+                if (ax !== bx) return ax - bx;
+                return String(a?.alertType || '').localeCompare(String(b?.alertType || ''));
+            });
+            setTemplates(safe);
+            // initialize drafts
+            setTemplateDrafts(prev => {
+                const next = { ...prev };
+                safe.forEach(t => {
+                    const key = String(t.alertType || '').toUpperCase();
+                    if (next[key] === undefined) next[key] = t.template || '';
+                });
+                return next;
+            });
         } catch (e) { console.error(e); }
     };
 
@@ -155,13 +189,36 @@ export default function Admin() {
         } catch (e) { console.error(e); }
     };
 
+    const loadSystemLogsSafe = async () => {
+        try {
+            const logs = await fetchSystemLogs();
+            setSystemLogs(logs);
+        } catch (e) {
+            // Some roles/backends may not allow logs; fail silently for dashboard widget.
+        }
+    };
+
+    const loadEvacuationSites = async () => {
+        try {
+            const sites = await fetchEvacuationSites();
+            const safe = Array.isArray(sites) ? sites : [];
+            evacuationSitesRef.current = safe;
+            setEvacuationSites(safe);
+        } catch (e) {
+            evacuationSitesRef.current = [];
+            setEvacuationSites([]);
+        }
+    };
+
     // -------------------------------------------------------------
     // EFFECTS
     // -------------------------------------------------------------
     useEffect(() => {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
+        if (demoMode) return;
         
         if (mqttData) {
+            setLastMqttAt(Date.now());
             const newDash = { ...dashData };
             newDash.waterLevel = (mqttData.waterLevelM !== null && mqttData.waterLevelM !== undefined) ? mqttData.waterLevelM.toFixed(2) + ' m' : '--';
             newDash.flowRate = (mqttData.sensorFlowRateMps !== null) ? mqttData.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s';
@@ -183,9 +240,23 @@ export default function Admin() {
             if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${mqttData.snapshotBase64}`);
             }
+            // Trend Indicator calculations
+            if (prevReadings.current.waterLevel !== null && mqttData.waterLevelM !== null) {
+                if (mqttData.waterLevelM > prevReadings.current.waterLevel + 0.05) setTrendIndicators(prev => ({...prev, waterLevel: '↑'}));
+                else if (mqttData.waterLevelM < prevReadings.current.waterLevel - 0.05) setTrendIndicators(prev => ({...prev, waterLevel: '↓'}));
+                else setTrendIndicators(prev => ({...prev, waterLevel: '-'}));
+            }
+            if (prevReadings.current.flowRate !== null && mqttData.sensorFlowRateMps !== null) {
+                if (mqttData.sensorFlowRateMps > prevReadings.current.flowRate + 0.05) setTrendIndicators(prev => ({...prev, flowRate: '↑'}));
+                else if (mqttData.sensorFlowRateMps < prevReadings.current.flowRate - 0.05) setTrendIndicators(prev => ({...prev, flowRate: '↓'}));
+                else setTrendIndicators(prev => ({...prev, flowRate: '-'}));
+            }
+            prevReadings.current.waterLevel = mqttData.waterLevelM;
+            prevReadings.current.flowRate = mqttData.sensorFlowRateMps;
+
             loadChartData(telemetryTime);
         }
-    }, [mqttData]);
+    }, [mqttData, demoMode]);
 
     useEffect(() => {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
@@ -196,19 +267,91 @@ export default function Admin() {
         loadChartData(telemetryTime);
         loadResidents();
         loadTemplates();
+        loadEvacuationSites();
+        loadSystemLogsSafe();
 
         if (isHeadAdmin) {
             loadAdminUsersData();
         }
 
         const tideInterval = setInterval(loadTideData, 3600000);
-        return () => clearInterval(tideInterval);
+        const logsInterval = setInterval(loadSystemLogsSafe, 45000);
+
+        return () => {
+            clearInterval(tideInterval);
+            clearInterval(logsInterval);
+        };
     }, []);
     
     // Telemetry time changer
     useEffect(() => {
-        if (user) loadChartData(telemetryTime);
+        if (user && !demoMode) loadChartData(telemetryTime);
     }, [telemetryTime]);
+
+    // Demo Mode logic
+    useEffect(() => {
+        let interval;
+        if (demoMode) {
+            setLastMqttAt(Date.now());
+            interval = setInterval(() => {
+                const randomFlow = Math.random() * (1.5 - 0.5) + 0.5;
+                const prevWl = prevReadings.current.waterLevel || 16.5;
+                const drift = (Math.random() - 0.35) * 0.08; // slightly biased upward for demos
+                const newWl = Math.max(13.5, prevWl + (randomFlow * 0.08) + drift);
+                
+                setDashData(prev => ({
+                    ...prev,
+                    waterLevel: newWl.toFixed(2) + ' m',
+                    flowRate: randomFlow.toFixed(2) + ' m/s',
+                    status: newWl > 18 ? 'RED' : newWl > 16 ? 'ORANGE' : newWl > 15 ? 'YELLOW' : 'GREEN',
+                    statusColor: newWl > 18 ? 'text-red-600' : newWl > 16 ? 'text-orange-500' : newWl > 15 ? 'text-yellow-500' : 'text-green-600',
+                    prediction: (newWl + 0.5).toFixed(2) + ' m'
+                }));
+
+                setTrendIndicators(prev => ({
+                    waterLevel: newWl > prevWl ? '↑' : newWl < prevWl ? '↓' : '-',
+                    flowRate: randomFlow > (prevReadings.current.flowRate ?? randomFlow) ? '↑' : '↓'
+                }));
+
+                prevReadings.current.waterLevel = newWl;
+                prevReadings.current.flowRate = randomFlow;
+                setLastMqttAt(Date.now());
+
+                // Mock "real-time" chart flow by appending to the series.
+                const ts = new Date().toISOString();
+                const imageFlow = Math.max(0, randomFlow - 0.15 + (Math.random() * 0.2));
+                const predicted = Math.min(25, newWl + (0.2 + Math.random() * 0.6));
+                setRawSensorData(prev => {
+                    const next = [
+                        ...(Array.isArray(prev) ? prev : []).slice(-89),
+                        {
+                            timestamp: ts,
+                            waterLevelM: newWl,
+                            sensorFlowRateMps: randomFlow,
+                            imageFlowRateMps: imageFlow,
+                            predictedLevel: predicted
+                        }
+                    ];
+                    return next;
+                });
+            }, 3000);
+        } else if (user) {
+            loadDashboardData();
+        }
+        return () => clearInterval(interval);
+    }, [demoMode]);
+
+    // "Last updated" ticker
+    useEffect(() => {
+        if (!lastMqttAt) {
+            setSecondsSinceUpdate(null);
+            return;
+        }
+        const t = setInterval(() => {
+            setSecondsSinceUpdate(Math.max(0, Math.floor((Date.now() - lastMqttAt) / 1000)));
+        }, 1000);
+        return () => clearInterval(t);
+    }, [lastMqttAt]);
 
     // -------------------------------------------------------------
     // HANDLERS
@@ -225,8 +368,12 @@ export default function Admin() {
             if (reason === null) return; // Cancelled
         }
 
+        if(!window.confirm(`Are you sure you want to broadcast a ${level} alert?`)) return;
+
         try {
-            await overrideAlert(level, reason);
+            const actor = `${displayName}${user?.id ? ` (${user.id})` : ''}`;
+            const safeReason = `${reason || 'Admin Manual Action'} [override by ${actor}]`;
+            await overrideAlert(level, safeReason);
             alert(`Alert level forcefully overridden to ${level}`);
             loadDashboardData();
             if(isHeadAdmin) loadAdminUsersData(); // Reload logs
@@ -235,17 +382,85 @@ export default function Admin() {
         }
     };
 
+    const generateCSVReport = ({ telemetryData, startDate, endDate, includeTelemetry, includeAI }) => {
+        const safeData = Array.isArray(telemetryData) ? telemetryData : [];
+        const start = startDate ? new Date(`${startDate}T00:00:00`) : null;
+        const end = endDate ? new Date(`${endDate}T23:59:59`) : null;
+        const filtered = safeData.filter(d => {
+            const ts = d?.timestamp ? new Date(d.timestamp) : null;
+            if (!ts || Number.isNaN(ts.getTime())) return false;
+            if (start && ts < start) return false;
+            if (end && ts > end) return false;
+            return true;
+        });
+
+        const toNum = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+        const wl = filtered.map(d => toNum(d.waterLevelM)).filter(v => typeof v === 'number' && !Number.isNaN(v));
+        const fr = filtered.map(d => toNum(d.sensorFlowRateMps)).filter(v => typeof v === 'number' && !Number.isNaN(v));
+
+        const avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
+        const min = (arr) => (arr.length ? Math.min(...arr) : null);
+        const max = (arr) => (arr.length ? Math.max(...arr) : null);
+
+        const summaryRows = [
+            ['Metric', 'Value'],
+            ['Generated At', new Date().toLocaleString()],
+            ['Generated By', displayName],
+            ['Date Range', `${startDate || '—'} to ${endDate || '—'}`],
+            ['Rows Exported', String(filtered.length)],
+            [''],
+            ['Telemetry Summary', ''],
+            ['Water Level (m) - Min', wl.length ? min(wl).toFixed(2) : '—'],
+            ['Water Level (m) - Avg', wl.length ? avg(wl).toFixed(2) : '—'],
+            ['Water Level (m) - Max', wl.length ? max(wl).toFixed(2) : '—'],
+            ['Flow Rate (m/s) - Min', fr.length ? min(fr).toFixed(2) : '—'],
+            ['Flow Rate (m/s) - Avg', fr.length ? avg(fr).toFixed(2) : '—'],
+            ['Flow Rate (m/s) - Max', fr.length ? max(fr).toFixed(2) : '—'],
+        ];
+
+        const dataRows = filtered.map(d => {
+            const row = { 'Timestamp': new Date(d.timestamp).toLocaleString() };
+            if (includeTelemetry) {
+                row['Water Level (m)'] = d.waterLevelM ?? '';
+                row['Flow Rate (m/s)'] = d.sensorFlowRateMps ?? '';
+                row['Optical Flow (m/s)'] = d.imageFlowRateMps ?? '';
+            }
+            if (includeAI) {
+                row['ML Predicted Level (m)'] = d.predictedLevel ?? '';
+            }
+            return row;
+        });
+
+        const titleBlock = Papa.unparse([['SurgeAlert Report'], ['']]);
+        const summaryBlock = Papa.unparse(summaryRows, { quotes: true });
+        const dataHeader = Papa.unparse([[''], ['Data']], { quotes: true });
+        const dataBlock = Papa.unparse(dataRows, { quotes: true });
+        return `${titleBlock}\n${summaryBlock}\n${dataHeader}\n${dataBlock}\n`;
+    };
+
     const handleDownloadReport = async (format) => {
         try {
-            const blob = await downloadReport(reportStart, reportEnd, reportTelemetry, reportAI);
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `SurgeAlert_Report_${new Date().toISOString().slice(0,10)}.${format}`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            if(isHeadAdmin) loadAdminUsersData();
+            if (format === 'csv') {
+                const telemetryData = await fetchSensorData(24 * 7); // Export 7 days
+                const csvStr = generateCSVReport({
+                    telemetryData,
+                    startDate: reportStart,
+                    endDate: reportEnd,
+                    includeTelemetry: reportTelemetry,
+                    includeAI: reportAI
+                });
+                const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `SurgeAlert_Report_${new Date().toISOString().slice(0,10)}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                if(isHeadAdmin) loadAdminUsersData();
+            } else {
+                alert("PDF rendering requires external library setup. Try CSV.");
+            }
         } catch (e) {
             alert('Error generating report.');
         }
@@ -263,8 +478,47 @@ export default function Admin() {
     const handleSaveTemplate = async (type, template) => {
         try {
             await saveTemplateAPI(type, template);
+            // Keep UI state consistent without reloading entire page
+            setTemplates(prev => prev.map(t => (String(t.alertType).toUpperCase() === String(type).toUpperCase() ? { ...t, template } : t)));
             alert(`${type} Template updated!`);
         } catch (e) { alert("Failed update."); }
+    };
+
+    const beginEditTemplate = (type, currentText) => {
+        const key = String(type || '').toUpperCase();
+        setEditingTemplateType(key);
+        setTemplateDrafts(prev => ({ ...prev, [key]: currentText ?? prev[key] ?? '' }));
+    };
+
+    const cancelEditTemplate = () => {
+        setEditingTemplateType(null);
+        // leave drafts as-is; next beginEdit will re-seed
+    };
+
+    const saveEditedTemplate = async (type) => {
+        const key = String(type || '').toUpperCase();
+        const current = templates.find(t => String(t.alertType || '').toUpperCase() === key)?.template || '';
+        const next = templateDrafts[key] ?? '';
+        if (String(next).trim() === String(current).trim()) {
+            setEditingTemplateType(null);
+            return;
+        }
+        // Normalize legacy placeholders into the standard curly format where safe.
+        let normalized = String(next);
+        if (key === 'OTP') {
+            normalized = normalized.replaceAll('[%s]', '{otp}').replaceAll('%s', '{otp}');
+        } else if (key === 'MANUAL') {
+            // Historically: first %s message, second %s timestamp
+            // We only normalize obvious cases.
+            normalized = normalized.replaceAll('[%s]', '{timestamp}');
+        } else {
+            // Alert templates: treat [%s]/%s as timestamp
+            normalized = normalized.replaceAll('[%s]', '{timestamp}').replaceAll('%s', '{timestamp}');
+        }
+        // Encourage the standardized {level}/{status} naming; keep {waterLevel} as alias.
+        normalized = normalized.replaceAll('{waterLevel}', '{level}');
+        await handleSaveTemplate(key, normalized);
+        setEditingTemplateType(null);
     };
 
     const handleLogout = () => {
@@ -375,12 +629,74 @@ export default function Admin() {
 
     const telemetryChartOptions = {
         ...commonChartOptions,
+        plugins: {
+            ...commonChartOptions.plugins,
+            annotation: {
+                annotations: {
+                    box1: { type: 'box', yMin: 0, yMax: 15, backgroundColor: 'rgba(74, 222, 128, 0.1)', drawTime: 'beforeDraw', borderWidth: 0 },
+                    box2: { type: 'box', yMin: 15, yMax: 16, backgroundColor: 'rgba(250, 204, 21, 0.1)', drawTime: 'beforeDraw', borderWidth: 0 },
+                    box3: { type: 'box', yMin: 16, yMax: 18, backgroundColor: 'rgba(251, 146, 60, 0.1)', drawTime: 'beforeDraw', borderWidth: 0 },
+                    box4: { type: 'box', yMin: 18, yMax: 25, backgroundColor: 'rgba(248, 113, 113, 0.1)', drawTime: 'beforeDraw', borderWidth: 0 },
+                }
+            }
+        },
         scales: {
             ...commonChartOptions.scales,
             y: { type: 'linear', display: true, position: 'left', title: {display: true, text: 'Level (m)'} },
             y1: { type: 'linear', display: true, position: 'right', title: {display: true, text: 'Flow (m/s)'}, grid: { drawOnChartArea: false } },
         }
     };
+
+    const getETRText = () => {
+        const flowStr = String(dashData.flowRate).replace(/[^0-9.-]/g, '');
+        const levelStr = String(dashData.waterLevel).replace(/[^0-9.-]/g, '');
+        const flow = parseFloat(flowStr);
+        const level = parseFloat(levelStr);
+        if (isNaN(flow) || isNaN(level)) return 'Calculating...';
+        if (flow <= 0) return 'Stable (No increase)';
+        if (level >= 18) return 'Critical level reached';
+        // UI-side extrapolation: we assume a rough mapping from flow rate (m/s) to
+        // water level rise rate (m/hour). This keeps the dashboard useful even
+        // without a backend-derived rise-rate model.
+        const riseRateMph = Math.max(0.02, flow * 0.22);
+        const hours = (18 - level) / riseRateMph;
+        const h = Math.floor(hours);
+        const m = Math.round((hours - h) * 60);
+        return `Red Alert expected in ${h}h ${m}m`;
+    };
+
+    const getWaterLevelContext = () => {
+        const levelStr = String(dashData.waterLevel).replace(/[^0-9.-]/g, '');
+        const level = parseFloat(levelStr);
+        if (Number.isNaN(level)) return '—';
+        if (level < 15) return 'Normal Flow';
+        if (level < 16) return 'Caution Zone';
+        if (level < 18) return 'Prepare Zone';
+        return 'Danger Zone';
+    };
+
+    const getFlowContext = () => {
+        const flowStr = String(dashData.flowRate).replace(/[^0-9.-]/g, '');
+        const flow = parseFloat(flowStr);
+        if (Number.isNaN(flow)) return '—';
+        if (flow < 0.6) return 'Low Flow';
+        if (flow < 1.1) return 'Normal Flow';
+        return 'Fast Flow';
+    };
+
+    const latestLogs = [...(Array.isArray(systemLogs) ? systemLogs : [])]
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .slice(0, 5);
+
+    const hardwareOnline = demoMode ? true : (secondsSinceUpdate !== null ? secondsSinceUpdate <= 12 : false);
+
+    const filteredResidents = (Array.isArray(residents) ? residents : []).filter(r => {
+        if (!searchTerm.trim()) return true;
+        const q = searchTerm.toLowerCase();
+        const name = String(r?.fullName || '').toLowerCase();
+        const phone = String(r?.phoneNumber || '').toLowerCase();
+        return name.includes(q) || phone.includes(q);
+    });
 
     // -------------------------------------------------------------
     // RENDER HELPERS
@@ -400,20 +716,33 @@ export default function Admin() {
     return (
         <div className="flex h-screen overflow-hidden bg-gray-50">
             {/* SIDEBAR */}
-            <aside className="w-68 bg-navy text-white flex flex-col shadow-xl transition-all duration-300" id="sidebar">
-                <div className="p-6 flex items-center justify-center border-b border-gray-700 bg-black bg-opacity-30">
-                    <i className="fa-solid fa-water text-2xl mr-3 text-teal-400"></i>
-                    <span className="text-xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-300">SurgeAlertAdmin</span>
+            <aside className={`${isSidebarOpen ? 'w-68' : 'w-20'} bg-navy text-white flex flex-col shadow-xl transition-all duration-300 relative`} id="sidebar">
+                {/* Demo Mode Toggle */}
+                <div className="absolute top-2 right-[-40px] z-50">
+                    <button onClick={() => setDemoMode(!demoMode)} className={`p-2 rounded-r-lg shadow-md ${demoMode ? 'bg-orange-500 hover:bg-orange-600' : 'bg-gray-300 hover:bg-gray-400'} transition tooltip-parent`}>
+                        <i className={`fa-solid ${demoMode ? 'fa-vial-circle-check text-white' : 'fa-vial text-gray-700'}`}></i>
+                        <span className="tooltip-text whitespace-nowrap bg-black text-white text-xs px-2 py-1 rounded absolute top-full left-0 mt-1 pointer-events-none">Demo Mode</span>
+                    </button>
+                    <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 rounded-r-lg shadow-md bg-blue-600 hover:bg-blue-700 text-white mt-1 transition">
+                        <i className={`fa-solid ${isSidebarOpen ? 'fa-chevron-left' : 'fa-bars'}`}></i>
+                    </button>
                 </div>
 
-                <div className="p-5 border-b border-gray-700 bg-opacity-50 bg-black flex items-center space-x-4">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-r from-teal-500 to-blue-500 flex items-center justify-center text-xl font-bold shadow-lg">
+                <div className="p-6 flex items-center justify-center border-b border-gray-700 bg-black bg-opacity-30 h-20 overflow-hidden">
+                    <i className="fa-solid fa-water text-2xl mr-3 text-teal-400"></i>
+                    <span className={`text-xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-300 transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0'}`}>SurgeAdmin</span>
+                </div>
+
+                <div className={`p-5 border-b border-gray-700 bg-opacity-50 bg-black flex items-center ${isSidebarOpen ? 'space-x-4' : 'justify-center'} overflow-hidden`}>
+                    <div className="w-12 h-12 flex-shrink-0 rounded-full bg-gradient-to-r from-teal-500 to-blue-500 flex items-center justify-center text-xl font-bold shadow-lg">
                         {displayName.charAt(0).toUpperCase()}
                     </div>
-                    <div>
-                        <p className="text-sm font-bold text-white tracking-wide">{displayName}</p>
-                        <p className="text-xs text-teal-300 font-semibold tracking-wider">{role}</p>
-                    </div>
+                    {isSidebarOpen && (
+                        <div className="transition-opacity duration-200 min-w-[120px]">
+                            <p className="text-sm font-bold text-white tracking-wide truncate">{displayName}</p>
+                            <p className="text-xs text-teal-300 font-semibold tracking-wider truncate">{role}</p>
+                        </div>
+                    )}
                 </div>
 
                 <nav className="flex-1 overflow-y-auto py-6">
@@ -426,10 +755,11 @@ export default function Admin() {
                                         activeView === item.key 
                                         ? 'bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-md transform scale-[1.02]' 
                                         : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                                    }`}
+                                    } ${!isSidebarOpen ? 'justify-center' : ''}`}
+                                    title={!isSidebarOpen ? item.label : ""}
                                 >
                                     <i className={`fa-solid ${item.icon} w-6 text-center text-lg`}></i>
-                                    <span className="ml-3 font-semibold">{item.label}</span>
+                                    {isSidebarOpen && <span className="ml-3 font-semibold whitespace-nowrap">{item.label}</span>}
                                 </button>
                             </li>
                         ))}
@@ -437,8 +767,8 @@ export default function Admin() {
                 </nav>
 
                 <div className="p-5 border-t border-gray-700">
-                    <button onClick={handleLogout} className="w-full flex items-center justify-center bg-red-500 hover:bg-red-600 text-white p-3 rounded-xl transition font-bold shadow hover:shadow-lg">
-                        <i className="fa-solid fa-right-from-bracket mr-2"></i> Sign Out
+                    <button onClick={handleLogout} className={`w-full flex items-center justify-center bg-red-500 hover:bg-red-600 text-white p-3 rounded-xl transition font-bold shadow hover:shadow-lg ${!isSidebarOpen ? 'px-0' : ''}`} title="Sign Out">
+                        <i className={`fa-solid fa-right-from-bracket ${isSidebarOpen ? 'mr-2' : ''}`}></i> {isSidebarOpen && "Sign Out"}
                     </button>
                 </div>
             </aside>
@@ -450,7 +780,16 @@ export default function Admin() {
                 {activeView === 'dashboard' && (
                     <div className="animate-fade-in">
                         <div className="flex justify-between items-center mb-8">
-                            <h1 className="text-3xl font-black text-navy tracking-tight">Dashboard</h1>
+                            <h1 className="text-3xl font-black text-navy tracking-tight pl-10">Dashboard</h1>
+                            <div className="text-xs font-bold text-gray-500 flex items-center gap-2">
+                                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${hardwareOnline ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
+                                    <span className={`inline-block w-2.5 h-2.5 rounded-full ${hardwareOnline ? 'bg-green-500' : 'bg-gray-400'} ${hardwareOnline ? 'animate-pulse' : ''}`}></span>
+                                    {demoMode ? 'Demo stream' : 'Live stream'}
+                                </span>
+                                <span className="hidden sm:inline">
+                                    Last updated: {secondsSinceUpdate === null ? '—' : `${secondsSinceUpdate}s ago`}
+                                </span>
+                            </div>
                         </div>
 
                         {/* HEAD ADMIN OVERRIDE BANNER */}
@@ -490,35 +829,61 @@ export default function Admin() {
                         )}
 
                         {/* TOP CARDS */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                            <DashboardCard title="Water Level" value={dashData.waterLevel} icon="fa-water" color="blue" />
-                            <DashboardCard title="Current Flow Rate" value={dashData.flowRate} icon="fa-water-arrow-up" color="indigo" />
-                            <DashboardCard title="ML Prediction (+1h)" value={dashData.prediction} icon="fa-brain" color="purple" subtitle="Waiting for next tick..." />
-                            <DashboardCard title="Subscribed Residents" value={dashData.subscriberCount} icon="fa-users" color="teal" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                            <DashboardCard title="Water Level" value={dashData.waterLevel} icon="fa-water" color="blue" trend={trendIndicators.waterLevel} subtitle={`${getWaterLevelContext()}`} />
+                            <DashboardCard title="Current Flow Rate" value={dashData.flowRate} icon="fa-water-arrow-up" color="indigo" trend={trendIndicators.flowRate} subtitle={`${getFlowContext()}`} />
+                            <DashboardCard title="Estimated Time to Red (ETR)" value={getETRText()} icon="fa-hourglass-half" color="teal" subtitle="Based on current flow + distance to 18m" />
+                            <DashboardCard title="ML Prediction (+1h)" value={dashData.prediction} icon="fa-brain" color="purple" subtitle="Trajectory forecast" />
+                            <DashboardCard title="Subscribed Residents" value={dashData.subscriberCount} icon="fa-users" color="teal" subtitle="Active subscribers" />
                         </div>
 
-                        {/* MEDIA CENTER & QUICK TIDES */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 lg:col-span-2 flex flex-col">
-                                <h3 className="text-xl font-bold text-navy mb-4 flex items-center">
-                                    <i className="fa-solid fa-camera mr-2 text-blue-500"></i> Media Center (Live Feed)
+                        {/* HEALTH + MINI-LOG */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+                                <h3 className="text-lg font-bold text-navy mb-4 flex items-center">
+                                    <i className="fa-solid fa-heart-pulse mr-2 text-red-500"></i> Hardware Health
                                 </h3>
-                                <div className="bg-black rounded-xl overflow-hidden flex-1 relative min-h-[400px]">
-                                    {cameraImg ? (
-                                        <img src={cameraImg} alt="Live Feed" className="absolute inset-0 w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="flex items-center justify-center h-full text-gray-500 border-2 border-dashed border-gray-700 m-8 rounded-xl">
-                                            <div className="text-center">
-                                                <i className="fa-solid fa-video-slash text-4xl mb-3"></i>
-                                                <p>Camera feed currently unavailable</p>
-                                            </div>
-                                        </div>
-                                    )}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                    <HealthRow label="ESP8266" ok={hardwareOnline} />
+                                    <HealthRow label="GSM Module" ok={hardwareOnline} />
+                                    <HealthRow label="Ultrasonic" ok={hardwareOnline} />
+                                    <HealthRow label="Radar" ok={hardwareOnline} />
+                                </div>
+                                <div className="mt-4 text-xs text-gray-500">
+                                    {demoMode ? 'Mocked as online for presentations.' : 'Online if receiving telemetry in the last ~12 seconds.'}
                                 </div>
                             </div>
 
                             <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 flex flex-col">
-                                <h3 className="text-xl font-bold text-navy mb-4 flex items-center">
+                                <h3 className="text-lg font-bold text-navy mb-4 flex items-center">
+                                    <i className="fa-solid fa-rectangle-list mr-2 text-indigo-600"></i> Mini Log Feed
+                                </h3>
+                                <div className="flex-1 space-y-3">
+                                    {latestLogs.length === 0 ? (
+                                        <div className="text-sm text-gray-500 bg-gray-50 border border-gray-100 rounded-xl p-4">
+                                            No recent system logs yet.
+                                        </div>
+                                    ) : (
+                                        latestLogs.map((log, i) => (
+                                            <div key={i} className="flex items-start gap-3 bg-gray-50 border border-gray-100 rounded-xl p-3">
+                                                <span className="mt-1 inline-block w-2 h-2 rounded-full bg-blue-500"></span>
+                                                <div className="flex-1">
+                                                    <div className="text-xs font-bold text-gray-500">
+                                                        {log.timestamp ? new Date(log.timestamp).toLocaleString() : '—'}
+                                                    </div>
+                                                    <div className="text-sm font-semibold text-gray-700">
+                                                        {log.message || '—'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                                <div className="mt-3 text-xs text-gray-400">Showing latest 5 entries.</div>
+                            </div>
+
+                            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 flex flex-col">
+                                <h3 className="text-lg font-bold text-navy mb-4 flex items-center">
                                     <i className="fa-solid fa-moon mr-2 text-indigo-500"></i> Quick Tides
                                 </h3>
                                 <div className="flex-1 bg-gradient-to-b from-blue-50 to-indigo-50 rounded-xl p-6 flex flex-col justify-center text-center">
@@ -537,13 +902,34 @@ export default function Admin() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* MEDIA CENTER & QUICK TIDES */}
+                        <div className="grid grid-cols-1 gap-6">
+                            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 flex flex-col">
+                                <h3 className="text-xl font-bold text-navy mb-4 flex items-center">
+                                    <i className="fa-solid fa-camera mr-2 text-blue-500"></i> Media Center (Live Feed)
+                                </h3>
+                                <div className="bg-black rounded-xl overflow-hidden flex-1 relative min-h-[400px]">
+                                    {cameraImg ? (
+                                        <img src={cameraImg} alt="Live Feed" className="absolute inset-0 w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="flex items-center justify-center h-full text-gray-500 border-2 border-dashed border-gray-700 m-8 rounded-xl">
+                                            <div className="text-center">
+                                                <i className="fa-solid fa-video-slash text-4xl mb-3"></i>
+                                                <p>{demoMode ? 'Demo Mode: Simulated camera feed' : 'Camera feed currently unavailable'}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 
                 {/* 2. TELEMETRY & ANALYTICS */}
                 {activeView === 'telemetry' && (
                     <div className="animate-fade-in">
-                        <h1 className="text-3xl font-black text-navy tracking-tight mb-8">Telemetry & Analytics</h1>
+                        <h1 className="text-3xl font-black text-navy tracking-tight mb-8 pl-10">Telemetry & Analytics</h1>
                         
                         {/* Current Readings */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -564,7 +950,15 @@ export default function Admin() {
                         {/* Historical Graph */}
                         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                             <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-xl font-bold text-navy">Historical Sensor Data</h3>
+                                <div className="flex items-center gap-3">
+                                    <h3 className="text-xl font-bold text-navy">Historical Sensor Data</h3>
+                                    <div className="relative tooltip-parent">
+                                        <i className="fa-solid fa-circle-info text-gray-400"></i>
+                                        <span className="tooltip-text whitespace-nowrap bg-black text-white text-xs px-2 py-1 rounded absolute top-full left-0 mt-1 pointer-events-none">
+                                            Moving Average Filter applied (display note)
+                                        </span>
+                                    </div>
+                                </div>
                                 <select 
                                     className="bg-gray-100 border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 font-semibold"
                                     value={telemetryTime} onChange={(e) => setTelemetryTime(Number(e.target.value))}
@@ -585,7 +979,7 @@ export default function Admin() {
                 {/* 3. AI PREDICTIONS & TIDES */}
                 {activeView === 'ai' && (
                     <div className="animate-fade-in">
-                        <h1 className="text-3xl font-black text-navy tracking-tight mb-8">ML Predictions & Tides</h1>
+                        <h1 className="text-3xl font-black text-navy tracking-tight mb-8 pl-10">ML Predictions & Tides</h1>
                         
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                             {/* Confidence Metrics */}
@@ -657,7 +1051,26 @@ export default function Admin() {
                 {/* 4. RESIDENTS */}
                 {activeView === 'residents' && (
                     <div className="animate-fade-in">
-                        <h1 className="text-3xl font-black text-navy tracking-tight mb-8">Residents Management</h1>
+                        <h1 className="text-3xl font-black text-navy tracking-tight mb-8 pl-10">Residents Management</h1>
+                        <div className="mb-4 flex items-center gap-3">
+                            <div className="flex-1 relative">
+                                <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                <input
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    placeholder="Search by name or phone number..."
+                                    className="w-full pl-11 pr-4 py-3 rounded-xl border-2 border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-semibold text-gray-700"
+                                />
+                            </div>
+                            <button
+                                onClick={() => setSearchTerm("")}
+                                className="px-4 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold transition"
+                                disabled={!searchTerm}
+                                title="Clear search"
+                            >
+                                Clear
+                            </button>
+                        </div>
                         <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
@@ -669,7 +1082,7 @@ export default function Admin() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 bg-white">
-                                    {residents.map((res, i) => (
+                                    {filteredResidents.map((res, i) => (
                                         <tr key={i} className="hover:bg-gray-50 transition">
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-navy">{res.fullName || 'N/A'}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">{res.phoneNumber}</td>
@@ -679,8 +1092,18 @@ export default function Admin() {
                                             </td>
                                         </tr>
                                     ))}
-                                    {residents.length === 0 && (
-                                        <tr><td colSpan="4" className="px-6 py-8 text-center text-gray-500">No active residents found.</td></tr>
+                                    {filteredResidents.length === 0 && (
+                                        <tr>
+                                            <td colSpan="4" className="px-6 py-10">
+                                                <div className="text-center text-gray-500">
+                                                    <div className="text-2xl mb-2"><i className="fa-solid fa-users-slash"></i></div>
+                                                    <div className="font-bold">No residents match your search.</div>
+                                                    <div className="text-sm text-gray-400 mt-1">
+                                                        {searchTerm ? `Try a different keyword.` : `No active residents found.`}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
                                     )}
                                 </tbody>
                             </table>
@@ -691,7 +1114,7 @@ export default function Admin() {
                 {/* 5. TEMPLATES */}
                 {activeView === 'templates' && (
                     <div className="animate-fade-in">
-                        <h1 className="text-3xl font-black text-navy tracking-tight mb-8">SMS Formatting Templates</h1>
+                        <h1 className="text-3xl font-black text-navy tracking-tight mb-8 pl-10">SMS Formatting Templates</h1>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {templates.map((tpl, i) => (
                                 <div key={i} className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition relative overflow-hidden">
@@ -707,15 +1130,111 @@ export default function Admin() {
                                         <h3 className="text-xl font-bold text-navy flex items-center">
                                             <i className="fa-solid fa-message mr-2 text-gray-400"></i> {tpl.alertType} ALERT
                                         </h3>
+                                        <div className="flex items-center gap-2">
+                                            {editingTemplateType === String(tpl.alertType).toUpperCase() ? (
+                                                <>
+                                                    <button
+                                                        onClick={() => saveEditedTemplate(tpl.alertType)}
+                                                        className="text-xs font-bold px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition flex items-center"
+                                                        title="Save"
+                                                    >
+                                                        <i className="fa-solid fa-floppy-disk mr-2"></i> Save
+                                                    </button>
+                                                    <button
+                                                        onClick={cancelEditTemplate}
+                                                        className="text-xs font-bold px-3 py-1.5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 transition flex items-center"
+                                                        title="Cancel"
+                                                    >
+                                                        <i className="fa-solid fa-xmark mr-2"></i> Cancel
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <button
+                                                    onClick={() => beginEditTemplate(tpl.alertType, tpl.template)}
+                                                    className="text-xs font-bold px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition flex items-center"
+                                                    title="Edit template"
+                                                >
+                                                    <i className="fa-solid fa-pen-to-square mr-2"></i> Edit
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                    <textarea
-                                        rows="4"
-                                        className="w-full border-2 border-gray-200 rounded-xl p-4 text-sm mb-4 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-700 bg-gray-50 ml-3 shadow-inner"
-                                        defaultValue={tpl.template}
-                                        onBlur={(e) => handleSaveTemplate(tpl.alertType, e.target.value)}
-                                        placeholder="Enter the template..."
-                                    ></textarea>
-                                    <p className="text-xs text-gray-400 ml-3 mb-2"><i className="fa-solid fa-lightbulb text-yellow-500"></i> Variables: {'{name}'}, {'{level}'}, {'{waterLevel}'}</p>
+                                    {(() => {
+                                        const typeKey = String(tpl.alertType).toUpperCase();
+                                        const draft = templateDrafts[typeKey] ?? (tpl.template || '');
+                                        const len = String(draft).length;
+                                        const limit = 160;
+                                        const perPart = 153; // rough estimate when concatenated
+                                        const parts = len <= limit ? 1 : Math.ceil(len / perPart);
+                                        const over = len > limit;
+                                        const isEditing = editingTemplateType === typeKey;
+
+                                        const legendRows = (() => {
+                                            if (typeKey === 'OTP') {
+                                                return [
+                                                    { k: '{otp}', v: "OTP Code / OTP Code" },
+                                                    { k: '{timestamp}', v: "Time / Oras (auto)" },
+                                                ];
+                                            }
+                                            if (typeKey === 'MANUAL') {
+                                                return [
+                                                    { k: '{message}', v: "Manual message / Mensahe" },
+                                                    { k: '{timestamp}', v: "Time / Oras (auto)" },
+                                                ];
+                                            }
+                                            return [
+                                                { k: '{name}', v: "Resident’s Name (reserved; broadcast is shared) / Pangalan" },
+                                                { k: '{level}', v: "Current Water Height / Taas ng Tubig" },
+                                                { k: '{status}', v: "Alert Color (Yellow/Orange/Red/Green) / Kulay" },
+                                                { k: '{timestamp}', v: "Time recorded/sent / Oras (auto)" },
+                                            ];
+                                        })();
+
+                                        return (
+                                            <div className="flex flex-col md:flex-row gap-4 ml-3">
+                                                <div className="flex-1">
+                                                    <textarea
+                                                        rows="5"
+                                                        className="w-full border-2 border-gray-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-700 bg-gray-50 shadow-inner"
+                                                        value={draft}
+                                                        onChange={(e) => {
+                                                            const key = String(tpl.alertType).toUpperCase();
+                                                            setTemplateDrafts(prev => ({ ...prev, [key]: e.target.value }));
+                                                        }}
+                                                        disabled={!isEditing}
+                                                        placeholder="Write your SMS template..."
+                                                    ></textarea>
+
+                                                    <div className="mt-2 flex items-center justify-between text-xs">
+                                                        <div className={`font-bold ${over ? 'text-red-600' : 'text-gray-500'}`}>
+                                                            {len} / {limit} characters
+                                                            <span className="ml-2 font-semibold text-gray-400">(~{parts} SMS{parts > 1 ? ' parts' : ''})</span>
+                                                        </div>
+                                                        <div className="text-gray-400 font-semibold">
+                                                            Tip: Put Tagalog first for faster comprehension.
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="w-full md:w-72 bg-white border border-gray-100 rounded-xl p-4">
+                                                    <div className="text-xs font-black text-gray-600 uppercase tracking-widest mb-3">
+                                                        Legend / Cheat Sheet
+                                                    </div>
+                                                    <div className="space-y-2 text-xs">
+                                                        {legendRows.map((r, idx) => (
+                                                            <div key={idx} className="flex items-start justify-between gap-3">
+                                                                <div className="font-mono font-bold text-navy whitespace-nowrap">{r.k}</div>
+                                                                <div className="text-gray-600 font-semibold text-right">{r.v}</div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <div className="mt-3 text-[11px] text-gray-400 leading-relaxed">
+                                                        Timestamp is appended automatically on the backend if missing.
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             ))}
                         </div>
@@ -725,7 +1244,7 @@ export default function Admin() {
                 {/* 6. REPORTS */}
                 {activeView === 'reports' && (
                     <div className="animate-fade-in max-w-4xl">
-                        <h1 className="text-3xl font-black text-navy tracking-tight mb-8">Report Generation</h1>
+                        <h1 className="text-3xl font-black text-navy tracking-tight mb-8 pl-10">Report Generation</h1>
                         
                         <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 flex flex-col md:flex-row gap-8">
                             {/* Form */}
@@ -783,7 +1302,7 @@ export default function Admin() {
                 {/* 7. ADMIN USERS (HEAD ADMIN ONLY) */}
                 {activeView === 'admin_users' && isHeadAdmin && (
                     <div className="animate-fade-in">
-                        <h1 className="text-3xl font-black text-navy tracking-tight mb-8">User & Role Management</h1>
+                        <h1 className="text-3xl font-black text-navy tracking-tight mb-8 pl-10">User & Role Management</h1>
                         
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                             {/* Accounts Table */}
@@ -860,14 +1379,14 @@ export default function Admin() {
                 
                 {/* USER MODAL */}
                 {showUserModal && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
-                        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-xl w-full">
+                    <div className="fixed inset-0 flex items-center justify-center z-50 animate-fade-in">
+                        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-xl w-full border border-gray-200 ring-4 ring-blue-100/60">
                             <h2 className="text-2xl font-black text-navy mb-6">{editingUser ? 'Edit Account' : 'Create Account'}</h2>
                             
                             <div className="space-y-4 mb-6">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Name:</label>
-                                    <input type="text" value={userForm.fullName} onChange={e => setUserForm({...userForm, fullName: e.target.value})} className="w-full border p-3 rounded-lg bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500" placeholder="John Doe" />
+                                    <input type="text" value={userForm.fullName} onChange={e => setUserForm({...userForm, fullName: e.target.value})} className="w-full border p-3 rounded-lg bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500" placeholder="John Dela Cruz" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Username:</label>
@@ -926,7 +1445,7 @@ export default function Admin() {
 // -------------------------------------------------------------
 // HELPER COMPONENTS
 // -------------------------------------------------------------
-function DashboardCard({ title, value, icon, color, subtitle }) {
+function DashboardCard({ title, value, icon, color, subtitle, trend }) {
     const colorClasses = {
         blue: "text-blue-600 bg-blue-100 border-blue-500",
         indigo: "text-indigo-600 bg-indigo-100 border-indigo-500",
@@ -941,12 +1460,34 @@ function DashboardCard({ title, value, icon, color, subtitle }) {
             <div className="flex justify-between items-start">
                 <div>
                     <p className="text-xs text-gray-500 uppercase tracking-widest font-bold mb-1">{title}</p>
-                    <h3 className="text-3xl font-black text-navy">{value}</h3>
+                    <div className="flex items-baseline gap-2">
+                        <h3 className="text-3xl font-black text-navy">{value}</h3>
+                        {trend && trend !== '-' && (
+                            <span className={`text-lg font-black ${trend === '↑' ? 'text-green-600' : 'text-red-600'}`} title="Trend vs previous tick">
+                                {trend}
+                            </span>
+                        )}
+                        {trend === '-' && (
+                            <span className="text-xs font-bold text-gray-400" title="No significant change">—</span>
+                        )}
+                    </div>
                     {subtitle && <p className="text-xs text-gray-400 mt-2 font-semibold">{subtitle}</p>}
                 </div>
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-inner ${c.split(' ').slice(0,2).join(' ')}`}>
                     <i className={`fa-solid ${icon}`}></i>
                 </div>
+            </div>
+        </div>
+    );
+}
+
+function HealthRow({ label, ok }) {
+    return (
+        <div className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
+            <div className="font-bold text-gray-700">{label}</div>
+            <div className="flex items-center gap-2">
+                <span className={`inline-block w-2.5 h-2.5 rounded-full ${ok ? 'bg-green-500' : 'bg-gray-400'} ${ok ? 'animate-pulse' : ''}`}></span>
+                <span className={`text-xs font-bold ${ok ? 'text-green-700' : 'text-gray-600'}`}>{ok ? 'Online' : 'Offline'}</span>
             </div>
         </div>
     );
