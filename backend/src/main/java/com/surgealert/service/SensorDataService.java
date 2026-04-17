@@ -101,10 +101,9 @@ public class SensorDataService {
         if (waterLevel == null) return "GREEN";
         
         // Default safe fallbacks if Edge logic fails completely
-        // Assuming "Aquarium" scale for safety as default fallback
-        if (waterLevel >= 0.27) return "RED";
-        if (waterLevel >= 0.22) return "ORANGE";
-        if (waterLevel >= 0.15) return "YELLOW";
+        if (waterLevel >= 8.5) return "RED";
+        if (waterLevel >= 7.0) return "ORANGE";
+        if (waterLevel >= 6.0) return "YELLOW";
 
         return "GREEN";
     }

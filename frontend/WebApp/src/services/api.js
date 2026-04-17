@@ -167,6 +167,20 @@ export async function verifyOtp(phoneNumber, code) {
     return true;
 }
 
+export async function unsubscribeOtp(phoneNumber, code) {
+    const response = await fetch(`${API_BASE_URL}/residents/unsubscribe-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber, code })
+    });
+
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Unsubscribe failed");
+    }
+    return true;
+}
+
 // --- AUTH ---
 export async function loginUser(username, password) {
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -264,4 +278,31 @@ export async function fetchSystemLogs() {
     const response = await fetch(`${API_BASE_URL}/admin/logs`);
     if (!response.ok) throw new Error('Failed to fetch logs');
     return await response.json();
+}
+
+// --- DATASET REQUESTS ---
+export async function submitDatasetRequest(requestData) {
+    const response = await fetch(`${API_BASE_URL}/public/dataset/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestData)
+    });
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to submit request');
+    }
+    return await response.json();
+}
+
+export async function fetchPendingDatasetRequests() {
+    const response = await fetch(`${API_BASE_URL}/admin/datasets/pending`);
+    if (!response.ok) throw new Error('Failed to fetch pending requests');
+    return await response.json();
+}
+
+export async function approveDatasetRequest(id) {
+    const response = await fetch(`${API_BASE_URL}/admin/datasets/${id}/approve`, {
+        method: 'PUT'
+    });
+    if (!response.ok) throw new Error('Failed to approve request');
 }

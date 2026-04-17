@@ -66,6 +66,16 @@ public class ResidentService {
     }
 
     @Transactional
+    public boolean unregisterResidentByPhoneSilently(String phoneNumber) {
+        return residentRepository.findByPhoneNumber(phoneNumber)
+                .map(resident -> {
+                    residentRepository.delete(resident);
+                    return true;
+                })
+                .orElse(false);
+    }
+
+    @Transactional
     public void unregisterResidentById(Long id) {
         Resident resident = residentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Resident not found"));

@@ -8,7 +8,8 @@ import {
     fetchActiveResidents, deleteResident as deleteResidentAPI,
     fetchTemplates as fetchTemplatesAPI, saveTemplate as saveTemplateAPI,
     fetchSensorData, overrideAlert, downloadReport,
-    fetchAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser, fetchSystemLogs, fetchEvacuationSites
+    fetchAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser, fetchSystemLogs, fetchEvacuationSites,
+    fetchPendingDatasetRequests, approveDatasetRequest
 } from '../services/api.js';
 import { useSensorMqtt } from '../hooks/useSensorMqtt.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
@@ -63,7 +64,7 @@ export default function Admin() {
     // Admin Users State
     const [adminUsers, setAdminUsers] = useState([]);
     const [systemLogs, setSystemLogs] = useState([]);
-
+    const [datasetRequests, setDatasetRequests] = useState([]);
     // User Modal States
     const [showUserModal, setShowUserModal] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
@@ -210,6 +211,13 @@ export default function Admin() {
         }
     };
 
+    const loadDatasetRequests = async () => {
+        try {
+            const reqs = await fetchPendingDatasetRequests();
+            setDatasetRequests(reqs);
+        } catch (e) { console.error(e); }
+    };
+
     // -------------------------------------------------------------
     // EFFECTS
     // -------------------------------------------------------------
@@ -269,6 +277,7 @@ export default function Admin() {
         loadTemplates();
         loadEvacuationSites();
         loadSystemLogsSafe();
+        loadDatasetRequests();
 
         if (isHeadAdmin) {
             loadAdminUsersData();
@@ -295,16 +304,16 @@ export default function Admin() {
             setLastMqttAt(Date.now());
             interval = setInterval(() => {
                 const randomFlow = Math.random() * (1.5 - 0.5) + 0.5;
-                const prevWl = prevReadings.current.waterLevel || 16.5;
+                const prevWl = prevReadings.current.waterLevel || 5.5;
                 const drift = (Math.random() - 0.35) * 0.08; // slightly biased upward for demos
-                const newWl = Math.max(13.5, prevWl + (randomFlow * 0.08) + drift);
+                const newWl = Math.max(4.0, Math.min(10.0, prevWl + (randomFlow * 0.08) + drift));
                 
                 setDashData(prev => ({
                     ...prev,
                     waterLevel: newWl.toFixed(2) + ' m',
                     flowRate: randomFlow.toFixed(2) + ' m/s',
-                    status: newWl > 18 ? 'RED' : newWl > 16 ? 'ORANGE' : newWl > 15 ? 'YELLOW' : 'GREEN',
-                    statusColor: newWl > 18 ? 'text-red-600' : newWl > 16 ? 'text-orange-500' : newWl > 15 ? 'text-yellow-500' : 'text-green-600',
+                    status: newWl >= 8.5 ? 'RED' : newWl >= 7.0 ? 'ORANGE' : newWl >= 6.0 ? 'YELLOW' : 'GREEN',
+                    statusColor: newWl >= 8.5 ? 'text-red-600' : newWl >= 7.0 ? 'text-orange-500' : newWl >= 6.0 ? 'text-yellow-500' : 'text-green-600',
                     prediction: (newWl + 0.5).toFixed(2) + ' m'
                 }));
 
@@ -523,7 +532,7 @@ export default function Admin() {
 
     const handleLogout = () => {
         clearUser();
-        navigate('/');
+        window.location.href = '/';
     };
 
     // User Management Modal Handlers
@@ -707,6 +716,7 @@ export default function Admin() {
         { key: 'ai', label: 'ML Predictions & Tides', icon: 'fa-brain' },
         { key: 'residents', label: 'Residents', icon: 'fa-users' },
         { key: 'templates', label: 'SMS Templates', icon: 'fa-comment-sms' },
+        { key: 'datasets', label: 'Dataset Requests', icon: 'fa-database' },
         { key: 'reports', label: 'Report Generation', icon: 'fa-file-export' },
     ];
     if (isHeadAdmin) navItems.push({ key: 'admin_users', label: 'User Management', icon: 'fa-user-shield' });
@@ -1237,6 +1247,65 @@ export default function Admin() {
                                     })()}
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* DATASET REQUESTS */}
+                {activeView === 'datasets' && (
+                    <div className="animate-fade-in">
+                        <h1 className="text-3xl font-black text-navy tracking-tight mb-8 pl-10">Dataset Requests</h1>
+                        <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">Name / Affiliation</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">Contact Info</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">Date</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 bg-white">
+                                    {datasetRequests.map((req, i) => (
+                                        <tr key={i} className="hover:bg-gray-50 transition">
+                                            <td className="px-6 py-4 text-sm">
+                                                <p className="font-bold text-navy">{req.name}</p>
+                                                <button onClick={() => alert("Abstract / Purpose:\n\n" + req.abstractPurpose)} className="text-blue-500 text-xs font-bold mt-1 hover:underline">View Purpose</button>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm font-mono text-gray-600">
+                                                <div>{req.email}</div>
+                                                <div className="text-xs text-gray-400">{req.contactNumber}</div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-500">
+                                                {new Date(req.requestDate).toLocaleDateString()}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button onClick={async () => {
+                                                    if(window.confirm('Approve this request? This will mark it as APPROVED.')) {
+                                                        try {
+                                                            await approveDatasetRequest(req.id);
+                                                            loadDatasetRequests();
+                                                            alert('Request Approved.');
+                                                        } catch(e) { alert('Approval failed'); }
+                                                    }
+                                                }} className="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg text-white transition">
+                                                    Approve
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {datasetRequests.length === 0 && (
+                                        <tr>
+                                            <td colSpan="4" className="px-6 py-10">
+                                                <div className="text-center text-gray-500">
+                                                    <div className="text-2xl mb-2"><i className="fa-solid fa-folder-open"></i></div>
+                                                    <div className="font-bold">No pending dataset requests.</div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 )}

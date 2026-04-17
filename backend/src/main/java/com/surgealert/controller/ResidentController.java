@@ -62,6 +62,23 @@ public class ResidentController {
         }
     }
 
+    @PostMapping("/unsubscribe-otp")
+    public ResponseEntity<?> unsubscribeOtp(@RequestBody Map<String, String> payload) {
+        String phone = payload.get("phoneNumber");
+        String code = payload.get("code");
+
+        if (residentService.verifyOtp(phone, code)) {
+            boolean success = residentService.unregisterResidentByPhoneSilently(phone);
+            if (success) {
+                return ResponseEntity.ok(Collections.singletonMap("status", "unsubscribed"));
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Collections.singletonMap("error", "Phone not found anymore"));
+            }
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Collections.singletonMap("error", "Invalid OTP"));
+        }
+    }
+
     /** Admin UI uses masked phone only; delete by database id instead. */
     @DeleteMapping("/id/{id}")
     public ResponseEntity<?> unregisterResidentById(@PathVariable Long id) {

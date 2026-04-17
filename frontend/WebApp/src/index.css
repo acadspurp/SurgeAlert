@@ -6,20 +6,19 @@
 /* GLOBAL */
 body {
     font-family: 'Inter', sans-serif;
-    /* Updated gradient to ensure text is readable */
-    background: linear-gradient(135deg, #e8f0f5 0%, #0C324A 50%, #fff9e8 100%) !important;
+    background: #0f172a !important;
     min-height: 100vh;
 }
 
 /* HEADER */
 header {
-    background: linear-gradient(135deg, #0C324A 0%, #0a2335 100%) !important;
-    box-shadow: 0 4px 20px rgba(12, 50, 74, 0.4) !important;
-    border: none !important;
+    background: #0f172a !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 .header-logo {
-    color: #4A7C9D !important;
+    color: #38bdf8 !important;
     font-size: 1.5rem !important;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }

@@ -24,7 +24,7 @@ export default function Header() {
     };
 
     return (
-        <header className="bg-white shadow-md sticky top-0 z-50">
+        <header className="bg-[#0f172a] shadow-md sticky top-0 z-[9999] border-b border-gray-800">
             <nav className="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
                     <div className="flex items-center">
