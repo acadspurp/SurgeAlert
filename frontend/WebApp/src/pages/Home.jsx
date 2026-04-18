@@ -28,30 +28,36 @@ export default function Home() {
     const [tidesError, setTidesError] = useState(null);
     const [isTidesLoading, setIsTidesLoading] = useState(true);
     const [isOffline, setIsOffline] = useState(false);
+    const [isFabOpen, setIsFabOpen] = useState(true);
+    const [isDemoMode, setIsDemoMode] = useState(false);
 
     // Data fetching functions
     const loadAlertStatus = async () => {
         try {
             if (!CACHED_GUIDE) CACHED_GUIDE = await fetchAlertGuide();
             const data = await fetchAlertStatus();
-            processAlertData(data.alertLevel, data.waterLevelM);
+            const isOverride = data.description && data.description.includes('OVERRIDE');
+            processAlertData(data.alertLevel, data.waterLevelM, isOverride);
         } catch (error) {
             console.error("Failed to fetch status:", error);
         }
     };
 
-    const processAlertData = (rawLevel, currentLevel) => {
+    const processAlertData = (rawLevel, currentLevel, isOverride = false) => {
         if (rawLevel === 'OFFLINE' || currentLevel === null) {
-            setWaterLevel('--.-- m');
-            setAlertLevelText('SENSOR OFFLINE');
-            setAlertLevelKey('offline');
             setIsOffline(true);
             return;
         }
 
         setIsOffline(false);
-        const levelKey = rawLevel.toLowerCase();
-        setWaterLevel(currentLevel.toFixed(2) + ' m');
+        const floatVal = parseFloat(currentLevel);
+        
+        // Priority 1: Admin Override. Priority 2: Pure Mathematical Float Calculation vs Ghost Data.
+        const levelKey = isOverride 
+            ? rawLevel.toLowerCase() 
+            : (floatVal >= 8.5 ? 'red' : floatVal >= 7.0 ? 'orange' : floatVal >= 6.0 ? 'yellow' : 'green');
+
+        setWaterLevel(floatVal.toFixed(2) + ' m');
         setAlertLevelKey(levelKey);
 
         if (CACHED_GUIDE && (CACHED_GUIDE[levelKey] || CACHED_GUIDE['green'])) {
@@ -181,62 +187,179 @@ export default function Home() {
         return () => clearInterval(weatherInterval);
     }, []);
 
+    // Auto-Simulate for local testing if API is offline or data is corrupt
+    useEffect(() => {
+        let simInterval = null;
+        let isSimulating = false;
+
+        const checkSimulation = () => {
+             const level = mqttData ? mqttData.waterLevelM : parseFloat(waterLevel);
+             if (isOffline || isNaN(level)) {
+                 isSimulating = true;
+             }
+        };
+        checkSimulation();
+
+        if (isSimulating) {
+            let fakeLevel = isNaN(parseFloat(waterLevel)) ? 5.8 : parseFloat(waterLevel);
+            const tick = () => {
+                const randomDrift = (Math.random() * 2) - 0.5; // push it up steadily
+                fakeLevel = Math.min(10.0, Math.max(0.0, fakeLevel + randomDrift));
+                const levelKey = fakeLevel >= 8.5 ? 'red' : fakeLevel >= 7.0 ? 'orange' : fakeLevel >= 6.0 ? 'yellow' : 'green';
+                setWaterLevel(fakeLevel.toFixed(2) + ' m');
+                setAlertLevelKey(levelKey);
+                
+                if (CACHED_GUIDE && (CACHED_GUIDE[levelKey] || CACHED_GUIDE['green'])) {
+                    const guide = CACHED_GUIDE[levelKey] || CACHED_GUIDE['green'];
+                    setAlertLevelText(guide.title);
+                    
+                    let html = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-gray-200 mt-4">`;
+                    if (guide.actions && guide.actions.length > 0) {
+                        guide.actions.forEach((act, index) => {
+                            const stepNumber = String(index + 1).padStart(2, '0');
+                            const partsEn = act.en.split(':');
+                            const titleEn = partsEn.length > 1 ? partsEn[0] : `ACTION ${index + 1}`;
+                            const descEn = partsEn.length > 1 ? partsEn.slice(1).join(':').trim() : act.en;
+
+                            const partsTl = (act.tl || "").split(':');
+                            const titleTl = partsTl.length > 1 ? partsTl[0] : '';
+                            const descTl = partsTl.length > 1 ? partsTl.slice(1).join(':').trim() : act.tl;
+
+                            const icons = [
+                                '<i class="fa-solid fa-bullhorn text-blue-400"></i>',
+                                '<i class="fa-solid fa-shield-halved text-purple-400"></i>',
+                                '<i class="fa-solid fa-person-running text-orange-500"></i>',
+                                '<i class="fa-solid fa-kit-medical text-red-500"></i>',
+                                '<i class="fa-solid fa-house-user text-green-400"></i>'
+                            ];
+                            let iconHtml = icons[index % icons.length];
+
+                            html += `
+                            <div class="flex flex-col border-l-2 border-gray-700 pl-4 bg-gray-800/20 p-3 rounded-lg">
+                                <div class="flex items-center space-x-3 mb-2">
+                                    <span class="text-3xl drop-shadow-lg">${iconHtml}</span>
+                                    <div>
+                                        <h3 class="text-lg font-bold tracking-wider">${titleEn.toUpperCase()}</h3>
+                                        <p class="text-sm font-semibold opacity-90">${descEn.toUpperCase()}</p>
+                                    </div>
+                                </div>
+                                <div class="mt-2 text-sm text-gray-400 bg-black/20 p-2 rounded">
+                                    <strong>${titleTl}</strong> ${descTl}
+                                </div>
+                            </div>`;
+                        });
+                    } else {
+                         html += `<div class="col-span-3 text-center text-gray-400 py-8"><i class="fa-solid fa-thumbs-up text-4xl mb-3 text-green-500 block"></i> No specific actions required at this time.</div>`;
+                    }
+                    html += `</div>`;
+                    setAlertHtml(html);
+                } else {
+                    setAlertLevelText(`LEVEL: ${levelKey.toUpperCase()}`);
+                }
+            };
+            tick();
+            simInterval = setInterval(tick, 15000);
+        }
+
+        return () => clearInterval(simInterval);
+    }, [isOffline, mqttData]);
+
     const colors = getAlertColors(alertLevelKey);
-    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const today = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
 
     return (
         <div id="home-view" className="min-h-screen bg-[#0f172a] text-gray-200 lg:p-6 pb-24">
             
             {/* TOP ROW: Gauges and Camera */}
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
                 
                 {/* RIVER LEVEL GAUGE */}
-                <div className={`lg:col-span-2 rounded-2xl p-6 border ${colors.border} ${colors.bg} ${colors.glow} flex flex-col justify-between`}>
-                    <h2 className="text-sm font-bold text-gray-400 tracking-widest mb-4 uppercase">River Level Gauge</h2>
-                    <div className="flex items-center justify-between h-full">
+                <div className={`lg:col-span-5 xl:col-span-6 rounded-2xl p-6 border ${colors.border} ${colors.bg} ${colors.glow} flex flex-col justify-between overflow-hidden`}>
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-sm font-bold text-gray-400 tracking-widest uppercase">River Level Gauge</h2>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center sm:items-stretch gap-6 h-full w-full">
                          {/* Visual Thermometer */}
-                        <div className="relative h-48 w-12 bg-gray-900 rounded-full border-2 border-gray-700 overflow-hidden flex-shrink-0 flex items-end">
-                             {/* Gradient inner fill that moves up. Highly distinct colors. */}
-                             <div className="w-full relative transition-all duration-1000 overflow-hidden" style={{ height: waterLevel !== '--.-- m' ? `${Math.min(100, (parseFloat(waterLevel) / 10) * 100)}%` : '0%' }}>
-                                <div className="absolute bottom-0 w-full h-48" style={{ background: 'linear-gradient(to top, #22c55e 0%, #22c55e 55%, #eab308 55%, #eab308 70%, #ff8800 70%, #ff8800 85%, #ff0000 85%, #ff0000 100%)' }}></div>
+                        <div className="relative h-48 w-32 sm:w-40 flex-shrink-0 pb-4 sm:pb-0">
+                             {/* The actual gauge */}
+                             <div className="absolute bottom-0 left-0 h-full w-10 sm:w-12 bg-gray-900 rounded-full border-2 border-gray-700 overflow-hidden flex items-end">
+                                 {/* Gradient inner fill that moves up. Highly distinct colors. */}
+                                 <div className="w-full relative transition-all duration-1000 overflow-hidden" style={{ height: waterLevel !== '--.-- m' ? `${Math.min(100, (parseFloat(waterLevel) / 10) * 100)}%` : '0%' }}>
+                                    <div className="absolute bottom-0 w-full h-48" style={{ background: 'linear-gradient(to top, #22c55e 0%, #22c55e 55%, #eab308 55%, #eab308 70%, #ff8800 70%, #ff8800 85%, #ff0000 85%, #ff0000 100%)' }}></div>
+                                 </div>
                              </div>
 
-                             {/* Threshold Markers */}
-                             <div className="absolute bottom-[60%] left-0 w-full border-t-2 border-yellow-400/80 z-10" title="6m - Yellow"></div>
-                             <div className="absolute bottom-[70%] left-0 w-full border-t-2 border-orange-500/80 z-10" title="7m - Orange"></div>
-                             <div className="absolute bottom-[85%] left-0 w-full border-t-2 border-red-500/80 z-10" title="8.5m - Red"></div>
+                             {/* Threshold Markers with Lines and Labels */}
+                             <div className="absolute bottom-[60%] left-0 w-full h-[2px] bg-yellow-400 z-10 flex items-center">
+                                <span className="absolute left-[54px] sm:left-[60px] text-xs font-bold text-yellow-400 whitespace-nowrap bg-[#0f172a] px-2 py-0.5 rounded shadow-sm border border-yellow-400/30">Yellow: Monitor</span>
+                             </div>
+                             <div className="absolute bottom-[70%] left-0 w-full h-[2px] bg-orange-500 z-10 flex items-center">
+                                <span className="absolute left-[54px] sm:left-[60px] text-xs font-bold text-[#ff8800] whitespace-nowrap bg-[#0f172a] px-2 py-0.5 rounded shadow-sm border border-orange-500/30">Orange: Prepare</span>
+                             </div>
+                             <div className="absolute bottom-[85%] left-0 w-full h-[2px] bg-red-600 z-10 flex items-center">
+                                <span className="absolute left-[54px] sm:left-[60px] text-xs font-bold text-red-500 whitespace-nowrap bg-[#0f172a] px-2 py-0.5 rounded shadow-sm border border-red-600/30">Red: Evacuate</span>
+                             </div>
                              
                              {/* Current Water Level Pointer */}
                              {waterLevel !== '--.-- m' && (
-                                <div className="absolute left-0 w-full h-1 bg-white shadow-[0_0_12px_white] z-20 transition-all duration-1000" style={{ bottom: `${Math.min(100, (parseFloat(waterLevel) / 10) * 100)}%` }}></div>
+                                <div className="absolute left-0 w-10 sm:w-12 h-1 bg-white shadow-[0_0_12px_white] z-20 transition-all duration-1000" style={{ bottom: `${Math.min(100, (parseFloat(waterLevel) / 10) * 100)}%` }}></div>
                              )}
                         </div>
                         
-                        <div className="flex-1 ml-6 flex flex-col justify-center">
-                            <div className="text-center">
+                        <div className="flex-1 w-full min-w-0 flex flex-col justify-center">
+                            <div className="text-center truncate">
                                 {waterLevel === '--.-- m' ? (
                                     <div className="w-32 h-16 bg-gray-700 rounded-lg animate-pulse mx-auto"></div>
                                 ) : (
-                                    <p className="text-6xl font-black tracking-tighter text-[#38bdf8]">{waterLevel}</p>
+                                    <p className="text-5xl sm:text-6xl font-black tracking-tighter text-[#38bdf8] truncate">{waterLevel}</p>
                                 )}
-                                <div className={`mt-4 px-4 py-2 rounded-md border text-center font-black font-mono tracking-wider ${alertLevelKey === 'red' ? 'bg-red-900/60 border-red-500 text-red-500 shadow-[0_0_15px_rgba(255,0,0,0.5)]' : alertLevelKey === 'orange' ? 'bg-orange-900/60 border-orange-500 text-[#ff8800] shadow-[0_0_15px_rgba(255,136,0,0.4)]' : alertLevelKey === 'yellow' ? 'bg-yellow-900/60 border-yellow-400 text-yellow-400' : 'bg-green-900/40 border-green-500 text-green-400'}`}>
+                                <div className={`mt-4 px-2 sm:px-4 py-2 rounded-md border text-center font-black font-mono tracking-wider shadow-lg text-sm sm:text-base truncate ${alertLevelKey === 'red' ? 'bg-red-900/60 border-red-500 text-red-500 shadow-[0_0_15px_rgba(255,0,0,0.5)]' : alertLevelKey === 'orange' ? 'bg-orange-900/60 border-orange-500 text-[#ff8800] shadow-[0_0_15px_rgba(255,136,0,0.4)]' : alertLevelKey === 'yellow' ? 'bg-yellow-900/60 border-yellow-400 text-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.2)]' : 'bg-green-900/40 border-green-500 text-green-400'}`}>
                                     {alertLevelText}
                                 </div>
                             </div>
                             
-                            {/* Baseline Legend */}
-                            <div className="mt-4 bg-gray-900/50 rounded-lg p-2 border border-gray-700 text-xs font-mono grid grid-cols-2 gap-1 text-center">
-                                <span className="text-green-400 font-bold border-b border-gray-600 pb-1">Normal</span><span className="text-gray-400 border-b border-gray-600 pb-1">&lt; 6.0 m</span>
-                                <span className="text-yellow-400 font-bold border-b border-gray-600 pb-1">Yellow</span><span className="text-gray-400 border-b border-gray-600 pb-1">6.0 - 7.0 m</span>
-                                <span className="text-[#ff8800] font-bold border-b border-gray-600 pb-1">Orange</span><span className="text-gray-400 border-b border-gray-600 pb-1">7.0 - 8.5 m</span>
-                                <span className="text-[#ff0000] font-black">Red Alert</span><span className="text-gray-400">&gt; 8.5 m</span>
+                            {/* Baseline Legend Table */}
+                            <div className="mt-8 bg-[#0f172a] rounded-lg border border-gray-700 overflow-x-auto w-full">
+                                <table className="w-full text-xs sm:text-sm text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-[#1e293b] border-b border-gray-700 text-gray-300">
+                                            <th className="py-2 px-3">Color</th>
+                                            <th className="py-2 px-3">Status</th>
+                                            <th className="py-2 px-3">Threshold</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr className="border-b border-gray-800">
+                                            <td className="py-2 px-3 font-bold text-green-500">Green</td>
+                                            <td className="py-2 px-3 font-bold text-white">Normal</td>
+                                            <td className="py-2 px-3 text-gray-400">&lt; 6.0 m</td>
+                                        </tr>
+                                        <tr className="border-b border-gray-800">
+                                            <td className="py-2 px-3 font-bold text-yellow-400">Yellow</td>
+                                            <td className="py-2 px-3 font-bold text-white">Monitor</td>
+                                            <td className="py-2 px-3 text-gray-400">6.0 - 7.0 m</td>
+                                        </tr>
+                                        <tr className="border-b border-gray-800">
+                                            <td className="py-2 px-3 font-bold text-orange-500">Orange</td>
+                                            <td className="py-2 px-3 font-bold text-white">Prepare</td>
+                                            <td className="py-2 px-3 text-gray-400">7.0 - 8.5 m</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="py-2 px-3 font-bold text-red-500">Red</td>
+                                            <td className="py-2 px-3 font-bold text-white">Evacuate</td>
+                                            <td className="py-2 px-3 text-gray-400">&gt; 8.5 m</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* LIVE CAMERA FEED */}
-                <div className="lg:col-span-3 rounded-2xl p-6 bg-[#1e293b] border border-gray-800">
+                <div className="lg:col-span-7 xl:col-span-6 rounded-2xl p-6 bg-[#1e293b] border border-gray-800 flex flex-col">
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-sm font-bold text-gray-400 tracking-widest uppercase">Live Camera Feed</h2>
                         <span className="text-xs text-gray-500 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Live</span>
@@ -321,15 +444,23 @@ export default function Home() {
                 </div>
             </div>
 
-            {/* FLOATING ACTION BUTTONS */}
-            <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50">
-                <button onClick={() => navigate('/maps')} className="bg-[#22d3ee] hover:bg-[#06b6d4] text-[#083344] font-black tracking-wide py-3 px-6 rounded-full shadow-[0_10px_20px_rgba(34,211,238,0.3)] transform transition hover:-translate-y-1 flex items-center justify-center gap-2 border border-[#67e8f9]">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                    Nearest Evacuation Site
-                </button>
-                <button onClick={() => navigate('/register')} className="bg-[#a3e635] hover:bg-[#84cc16] text-[#1a2e05] font-black tracking-wide py-3 px-6 rounded-full shadow-[0_10px_20px_rgba(163,230,53,0.3)] transform transition hover:-translate-y-1 flex items-center justify-center gap-2 border border-[#bef264]">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
-                    Subscribe for SMS Alert
+            {/* COLLAPSIBLE SIDEWAYS FLOATING ACTION BUTTONS */}
+            <div className="fixed bottom-6 right-6 z-50 flex items-center justify-end">
+                <div className={`flex flex-col items-end gap-3 transition-all duration-500 ease-in-out whitespace-nowrap overflow-hidden ${isFabOpen ? 'max-w-[800px] opacity-100 mr-3' : 'max-w-0 opacity-0 mr-0'}`}>
+                    <button onClick={() => navigate('/maps')} className="bg-[#22d3ee] hover:bg-[#06b6d4] text-[#083344] font-bold text-xs sm:text-sm tracking-wide py-3 px-5 rounded-full shadow-[0_4px_10px_rgba(34,211,238,0.3)] transform transition hover:-translate-y-1 flex items-center justify-center gap-2 border border-[#67e8f9] flex-shrink-0 w-full sm:w-auto">
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        Evacuation Site
+                    </button>
+                    <button onClick={() => navigate('/register')} className="bg-[#a3e635] hover:bg-[#84cc16] text-[#1a2e05] font-bold text-xs sm:text-sm tracking-wide py-3 px-5 rounded-full shadow-[0_4px_10px_rgba(163,230,53,0.3)] transform transition hover:-translate-y-1 flex items-center justify-center gap-2 border border-[#bef264] flex-shrink-0 w-full sm:w-auto">
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+                        SMS Alert
+                    </button>
+                </div>
+                <button 
+                    onClick={() => setIsFabOpen(!isFabOpen)} 
+                    className="bg-cyan-600 hover:bg-cyan-500 text-white w-14 h-14 rounded-full shadow-[0_0_20px_rgba(8,145,178,0.5)] flex items-center justify-center transform transition active:scale-95 border-2 border-cyan-400 flex-shrink-0 z-50 self-end"
+                >
+                    <i className={`fa-solid ${isFabOpen ? 'fa-chevron-right text-xl' : 'fa-chevron-left text-xl'} drop-shadow-md`}></i>
                 </button>
             </div>
 

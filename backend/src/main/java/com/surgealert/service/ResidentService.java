@@ -62,7 +62,7 @@ public class ResidentService {
     public void unregisterResident(String phoneNumber) {
         Resident resident = residentRepository.findByPhoneNumber(phoneNumber)
                 .orElseThrow(() -> new RuntimeException("Phone number not found"));
-        residentRepository.delete(resident);
+        residentRepository.deleteById(resident.getId());
     }
 
     @Transactional

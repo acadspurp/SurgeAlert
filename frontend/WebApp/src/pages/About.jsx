@@ -9,7 +9,8 @@ export default function About() {
         contactNumber: '',
         email: '',
         affiliation: '',
-        dateRange: '',
+        dateFrom: '',
+        dateTo: '',
         dataFields: '',
         requestLetterUrl: '',
         abstractPurpose: '',
@@ -31,7 +32,7 @@ export default function About() {
 
         const fullPurpose = `
 Affiliation: ${formData.affiliation}
-Requested Date Range: ${formData.dateRange}
+Requested Date Range: ${formData.dateFrom} to ${formData.dateTo}
 Requested Data Fields: ${formData.dataFields}
 Formal Request Letter URL: ${formData.requestLetterUrl || 'Not provided'}
 
@@ -51,7 +52,7 @@ ${formData.abstractPurpose}
             await submitDatasetRequest(payload);
             alert("Dataset request submitted successfully. It is now PENDING approval by the administrators.");
             setShowModal(false);
-            setFormData({ name: '', contactNumber: '', email: '', affiliation: '', dateRange: '', dataFields: '', requestLetterUrl: '', abstractPurpose: '', dpaConsent: false });
+            setFormData({ name: '', contactNumber: '', email: '', affiliation: '', dateFrom: '', dateTo: '', dataFields: '', requestLetterUrl: '', abstractPurpose: '', dpaConsent: false });
         } catch (error) {
             alert("Error submitting request: " + error.message);
         } finally {
@@ -134,13 +135,14 @@ ${formData.abstractPurpose}
 
             {/* OVERLAY MODAL */}
             {showModal && (
-                <div className="fixed inset-0 bg-[#0f172a] bg-opacity-90 flex items-center justify-center z-[2000] p-4 backdrop-blur-sm overflow-y-auto">
-                    <div className="bg-[#1e293b] rounded-2xl border border-gray-700 max-w-2xl w-full p-8 shadow-2xl relative my-8">
-                        <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white transition">
-                            <i className="fa-solid fa-xmark text-2xl"></i>
-                        </button>
-                        
-                        <h2 className="text-2xl font-black text-white mb-2">Dataset Request Form</h2>
+                <div className="fixed inset-0 bg-[#0f172a] bg-opacity-90 flex items-start justify-center z-[2000] p-4 backdrop-blur-sm overflow-y-auto">
+                    <div className="bg-[#1e293b] rounded-2xl border border-gray-700 max-w-2xl w-full p-8 shadow-2xl relative my-8 sm:my-16">
+                        <div className="flex justify-between items-center mb-2">
+                            <h2 className="text-2xl font-black text-white">Data Request Form</h2>
+                            <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-white transition">
+                                <i className="fa-solid fa-xmark text-2xl"></i>
+                            </button>
+                        </div>
                         <p className="text-sm text-cyan-400 mb-6 font-semibold"><i className="fa-solid fa-circle-info border border-cyan-400 rounded-full text-xs p-1"></i> Ensure all details are accurate to avoid rejection.</p>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
@@ -158,7 +160,10 @@ ${formData.abstractPurpose}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-400 mb-1">Contact Number</label>
-                                    <input type="text" name="contactNumber" required className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.contactNumber} onChange={handleChange} />
+                                    <div className="flex">
+                                        <span className="bg-gray-700 text-white p-3 rounded-l-lg border border-gray-600 border-r-0 font-bold">+63</span>
+                                        <input type="number" name="contactNumber" required placeholder="9123456789" className="w-full bg-[#0f172a] border border-gray-600 rounded-r-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.contactNumber} onChange={handleChange} />
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-400 mb-1">Affiliation / Organization</label>
@@ -169,7 +174,11 @@ ${formData.abstractPurpose}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-400 mb-1">Requested Date Range</label>
-                                    <input type="text" name="dateRange" required placeholder="e.g. Jan 1 2024 - Mar 31 2024" className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.dateRange} onChange={handleChange} />
+                                    <div className="flex gap-2">
+                                        <input type="date" name="dateFrom" required min="2099-01-01" max={new Date().toISOString().split('T')[0]} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-cyan-500 focus:outline-none" value={formData.dateFrom} onChange={handleChange} title="No data currently available for selection." />
+                                        <span className="flex items-center text-gray-500 text-sm">to</span>
+                                        <input type="date" name="dateTo" required min="2099-01-01" max={new Date().toISOString().split('T')[0]} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-cyan-500 focus:outline-none" value={formData.dateTo} onChange={handleChange} title="No data currently available for selection." />
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-400 mb-1">Data Fields Needed</label>
@@ -184,15 +193,19 @@ ${formData.abstractPurpose}
 
                             <div>
                                 <label className="block text-sm font-bold text-gray-400 mb-1">Research Abstract / Purpose</label>
-                                <textarea name="abstractPurpose" required rows="3" className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none resize-none" placeholder="Briefly describe what you intend to do with the requested dataset..." value={formData.abstractPurpose} onChange={handleChange}></textarea>
+                                <textarea name="abstractPurpose" required rows="2" className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none resize-none" placeholder="Briefly describe what you intend to do with the requested dataset..." value={formData.abstractPurpose} onChange={handleChange}></textarea>
                             </div>
 
-                            <div className="p-3 bg-gray-800/50 border border-gray-700 rounded-lg text-xs text-gray-400 mt-2">
-                                <label className="flex items-start gap-3 cursor-pointer">
-                                    <input type="checkbox" name="dpaConsent" checked={formData.dpaConsent} onChange={handleChange} className="mt-1" />
-                                    <span>
-                                        <strong>Data Privacy Agreement (R.A. 10173):</strong> By submitting this request, I authorize the SurgeAlert administrators to collect and verify my personal information and affiliation strictly for the purpose of validating this dataset request.
-                                    </span>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-400 mb-2">Data Privacy Agreement</label>
+                                <div className="p-4 bg-[#0f172a] border border-gray-600 rounded-lg text-xs leading-relaxed text-gray-400 mb-3 max-h-32 overflow-y-auto">
+                                    <strong className="text-gray-200">Compliance with Data Privacy Act of 2012 (R.A. 10173)</strong><br /><br />
+                                    I hereby grant my independent and voluntary consent to the SurgeAlert administrators to collect, process, and retain my personal and institutional data (Full Name, Contact Number, Institutional Email, and Affiliations) exclusively for the assessment, verification, and fulfillment of this Dataset Request.<br /><br />
+                                    I understand that my provided data will be safeguarded chronologically, kept strictly confidential, and will not be transferred to or shared with any unauthorized third parties without my explicit written consent. Furthermore, I recognize my fundamental rights to access, rectify, port, or request the immediate deletion of my personal information as definitively guaranteed by the Data Privacy Act of the Philippines.
+                                </div>
+                                <label className="flex items-center gap-3 cursor-pointer mt-2">
+                                    <input type="checkbox" name="dpaConsent" required checked={formData.dpaConsent} onChange={handleChange} className="w-4 h-4 cursor-pointer accent-cyan-500 rounded" />
+                                    <span className="text-sm font-bold text-white">I agree to the Data Privacy Agreement</span>
                                 </label>
                             </div>
 

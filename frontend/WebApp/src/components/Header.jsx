@@ -33,9 +33,9 @@ export default function Header() {
                     {/* Desktop Menu */}
                     <div className="hidden md:block">
                         <div className="ml-10 flex items-baseline space-x-4">
-                            <a href="#" onClick={(e) => { e.preventDefault(); handleNavClick('/'); }} className="nav-link">Home</a>
-                            <a href="#" onClick={(e) => { e.preventDefault(); handleNavClick('/maps'); }} className="nav-link">Maps</a>
-                            <a href="#" onClick={(e) => { e.preventDefault(); handleNavClick('/about'); }} className="nav-link">About</a>
+                            <a href="#" onClick={(e) => { e.preventDefault(); handleNavClick('/'); }} className={`px-3 py-2 ${location.pathname === '/' ? 'text-cyan-400 font-black border-b-2 border-cyan-400' : 'text-gray-300 hover:text-white font-medium'}`}>Home</a>
+                            <a href="#" onClick={(e) => { e.preventDefault(); handleNavClick('/maps'); }} className={`px-3 py-2 ${location.pathname === '/maps' ? 'text-cyan-400 font-black border-b-2 border-cyan-400' : 'text-gray-300 hover:text-white font-medium'}`}>Maps</a>
+                            <a href="#" onClick={(e) => { e.preventDefault(); handleNavClick('/about'); }} className={`px-3 py-2 ${location.pathname === '/about' ? 'text-cyan-400 font-black border-b-2 border-cyan-400' : 'text-gray-300 hover:text-white font-medium'}`}>About</a>
                         </div>
                     </div>
                     {/* Login/Logout */}
@@ -58,9 +58,9 @@ export default function Header() {
             {mobileMenuOpen && (
                 <div className="md:hidden" id="mobile-menu">
                     <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-navy-900">
-                        <a href="#" onClick={(e) => { e.preventDefault(); handleNavClick('/'); }} className="block px-3 py-2 text-white hover:bg-blue-500">Home</a>
-                        <a href="#" onClick={(e) => { e.preventDefault(); handleNavClick('/maps'); }} className="block px-3 py-2 text-white hover:bg-blue-500">Maps</a>
-                        <a href="#" onClick={(e) => { e.preventDefault(); handleNavClick('/about'); }} className="block px-3 py-2 text-white hover:bg-blue-500">About</a>
+                        <a href="#" onClick={(e) => { e.preventDefault(); handleNavClick('/'); }} className={`block px-3 py-2 text-white ${location.pathname === '/' ? 'bg-cyan-600 font-bold rounded-md' : 'hover:bg-blue-500'}`}>Home</a>
+                        <a href="#" onClick={(e) => { e.preventDefault(); handleNavClick('/maps'); }} className={`block px-3 py-2 text-white ${location.pathname === '/maps' ? 'bg-cyan-600 font-bold rounded-md' : 'hover:bg-blue-500'}`}>Maps</a>
+                        <a href="#" onClick={(e) => { e.preventDefault(); handleNavClick('/about'); }} className={`block px-3 py-2 text-white ${location.pathname === '/about' ? 'bg-cyan-600 font-bold rounded-md' : 'hover:bg-blue-500'}`}>About</a>
                         {user ? (
                             <a href="#" onClick={(e) => { e.preventDefault(); handleLogout(); }} id="mobile-logout-btn" className="block px-3 py-2 text-white hover:bg-red-500">Logout</a>
                         ) : (
