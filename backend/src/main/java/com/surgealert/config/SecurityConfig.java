@@ -100,7 +100,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/external/tides").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/sensor-data").hasRole("EDGE_INGEST")
                         .requestMatchers(HttpMethod.POST, "/api/external/sms/receive").hasRole("EDGE_INGEST")
-                        .requestMatchers(HttpMethod.GET, "/api/sensor-data/latest").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/sensor-data/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/residents/id/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/residents/*").hasAnyRole("ADMIN", "HEAD_ADMIN")

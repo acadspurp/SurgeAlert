@@ -77,14 +77,10 @@ public class EdgeApiKeyAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private static boolean constantTimeEquals(byte[] a, byte[] b) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hashA = md.digest(a != null ? a : new byte[0]);
-            byte[] hashB = md.digest(b != null ? b : new byte[0]);
-            return MessageDigest.isEqual(hashA, hashB);
-        } catch (Exception e) {
+        if (a.length != b.length) {
             return false;
         }
+        return MessageDigest.isEqual(a, b);
     }
 
     private static void writeJsonError(HttpServletResponse response, int code, String message) throws IOException {
