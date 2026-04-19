@@ -4,147 +4,54 @@ import com.surgealert.dto.ResidentAdminDTO;
 import com.surgealert.dto.ResidentRequest;
 import com.surgealert.entity.Resident;
 import com.surgealert.repository.ResidentRepository;
-import com.surgealert.util.PhoneNormalizer;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.MessageDigest;
-import java.security.SecureRandom;
-import java.time.Instant;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Service
 public class ResidentService {
 
-    private static final int OTP_EXPIRY_SECONDS = 600;
-    private static final int MAX_OTP_SENDS_PER_WINDOW = 5;
-    private static final long OTP_SEND_WINDOW_MS = 15 * 60_000L;
-    private static final int MAX_OTP_VERIFY_ATTEMPTS = 8;
-
     private final ResidentRepository residentRepository;
-    private final PhoneSearchHashService phoneSearchHashService;
-    private final ResidentProofService residentProofService;
 
-    private final SecureRandom secureRandom = new SecureRandom();
+    // In-memory storage for OTPs (Key: PhoneNumber, Value: OTP)
+    private final Map<String, String> otpStorage = new ConcurrentHashMap<>();
 
-    private final Map<String, OtpHolder> otpStorage = new ConcurrentHashMap<>();
-    private final Map<String, Deque<Long>> otpSendHistory = new ConcurrentHashMap<>();
-
-    @Value("${surgealert.otp.expose-in-response:false}")
-    private boolean exposeOtpInResponse;
-
-    public ResidentService(
-            ResidentRepository residentRepository,
-            PhoneSearchHashService phoneSearchHashService,
-            ResidentProofService residentProofService) {
+    public ResidentService(ResidentRepository residentRepository) {
         this.residentRepository = residentRepository;
-        this.phoneSearchHashService = phoneSearchHashService;
-        this.residentProofService = residentProofService;
     }
 
-    public Map<String, Object> generateOtp(String rawPhone) {
-        String normalized = PhoneNormalizer.normalize(rawPhone);
-        if (normalized.isBlank()) {
-            throw new IllegalArgumentException("Phone number is required");
-        }
-        enforceOtpSendRate(normalized);
-
-        byte[] buf = new byte[4];
-        secureRandom.nextBytes(buf);
-        int n = Math.abs(java.nio.ByteBuffer.wrap(buf).getInt()) % 1_000_000;
-        String otp = String.format("%06d", n);
-
-        otpStorage.put(normalized, new OtpHolder(otp, Instant.now().plusSeconds(OTP_EXPIRY_SECONDS), 0));
-
-        java.util.HashMap<String, Object> body = new java.util.HashMap<>();
-        body.put("status", "sent");
-        if (exposeOtpInResponse) {
-            body.put("dev_otp", otp);
-        }
-        return body;
+    // --- OTP LOGIC ---
+    public String generateOtp(String phoneNumber) {
+        // Generate random 6-digit code
+        String otp = String.format("%06d", new Random().nextInt(999999));
+        otpStorage.put(phoneNumber, otp);
+        // Log to console (Simulating SMS sending)
+        System.out.println(">>> GENERATED OTP for " + phoneNumber + ": " + otp);
+        return otp;
     }
 
-    private void enforceOtpSendRate(String normalizedPhone) {
-        long now = System.currentTimeMillis();
-        Deque<Long> dq = otpSendHistory.computeIfAbsent(normalizedPhone, k -> new ArrayDeque<>());
-        synchronized (dq) {
-            while (!dq.isEmpty() && now - dq.peekFirst() > OTP_SEND_WINDOW_MS) {
-                dq.pollFirst();
-            }
-            if (dq.size() >= MAX_OTP_SENDS_PER_WINDOW) {
-                throw new IllegalStateException("Too many OTP requests. Try again later.");
-            }
-            dq.addLast(now);
+    public boolean verifyOtp(String phoneNumber, String code) {
+        String validCode = otpStorage.get(phoneNumber);
+        if (validCode != null && validCode.equals(code)) {
+            otpStorage.remove(phoneNumber); // One-time use
+            return true;
         }
+        return false;
     }
 
-    public Map<String, Object> verifyOtp(String rawPhone, String code, String purpose) {
-        String normalized = PhoneNormalizer.normalize(rawPhone);
-        if (normalized.isBlank() || code == null || code.isBlank()) {
-            throw new IllegalArgumentException("Phone and code are required");
-        }
-        OtpHolder holder = otpStorage.get(normalized);
-        if (holder == null || holder.expires.isBefore(Instant.now())) {
-            otpStorage.remove(normalized);
-            throw new IllegalArgumentException("Invalid or expired OTP");
-        }
-        if (holder.getFailedAttempts() >= MAX_OTP_VERIFY_ATTEMPTS) {
-            otpStorage.remove(normalized);
-            throw new IllegalStateException("Too many invalid attempts. Request a new OTP.");
-        }
-        if (!constantTimeEquals(holder.getCode(), code.trim())) {
-            holder.incrementFailures();
-            throw new IllegalArgumentException("Invalid OTP");
-        }
-        otpStorage.remove(normalized);
-
-        ResidentProofService.Kind kind = "UNSUBSCRIBE".equalsIgnoreCase(purpose)
-                ? ResidentProofService.Kind.UNSUBSCRIBE
-                : ResidentProofService.Kind.REGISTER;
-        String token = residentProofService.issue(normalized, kind);
-
-        java.util.HashMap<String, Object> out = new java.util.HashMap<>();
-        out.put("verified", true);
-        if (kind == ResidentProofService.Kind.REGISTER) {
-            out.put("registrationToken", token);
-        } else {
-            out.put("unsubscribeToken", token);
-        }
-        return out;
-    }
-
-    private static boolean constantTimeEquals(String a, String b) {
-        if (a == null || b == null) {
-            return false;
-        }
-        byte[] x = a.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        byte[] y = b.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        if (x.length != y.length) {
-            return false;
-        }
-        return MessageDigest.isEqual(x, y);
-    }
-
-    @Transactional
-    public Resident registerResident(ResidentRequest request, String registrationToken) {
-        residentProofService.verifyAndConsume(registrationToken, request.getPhoneNumber(), ResidentProofService.Kind.REGISTER);
-
-        String normalized = PhoneNormalizer.normalize(request.getPhoneNumber());
-        String hash = phoneSearchHashService.hashNormalized(normalized);
-        if (residentRepository.existsByPhoneSearchHash(hash)) {
-            throw new IllegalStateException("Phone number already registered");
+    // --- REGISTRATION LOGIC ---
+    public Resident registerResident(ResidentRequest request) {
+        if (residentRepository.existsByPhoneNumber(request.getPhoneNumber())) {
+            throw new RuntimeException("Phone number already registered");
         }
 
         Resident resident = new Resident();
         resident.setPhoneNumber(request.getPhoneNumber());
-        resident.setPhoneSearchHash(hash);
         resident.setEmail(request.getEmail());
         resident.setFullName(request.getFullName());
 
@@ -153,14 +60,14 @@ public class ResidentService {
 
     @Transactional
     public void unregisterResident(String phoneNumber) {
-        Resident resident = findByAnyPhone(phoneNumber)
+        Resident resident = residentRepository.findByPhoneNumber(phoneNumber)
                 .orElseThrow(() -> new RuntimeException("Phone number not found"));
         residentRepository.deleteById(resident.getId());
     }
 
     @Transactional
     public boolean unregisterResidentByPhoneSilently(String phoneNumber) {
-        return findByAnyPhone(phoneNumber)
+        return residentRepository.findByPhoneNumber(phoneNumber)
                 .map(resident -> {
                     residentRepository.delete(resident);
                     return true;
@@ -175,6 +82,8 @@ public class ResidentService {
         residentRepository.delete(resident);
     }
 
+    // --- USED FOR SMS ALERTS (INTERNAL USE - RETURNS RAW DATA) ---
+    // The system needs the REAL phone numbers to send alerts.
     public List<String> getAllActivePhoneNumbers() {
         return residentRepository.findByIsActiveTrue().stream()
                 .map(Resident::getPhoneNumber)
@@ -188,29 +97,23 @@ public class ResidentService {
                 .collect(Collectors.toList());
     }
 
+    // --- USED FOR ADMIN DASHBOARD (EXTERNAL USE - RETURNS MASKED DATA) ---
+    // We strictly convert to DTO here to hide sensitive info
     public List<ResidentAdminDTO> getAllActiveResidentsForAdmin() {
         return residentRepository.findByIsActiveTrue().stream()
                 .map(this::maskResidentData)
                 .collect(Collectors.toList());
     }
 
-    @Transactional
-    public boolean completeUnsubscribeWithProof(String rawPhone, String unsubscribeToken) {
-        residentProofService.verifyAndConsume(unsubscribeToken, rawPhone, ResidentProofService.Kind.UNSUBSCRIBE);
-        return unregisterResidentByPhoneSilently(rawPhone);
-    }
-
-    private Optional<Resident> findByAnyPhone(String rawPhone) {
-        String hash = phoneSearchHashService.hashRaw(rawPhone);
-        return residentRepository.findByPhoneSearchHash(hash);
-    }
-
+    // MASKING HELPER
     private ResidentAdminDTO maskResidentData(Resident resident) {
         String rawPhone = resident.getPhoneNumber() != null ? resident.getPhoneNumber() : "";
         String rawName = resident.getFullName() != null ? resident.getFullName() : "";
 
+        // 1. Mask Phone: Keep only last 4 digits (e.g. ******6789); full number is AES-encrypted in DB
         String maskedPhone = "******" + (rawPhone.length() > 4 ? rawPhone.substring(rawPhone.length() - 4) : rawPhone);
 
+        // 2. Abbreviate Name: "Juan Dela Cruz" -> "J. Cruz"
         String abbreviatedName = rawName;
         String[] parts = rawName.trim().split("\\s+");
         if (parts.length > 1) {
@@ -223,50 +126,5 @@ public class ResidentService {
                 maskedPhone,
                 resident.getEmail()
         );
-    }
-
-    private static final class OtpHolder {
-        private final String code;
-        private final Instant expires;
-        private int failedAttempts;
-
-        private OtpHolder(String code, Instant expires, int failedAttempts) {
-            this.code = code;
-            this.expires = expires;
-            this.failedAttempts = failedAttempts;
-        }
-
-        private String getCode() {
-            return code;
-        }
-
-        private Instant getExpires() {
-            return expires;
-        }
-
-        private int getFailedAttempts() {
-            return failedAttempts;
-        }
-
-        private void incrementFailures() {
-            this.failedAttempts++;
-        }
-    }
-
-    /**
-     * Backfills {@link Resident#phoneSearchHash} for rows created before hashing was added.
-     */
-    @Transactional
-    public void backfillPhoneSearchHashes() {
-        List<Resident> missing = residentRepository.findByPhoneSearchHashIsNull();
-        for (Resident r : missing) {
-            String phone = r.getPhoneNumber();
-            if (phone == null || phone.isBlank()) {
-                continue;
-            }
-            String hash = phoneSearchHashService.hashRaw(phone);
-            r.setPhoneSearchHash(hash);
-            residentRepository.save(r);
-        }
     }
 }

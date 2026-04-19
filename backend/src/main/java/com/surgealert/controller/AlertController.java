@@ -2,7 +2,6 @@ package com.surgealert.controller;
 
 import com.surgealert.dto.AlertStatusDTO;
 import com.surgealert.dto.SensorDataDTO;
-import com.surgealert.service.CameraImageCache;
 import com.surgealert.service.SensorDataService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,16 +12,15 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/public/alerts")
+@CrossOrigin(origins = "*")
 public class AlertController {
 
     public static String overrideLevel = null;
 
     private final SensorDataService sensorDataService;
-    private final CameraImageCache cameraImageCache;
 
-    public AlertController(SensorDataService sensorDataService, CameraImageCache cameraImageCache) {
+    public AlertController(SensorDataService sensorDataService) {
         this.sensorDataService = sensorDataService;
-        this.cameraImageCache = cameraImageCache;
     }
 
     @GetMapping("/status")
@@ -30,6 +28,7 @@ public class AlertController {
         SensorDataDTO latestData = sensorDataService.getLatestSensorData();
         AlertStatusDTO response = new AlertStatusDTO();
 
+        // 1. If there's an override, apply it IMMEDIATELY
         if (overrideLevel != null) {
             response.setWaterLevelM(latestData != null ? latestData.getWaterLevelM() : 0.0);
             response.setAlertLevel(overrideLevel);
@@ -39,11 +38,13 @@ public class AlertController {
         }
 
         if (latestData != null) {
+            // Online: Return actual data
             response.setWaterLevelM(latestData.getWaterLevelM());
             response.setAlertLevel(latestData.getCurrentAlertLevel());
             response.setLastUpdated(latestData.getTimestamp());
             response.setDescription("Live data from monitoring station.");
         } else {
+            // Offline: Return nulls/offline status
             response.setWaterLevelM(null);
             response.setAlertLevel("OFFLINE");
             response.setLastUpdated(LocalDateTime.now());
@@ -70,19 +71,28 @@ public class AlertController {
         return ResponseEntity.ok(Collections.singletonMap("status", "success"));
     }
 
+
     @GetMapping("/camera")
     public ResponseEntity<Map<String, String>> getCameraUrl() {
-        String imgBase64 = cameraImageCache.getLatestBase64();
+        // 1. Try to get from RAM (Fastest)
+        String imgBase64 = SensorDataController.currentImageBase64;
+
+        // 2. If RAM is empty (Server restarted), try to fetch the last known image from DB
         if (imgBase64 == null || imgBase64.isEmpty()) {
             SensorDataDTO latest = sensorDataService.getLatestSensorData();
-            if (latest != null && latest.getSnapshotBase64() != null && !latest.getSnapshotBase64().isEmpty()) {
+            if (latest != null && latest.getSnapshotBase64() != null) {
                 imgBase64 = latest.getSnapshotBase64();
-                cameraImageCache.setLatestBase64(imgBase64);
+                // Refill RAM cache
+                SensorDataController.currentImageBase64 = imgBase64;
             }
         }
+
+        // If still null, return empty string
         if (imgBase64 == null) {
             imgBase64 = "";
         }
+
+        // Frontend will use this as <img src="data:image/jpg;base64,...">
         return ResponseEntity.ok(Collections.singletonMap("img_base64", imgBase64));
     }
 }

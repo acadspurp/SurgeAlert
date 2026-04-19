@@ -9,11 +9,7 @@ import java.util.Optional;
 
 @Repository
 public interface ResidentRepository extends JpaRepository<Resident, Long> {
-    Optional<Resident> findByPhoneSearchHash(String phoneSearchHash);
-
-    boolean existsByPhoneSearchHash(String phoneSearchHash);
-
+    Optional<Resident> findByPhoneNumber(String phoneNumber);
     List<Resident> findByIsActiveTrue();
-
-    List<Resident> findByPhoneSearchHashIsNull();
+    boolean existsByPhoneNumber(String phoneNumber);
 }
