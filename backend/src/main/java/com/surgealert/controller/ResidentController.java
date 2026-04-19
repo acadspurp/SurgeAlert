@@ -13,8 +13,10 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/residents")
-@CrossOrigin(origins = "*")
 public class ResidentController {
+
+    public static final String HEADER_REGISTRATION_PROOF = "X-Resident-Proof";
+    public static final String HEADER_UNSUBSCRIBE_PROOF = "X-Resident-Unsubscribe-Proof";
 
     private final ResidentService residentService;
 
@@ -24,28 +26,37 @@ public class ResidentController {
 
     @PostMapping("/send-otp")
     public ResponseEntity<?> sendOtp(@RequestBody Map<String, String> payload) {
-        String phone = payload.get("phoneNumber");
-        String otp = residentService.generateOtp(phone);
-        // Return the OTP in JSON for "Dev Mode" so you can see it in the browser console
-        return ResponseEntity.ok(Collections.singletonMap("dev_otp", otp));
+        try {
+            String phone = payload.get("phoneNumber");
+            return ResponseEntity.ok(residentService.generateOtp(phone));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(e.getMessage() != null ? e.getMessage() : "Too many requests");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error sending OTP");
+        }
     }
 
     @PostMapping("/verify-otp")
     public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> payload) {
-        String phone = payload.get("phoneNumber");
-        String code = payload.get("code");
-
-        if (residentService.verifyOtp(phone, code)) {
-            return ResponseEntity.ok(Collections.singletonMap("status", "verified"));
-        } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid OTP");
+        try {
+            String phone = payload.get("phoneNumber");
+            String code = payload.get("code");
+            String purpose = payload.getOrDefault("purpose", "REGISTER");
+            return ResponseEntity.ok(residentService.verifyOtp(phone, code, purpose));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> registerResident(@RequestBody ResidentRequest request) {
+    public ResponseEntity<?> registerResident(
+            @RequestHeader(HEADER_REGISTRATION_PROOF) String registrationToken,
+            @RequestBody ResidentRequest request) {
         try {
-            residentService.registerResident(request);
+            residentService.registerResident(request, registrationToken);
             return ResponseEntity.status(HttpStatus.CREATED).body("Resident registered successfully");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
@@ -63,23 +74,21 @@ public class ResidentController {
     }
 
     @PostMapping("/unsubscribe-otp")
-    public ResponseEntity<?> unsubscribeOtp(@RequestBody Map<String, String> payload) {
-        String phone = payload.get("phoneNumber");
-        String code = payload.get("code");
-
-        if (residentService.verifyOtp(phone, code)) {
-            boolean success = residentService.unregisterResidentByPhoneSilently(phone);
+    public ResponseEntity<?> unsubscribeOtp(
+            @RequestHeader(HEADER_UNSUBSCRIBE_PROOF) String unsubscribeToken,
+            @RequestBody Map<String, String> payload) {
+        try {
+            String phone = payload.get("phoneNumber");
+            boolean success = residentService.completeUnsubscribeWithProof(phone, unsubscribeToken);
             if (success) {
                 return ResponseEntity.ok(Collections.singletonMap("status", "unsubscribed"));
-            } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Collections.singletonMap("error", "Phone not found anymore"));
             }
-        } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Collections.singletonMap("error", "Invalid OTP"));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Collections.singletonMap("error", "Phone not found"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Collections.singletonMap("error", e.getMessage()));
         }
     }
 
-    /** Admin UI uses masked phone only; delete by database id instead. */
     @DeleteMapping("/id/{id}")
     public ResponseEntity<?> unregisterResidentById(@PathVariable Long id) {
         try {
@@ -90,7 +99,6 @@ public class ResidentController {
         }
     }
 
-    // --- UPDATED to return MASKED DTO objects for Admin Dashboard ---
     @GetMapping("/active")
     public ResponseEntity<List<ResidentAdminDTO>> getActiveResidents() {
         return ResponseEntity.ok(residentService.getAllActiveResidentsForAdmin());

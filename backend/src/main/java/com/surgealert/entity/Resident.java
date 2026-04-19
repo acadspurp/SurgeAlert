@@ -17,6 +17,10 @@ public class Resident {
     @Column(nullable = false, unique = true)
     private String phoneNumber;
 
+    /** Deterministic HMAC for lookups; never expose publicly. */
+    @Column(nullable = true, unique = true, length = 64)
+    private String phoneSearchHash;
+
     @Column
     private String email;
 
@@ -41,6 +45,9 @@ public class Resident {
 
     public String getPhoneNumber() { return phoneNumber; }
     public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
+
+    public String getPhoneSearchHash() { return phoneSearchHash; }
+    public void setPhoneSearchHash(String phoneSearchHash) { this.phoneSearchHash = phoneSearchHash; }
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }

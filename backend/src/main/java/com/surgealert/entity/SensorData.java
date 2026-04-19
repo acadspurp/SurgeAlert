@@ -36,6 +36,10 @@ public class SensorData {
     @Column(nullable = true)
     private String predictedAlertLevel;
 
+    @Lob
+    @Column(name = "snapshot_base64")
+    private String snapshotBase64;
+
     @PrePersist
     protected void onCreate() {
         if (timestamp == null) {
@@ -72,4 +76,7 @@ public class SensorData {
 
     public String getPredictedAlertLevel() { return predictedAlertLevel; }
     public void setPredictedAlertLevel(String predictedAlertLevel) { this.predictedAlertLevel = predictedAlertLevel; }
+
+    public String getSnapshotBase64() { return snapshotBase64; }
+    public void setSnapshotBase64(String snapshotBase64) { this.snapshotBase64 = snapshotBase64; }
 }

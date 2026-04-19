@@ -6,28 +6,31 @@ import jakarta.persistence.Converter;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Base64;
 
 /**
- * AES-128 encryption at rest for sensitive string columns (e.g. phone numbers).
- * Secret resolution: {@link SurgeEncryptionEnvironmentPostProcessor}, env, or default.
- * If decryption fails (legacy plaintext in DB), the stored value is returned as-is.
- * A new {@link Cipher} is used per conversion ({@link Cipher} is not thread-safe).
+ * AES-128 for phone numbers at rest. New values use CBC with a random IV (prefix {@code v2:}).
+ * Legacy ECB ciphertext (no prefix) is still decrypted for backward compatibility.
  */
 @Component
 @Converter(autoApply = false)
 public class AttributeEncryptor implements AttributeConverter<String, String> {
 
-    private static final String AES = "AES";
+    private static final String PREFIX_V2 = "v2:";
+    private static final String CBC = "AES/CBC/PKCS5Padding";
+    private static final String ECB = "AES";
 
     private final Key key;
+    private final SecureRandom secureRandom = new SecureRandom();
 
     public AttributeEncryptor() {
-        this.key = new SecretKeySpec(normalizeKey(resolveSecretRaw()), AES);
+        this.key = new SecretKeySpec(normalizeKey(resolveSecretRaw()), "AES");
     }
 
     private static String resolveSecretRaw() {
@@ -59,10 +62,15 @@ public class AttributeEncryptor implements AttributeConverter<String, String> {
             return null;
         }
         try {
-            Cipher cipher = Cipher.getInstance(AES);
-            cipher.init(Cipher.ENCRYPT_MODE, key);
-            return Base64.getEncoder().encodeToString(
-                    cipher.doFinal(attribute.getBytes(StandardCharsets.UTF_8)));
+            byte[] iv = new byte[16];
+            secureRandom.nextBytes(iv);
+            Cipher cipher = Cipher.getInstance(CBC);
+            cipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
+            byte[] ciphertext = cipher.doFinal(attribute.getBytes(StandardCharsets.UTF_8));
+            byte[] combined = new byte[iv.length + ciphertext.length];
+            System.arraycopy(iv, 0, combined, 0, iv.length);
+            System.arraycopy(ciphertext, 0, combined, iv.length, ciphertext.length);
+            return PREFIX_V2 + Base64.getEncoder().encodeToString(combined);
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
@@ -73,12 +81,26 @@ public class AttributeEncryptor implements AttributeConverter<String, String> {
         if (dbData == null) {
             return null;
         }
+        if (dbData.startsWith(PREFIX_V2)) {
+            try {
+                byte[] combined = Base64.getDecoder().decode(dbData.substring(PREFIX_V2.length()));
+                if (combined.length < 17) {
+                    return dbData;
+                }
+                byte[] iv = Arrays.copyOfRange(combined, 0, 16);
+                byte[] ct = Arrays.copyOfRange(combined, 16, combined.length);
+                Cipher cipher = Cipher.getInstance(CBC);
+                cipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
+                return new String(cipher.doFinal(ct), StandardCharsets.UTF_8);
+            } catch (Exception e) {
+                return dbData;
+            }
+        }
         try {
-            Cipher cipher = Cipher.getInstance(AES);
+            Cipher cipher = Cipher.getInstance(ECB);
             cipher.init(Cipher.DECRYPT_MODE, key);
             return new String(cipher.doFinal(Base64.getDecoder().decode(dbData)), StandardCharsets.UTF_8);
         } catch (Exception e) {
-            // Not valid Base64 / AES payload (e.g. old plaintext phone before encryption)
             return dbData;
         }
     }

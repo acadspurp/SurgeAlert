@@ -1,4 +1,14 @@
 import { API_BASE_URL } from '../config.js';
+import { getUser } from './auth.js';
+
+function bearerHeaders(extra = {}) {
+    const u = getUser();
+    const h = { ...extra };
+    if (u?.token) {
+        h['Authorization'] = `Bearer ${u.token}`;
+    }
+    return h;
+}
 
 // --- WEATHER API ---
 const weatherMap = {
@@ -13,19 +23,19 @@ const weatherMap = {
     55: { description: 'Dense Drizzle', icon: '🌧️' },
     56: { description: 'Light Freezing Drizzle', icon: '🌨️' },
     57: { description: 'Dense Freezing Drizzle', icon: '🌨️' },
-    61: { description: 'Slight Rain', icon: '🌧️' },
+    61: { description: 'Light Rain', icon: '🌧️' },
     63: { description: 'Moderate Rain', icon: '🌧️' },
     65: { description: 'Heavy Rain', icon: '⛈️' },
     66: { description: 'Light Freezing Rain', icon: '🌨️' },
     67: { description: 'Heavy Freezing Rain', icon: '🌨️' },
-    71: { description: 'Slight Snow', icon: '❄️' },
+    71: { description: 'Light Snow', icon: '❄️' },
     73: { description: 'Moderate Snow', icon: '❄️' },
     75: { description: 'Heavy Snow', icon: '❄️' },
     77: { description: 'Snow Grains', icon: '❄️' },
-    80: { description: 'Slight Rain Showers', icon: '🌦️' },
+    80: { description: 'Light Rain Showers', icon: '🌦️' },
     81: { description: 'Moderate Rain Showers', icon: '🌧️' },
     82: { description: 'Violent Rain Showers', icon: '⛈️' },
-    85: { description: 'Slight Snow Showers', icon: '❄️' },
+    85: { description: 'Light Snow Showers', icon: '❄️' },
     86: { description: 'Heavy Snow Showers', icon: '❄️' },
     95: { description: 'Thunderstorm', icon: '⚡' },
     96: { description: 'Thunderstorm with Hail', icon: '⛈️' },
@@ -52,16 +62,22 @@ export async function fetchAlertStatus() {
 export async function overrideAlert(level, reason = "") {
     const response = await fetch(`${API_BASE_URL}/public/alerts/override`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: bearerHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ level, reason })
     });
     if (!response.ok) throw new Error('Failed to override alert');
     return await response.json();
 }
 
-// --- CAMERA FEED ---
+// --- CAMERA FEED (requires admin JWT) ---
 export async function fetchCameraFeed() {
-    const response = await fetch(`${API_BASE_URL}/public/alerts/camera`);
+    const response = await fetch(`${API_BASE_URL}/public/alerts/camera`, {
+        headers: bearerHeaders()
+    });
+    if (!response.ok) {
+        const err = await response.text().catch(() => '');
+        throw new Error(err || 'Camera unavailable');
+    }
     return await response.json();
 }
 
@@ -106,31 +122,17 @@ export async function fetchTidesData() {
 export async function fetchEvacuationSites() {
     const response = await fetch(`${API_BASE_URL}/public/evacuation-sites`);
     if (!response.ok) throw new Error('Failed to fetch map data');
-    const sites = await response.json();
-
-    // Some deployments don't return `capacity` fields yet. For now we normalize client-side
-    // so the UI can still render a capacity tracker + map popups consistently.
-    return (Array.isArray(sites) ? sites : []).map((site, idx) => {
-        const capacityRaw = site?.capacity;
-        const hasCapacity =
-            capacityRaw !== null &&
-            capacityRaw !== undefined &&
-            String(capacityRaw).trim() !== '' &&
-            !Number.isNaN(Number(capacityRaw));
-
-        if (hasCapacity) return site;
-
-        // Deterministic-ish fallback capacity so refreshes don't look too chaotic.
-        const base = 150 + ((idx * 37) % 120); // 150..269
-        return { ...site, capacity: base };
-    });
+    return await response.json();
 }
 
 // --- RESIDENT REGISTRATION ---
-export async function registerResident(userData) {
+export async function registerResident(userData, registrationToken) {
     const response = await fetch(`${API_BASE_URL}/residents/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Resident-Proof': registrationToken
+        },
         body: JSON.stringify(userData)
     });
 
@@ -156,29 +158,35 @@ export async function sendOtp(phoneNumber) {
     return await response.json();
 }
 
-export async function verifyOtp(phoneNumber, code) {
+/** @param purpose {'REGISTER'|'UNSUBSCRIBE'} */
+export async function verifyOtp(phoneNumber, code, purpose = 'REGISTER') {
     const response = await fetch(`${API_BASE_URL}/residents/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber, code })
-    });
-
-    if (!response.ok) throw new Error("Invalid OTP");
-    return true;
-}
-
-export async function unsubscribeOtp(phoneNumber, code) {
-    const response = await fetch(`${API_BASE_URL}/residents/unsubscribe-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber, code })
+        body: JSON.stringify({ phoneNumber, code, purpose })
     });
 
     if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Unsubscribe failed");
+        const t = await response.text();
+        throw new Error(t || "Invalid OTP");
     }
-    return true;
+    return await response.json();
+}
+
+export async function unsubscribeOtp(phoneNumber, unsubscribeToken) {
+    const response = await fetch(`${API_BASE_URL}/residents/unsubscribe-otp`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Resident-Unsubscribe-Proof': unsubscribeToken
+        },
+        body: JSON.stringify({ phoneNumber })
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Unsubscribe failed');
+    }
+    return await response.json();
 }
 
 // --- AUTH ---
@@ -199,26 +207,34 @@ export async function loginUser(username, password) {
 
 // --- ADMIN: RESIDENTS ---
 export async function fetchActiveResidents() {
-    const response = await fetch(`${API_BASE_URL}/residents/active`);
+    const response = await fetch(`${API_BASE_URL}/residents/active`, {
+        headers: bearerHeaders()
+    });
     if (!response.ok) throw new Error('Failed to fetch residents');
     return await response.json();
 }
 
 export async function deleteResident(id) {
-    const response = await fetch(`${API_BASE_URL}/residents/id/${id}`, { method: 'DELETE' });
+    const response = await fetch(`${API_BASE_URL}/residents/id/${id}`, {
+        method: 'DELETE',
+        headers: bearerHeaders()
+    });
     if (!response.ok) throw new Error('Delete failed');
 }
 
 // --- ADMIN: TEMPLATES ---
 export async function fetchTemplates() {
-    const response = await fetch(`${API_BASE_URL}/admin/templates`);
+    const response = await fetch(`${API_BASE_URL}/admin/templates`, {
+        headers: bearerHeaders()
+    });
+    if (!response.ok) throw new Error('Failed to fetch templates');
     return await response.json();
 }
 
 export async function saveTemplate(type, template) {
     const response = await fetch(`${API_BASE_URL}/admin/templates/${type}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: bearerHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ template })
     });
     if (!response.ok) throw new Error('Failed to update template');
@@ -227,22 +243,27 @@ export async function saveTemplate(type, template) {
 
 // --- ADMIN: SENSOR DATA (for chart) ---
 export async function fetchSensorData(hours = 24) {
-    const response = await fetch(`${API_BASE_URL}/sensor-data/recent?hours=${hours}`);
+    const response = await fetch(`${API_BASE_URL}/sensor-data/recent?hours=${hours}`, {
+        headers: bearerHeaders()
+    });
     if (!response.ok) throw new Error('Failed to fetch sensor data');
     return await response.json();
 }
 
 // --- ADMIN: REPORTS ---
 export async function downloadReport(startDate, endDate, includeTelemetry, includeAI) {
-    // Return the URL for direct download or fetch blob
-    const response = await fetch(`${API_BASE_URL}/sensor-data/reports/export?startDate=${startDate}&endDate=${endDate}&includeTelemetry=${includeTelemetry}&includeAI=${includeAI}`);
+    const response = await fetch(`${API_BASE_URL}/sensor-data/reports/export?startDate=${startDate}&endDate=${endDate}&includeTelemetry=${includeTelemetry}&includeAI=${includeAI}`, {
+        headers: bearerHeaders()
+    });
     if (!response.ok) throw new Error('Failed to generate report');
     return await response.blob();
 }
 
 // --- ADMIN: USER MANAGEMENT ---
 export async function fetchAdminUsers() {
-    const response = await fetch(`${API_BASE_URL}/admin/users`);
+    const response = await fetch(`${API_BASE_URL}/admin/users`, {
+        headers: bearerHeaders()
+    });
     if (!response.ok) throw new Error('Failed to fetch users');
     return await response.json();
 }
@@ -250,7 +271,7 @@ export async function fetchAdminUsers() {
 export async function createAdminUser(user) {
     const response = await fetch(`${API_BASE_URL}/admin/users`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: bearerHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(user)
     });
     if (!response.ok) throw new Error('Failed to create user');
@@ -260,7 +281,7 @@ export async function createAdminUser(user) {
 export async function updateAdminUser(id, user) {
     const response = await fetch(`${API_BASE_URL}/admin/users/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: bearerHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(user)
     });
     if (!response.ok) throw new Error('Failed to update user');
@@ -269,40 +290,16 @@ export async function updateAdminUser(id, user) {
 
 export async function deleteAdminUser(id) {
     const response = await fetch(`${API_BASE_URL}/admin/users/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: bearerHeaders()
     });
     if (!response.ok) throw new Error('Failed to delete user');
 }
 
 export async function fetchSystemLogs() {
-    const response = await fetch(`${API_BASE_URL}/admin/logs`);
+    const response = await fetch(`${API_BASE_URL}/admin/logs`, {
+        headers: bearerHeaders()
+    });
     if (!response.ok) throw new Error('Failed to fetch logs');
     return await response.json();
-}
-
-// --- DATASET REQUESTS ---
-export async function submitDatasetRequest(requestData) {
-    const response = await fetch(`${API_BASE_URL}/public/dataset/request`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData)
-    });
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Failed to submit request');
-    }
-    return await response.json();
-}
-
-export async function fetchPendingDatasetRequests() {
-    const response = await fetch(`${API_BASE_URL}/admin/datasets/pending`);
-    if (!response.ok) throw new Error('Failed to fetch pending requests');
-    return await response.json();
-}
-
-export async function approveDatasetRequest(id) {
-    const response = await fetch(`${API_BASE_URL}/admin/datasets/${id}/approve`, {
-        method: 'PUT'
-    });
-    if (!response.ok) throw new Error('Failed to approve request');
 }

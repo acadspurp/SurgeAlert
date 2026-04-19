@@ -22,7 +22,11 @@ export default function Register() {
         try {
             setSending(true);
             const data = await sendOtp(phone);
-            alert(`(Dev Mode) Your OTP is: ${data.dev_otp}`);
+            if (data.dev_otp) {
+                alert(`(Dev Mode) Your OTP is: ${data.dev_otp}`);
+            } else {
+                alert('Verification code sent. Check your SMS (or server logs if SMS is not configured).');
+            }
             setStep('subscribe_otp');
         } catch (err) {
             console.error(err);
@@ -35,8 +39,10 @@ export default function Register() {
     const handleSubOtpSubmit = async (e) => {
         e.preventDefault();
         try {
-            await verifyOtp(phone, otpCode);
-            await registerResident({ fullName: name, email: email, phoneNumber: phone });
+            const v = await verifyOtp(phone, otpCode, 'REGISTER');
+            const token = v.registrationToken;
+            if (!token) throw new Error('Missing registration token');
+            await registerResident({ fullName: name, email: email, phoneNumber: phone }, token);
             setStep('success_sub');
         } catch (error) {
             alert("Invalid OTP or Registration Failed. " + error.message);
@@ -49,7 +55,11 @@ export default function Register() {
         try {
             setSending(true);
             const data = await sendOtp(phone);
-            alert(`(Dev Mode) Your OTP is: ${data.dev_otp}`);
+            if (data.dev_otp) {
+                alert(`(Dev Mode) Your OTP is: ${data.dev_otp}`);
+            } else {
+                alert('Verification code sent.');
+            }
             setStep('unsubscribe_otp');
         } catch (err) {
             console.error(err);
@@ -62,7 +72,10 @@ export default function Register() {
     const handleUnsubOtpSubmit = async (e) => {
         e.preventDefault();
         try {
-            await unsubscribeOtp(phone, otpCode);
+            const v = await verifyOtp(phone, otpCode, 'UNSUBSCRIBE');
+            const token = v.unsubscribeToken;
+            if (!token) throw new Error('Missing unsubscribe token');
+            await unsubscribeOtp(phone, token);
             setStep('success_unsub');
         } catch (error) {
             alert("Unsubscribe Failed. " + error.message);

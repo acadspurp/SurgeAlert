@@ -82,9 +82,8 @@ public class ExternalApiService {
             return response;
         } catch (Exception e) {
             e.printStackTrace();
-            // Return an object with error message so frontend knows exactly what happened
             TideResponse errorResponse = new TideResponse();
-            errorResponse.setError("Backend failed to fetch tides: " + e.getMessage());
+            errorResponse.setError("Unable to fetch tide data. Please try again later.");
             return errorResponse;
         }
     }
