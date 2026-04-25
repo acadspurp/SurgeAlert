@@ -93,13 +93,13 @@ header {
 #water-level { color: #0C324A !important; font-weight: 900 !important; }
 
 /* ADMIN PAGE STYLES */
-.bg-navy { background-color: #0C324A; }
-.bg-teal { background-color: #6BA1B9; }
-.text-navy { color: #0C324A; }
-.nav-item.active { background-color: #6BA1B9; color: white; }
+.bg-navy { background-color: #0f172a; }
+.bg-teal { background-color: #38bdf8; }
+.text-navy { color: #e0f2fe; }
+.nav-item.active { background-color: #38bdf8; color: #0f172a; font-weight: 800; }
 
 /* Mobile menu background */
-.bg-navy-900 { background-color: #0C324A; }
+.bg-navy-900 { background-color: #0f172a; }
 
 /* Simple tooltips (used in Admin) */
 .tooltip-parent { position: relative; }
