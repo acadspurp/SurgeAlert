@@ -41,4 +41,20 @@ public class DatasetRequestController {
             return ResponseEntity.ok().build();
         }).orElse(ResponseEntity.notFound().build());
     }
+
+    // Admin endpoint to get all requests for the new status column UI
+    @GetMapping("/admin/datasets")
+    public ResponseEntity<List<DatasetRequest>> getAllRequests() {
+        return ResponseEntity.ok(repository.findAll());
+    }
+
+    // Admin endpoint to update the status via dropdown
+    @PutMapping("/admin/datasets/{id}/status")
+    public ResponseEntity<?> updateRequestStatus(@PathVariable("id") Long id, @RequestParam("status") String status) {
+        return repository.findById(id).map(req -> {
+            req.setStatus(status.toUpperCase());
+            repository.save(req);
+            return ResponseEntity.ok().build();
+        }).orElse(ResponseEntity.notFound().build());
+    }
 }

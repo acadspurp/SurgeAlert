@@ -300,9 +300,22 @@ export async function fetchPendingDatasetRequests() {
     return await response.json();
 }
 
+export async function fetchAllDatasetRequests() {
+    const response = await fetch(`${API_BASE_URL}/admin/datasets`);
+    if (!response.ok) throw new Error('Failed to fetch all requests');
+    return await response.json();
+}
+
 export async function approveDatasetRequest(id) {
     const response = await fetch(`${API_BASE_URL}/admin/datasets/${id}/approve`, {
         method: 'PUT'
     });
     if (!response.ok) throw new Error('Failed to approve request');
+}
+
+export async function updateDatasetRequestStatus(id, status) {
+    const response = await fetch(`${API_BASE_URL}/admin/datasets/${id}/status?status=${encodeURIComponent(status)}`, {
+        method: 'PUT'
+    });
+    if (!response.ok) throw new Error('Failed to update request status');
 }

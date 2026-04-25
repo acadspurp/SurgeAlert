@@ -7,7 +7,7 @@ import Maps from './pages/Maps.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import About from './pages/About.jsx';
-import Admin from './pages/Admin.jsx';
+import Admin from './pages/Admin/index.jsx';
 
 function AppLayout() {
     const location = useLocation();
