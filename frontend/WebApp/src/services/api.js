@@ -1,4 +1,36 @@
 import { API_BASE_URL } from '../config.js';
+import { getAccessToken, getRefreshToken, updateTokens, clearUser } from './auth.js';
+
+async function refreshAccessToken() {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return false;
+    const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken })
+    });
+    if (!res.ok) return false;
+    const tokens = await res.json();
+    updateTokens(tokens);
+    return true;
+}
+
+async function apiFetch(url, options = {}, retry = true) {
+    const token = getAccessToken();
+    const headers = {
+        ...(options.headers || {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
+    const response = await fetch(url, { ...options, headers });
+    if (response.status === 401 && retry) {
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+            return apiFetch(url, options, false);
+        }
+        clearUser();
+    }
+    return response;
+}
 
 // --- WEATHER API ---
 const weatherMap = {
@@ -50,7 +82,7 @@ export async function fetchAlertStatus() {
 }
 
 export async function overrideAlert(level, reason = "") {
-    const response = await fetch(`${API_BASE_URL}/public/alerts/override`, {
+    const response = await apiFetch(`${API_BASE_URL}/public/alerts/override`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ level, reason })
@@ -199,24 +231,24 @@ export async function loginUser(username, password) {
 
 // --- ADMIN: RESIDENTS ---
 export async function fetchActiveResidents() {
-    const response = await fetch(`${API_BASE_URL}/residents/active`);
+    const response = await apiFetch(`${API_BASE_URL}/residents/active`);
     if (!response.ok) throw new Error('Failed to fetch residents');
     return await response.json();
 }
 
 export async function deleteResident(id) {
-    const response = await fetch(`${API_BASE_URL}/residents/id/${id}`, { method: 'DELETE' });
+    const response = await apiFetch(`${API_BASE_URL}/residents/id/${id}`, { method: 'DELETE' });
     if (!response.ok) throw new Error('Delete failed');
 }
 
 // --- ADMIN: TEMPLATES ---
 export async function fetchTemplates() {
-    const response = await fetch(`${API_BASE_URL}/admin/templates`);
+    const response = await apiFetch(`${API_BASE_URL}/admin/templates`);
     return await response.json();
 }
 
 export async function saveTemplate(type, template) {
-    const response = await fetch(`${API_BASE_URL}/admin/templates/${type}`, {
+    const response = await apiFetch(`${API_BASE_URL}/admin/templates/${type}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ template })
@@ -227,7 +259,7 @@ export async function saveTemplate(type, template) {
 
 // --- ADMIN: SENSOR DATA (for chart) ---
 export async function fetchSensorData(hours = 24) {
-    const response = await fetch(`${API_BASE_URL}/sensor-data/recent?hours=${hours}`);
+    const response = await apiFetch(`${API_BASE_URL}/sensor-data/recent?hours=${hours}`);
     if (!response.ok) throw new Error('Failed to fetch sensor data');
     return await response.json();
 }
@@ -235,20 +267,20 @@ export async function fetchSensorData(hours = 24) {
 // --- ADMIN: REPORTS ---
 export async function downloadReport(startDate, endDate, includeTelemetry, includeAI) {
     // Return the URL for direct download or fetch blob
-    const response = await fetch(`${API_BASE_URL}/sensor-data/reports/export?startDate=${startDate}&endDate=${endDate}&includeTelemetry=${includeTelemetry}&includeAI=${includeAI}`);
+    const response = await apiFetch(`${API_BASE_URL}/sensor-data/reports/export?startDate=${startDate}&endDate=${endDate}&includeTelemetry=${includeTelemetry}&includeAI=${includeAI}`);
     if (!response.ok) throw new Error('Failed to generate report');
     return await response.blob();
 }
 
 // --- ADMIN: USER MANAGEMENT ---
 export async function fetchAdminUsers() {
-    const response = await fetch(`${API_BASE_URL}/admin/users`);
+    const response = await apiFetch(`${API_BASE_URL}/admin/users`);
     if (!response.ok) throw new Error('Failed to fetch users');
     return await response.json();
 }
 
 export async function createAdminUser(user) {
-    const response = await fetch(`${API_BASE_URL}/admin/users`, {
+    const response = await apiFetch(`${API_BASE_URL}/admin/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(user)
@@ -258,7 +290,7 @@ export async function createAdminUser(user) {
 }
 
 export async function updateAdminUser(id, user) {
-    const response = await fetch(`${API_BASE_URL}/admin/users/${id}`, {
+    const response = await apiFetch(`${API_BASE_URL}/admin/users/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(user)
@@ -268,14 +300,14 @@ export async function updateAdminUser(id, user) {
 }
 
 export async function deleteAdminUser(id) {
-    const response = await fetch(`${API_BASE_URL}/admin/users/${id}`, {
+    const response = await apiFetch(`${API_BASE_URL}/admin/users/${id}`, {
         method: 'DELETE'
     });
     if (!response.ok) throw new Error('Failed to delete user');
 }
 
 export async function fetchSystemLogs() {
-    const response = await fetch(`${API_BASE_URL}/admin/logs`);
+    const response = await apiFetch(`${API_BASE_URL}/admin/logs`);
     if (!response.ok) throw new Error('Failed to fetch logs');
     return await response.json();
 }
@@ -295,26 +327,26 @@ export async function submitDatasetRequest(requestData) {
 }
 
 export async function fetchPendingDatasetRequests() {
-    const response = await fetch(`${API_BASE_URL}/admin/datasets/pending`);
+    const response = await apiFetch(`${API_BASE_URL}/admin/datasets/pending`);
     if (!response.ok) throw new Error('Failed to fetch pending requests');
     return await response.json();
 }
 
 export async function fetchAllDatasetRequests() {
-    const response = await fetch(`${API_BASE_URL}/admin/datasets`);
+    const response = await apiFetch(`${API_BASE_URL}/admin/datasets`);
     if (!response.ok) throw new Error('Failed to fetch all requests');
     return await response.json();
 }
 
 export async function approveDatasetRequest(id) {
-    const response = await fetch(`${API_BASE_URL}/admin/datasets/${id}/approve`, {
+    const response = await apiFetch(`${API_BASE_URL}/admin/datasets/${id}/approve`, {
         method: 'PUT'
     });
     if (!response.ok) throw new Error('Failed to approve request');
 }
 
 export async function updateDatasetRequestStatus(id, status) {
-    const response = await fetch(`${API_BASE_URL}/admin/datasets/${id}/status?status=${encodeURIComponent(status)}`, {
+    const response = await apiFetch(`${API_BASE_URL}/admin/datasets/${id}/status?status=${encodeURIComponent(status)}`, {
         method: 'PUT'
     });
     if (!response.ok) throw new Error('Failed to update request status');

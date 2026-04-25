@@ -22,7 +22,8 @@ export default function Register() {
         try {
             setSending(true);
             const data = await sendOtp(phone);
-            alert(`(Dev Mode) Your OTP is: ${data.dev_otp}`);
+            const via = data?.deliveryChannel ? ` via ${data.deliveryChannel}` : '';
+            alert(`Verification code sent${via}. Please check your messages.`);
             setStep('subscribe_otp');
         } catch (err) {
             console.error(err);
@@ -49,7 +50,8 @@ export default function Register() {
         try {
             setSending(true);
             const data = await sendOtp(phone);
-            alert(`(Dev Mode) Your OTP is: ${data.dev_otp}`);
+            const via = data?.deliveryChannel ? ` via ${data.deliveryChannel}` : '';
+            alert(`Verification code sent${via}. Please check your messages.`);
             setStep('unsubscribe_otp');
         } catch (err) {
             console.error(err);

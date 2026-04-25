@@ -29,16 +29,8 @@ class DatabaseManager:
                 )
             """)
 
-            # 2. Sent Alerts Log
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS sent_alerts (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TEXT NOT NULL,
-                    alert_level TEXT,
-                    message TEXT,
-                    recipient_count INTEGER
-                )
-            """)
+            # 2. Privacy hardening: remove historical SMS broadcast logs.
+            cursor.execute("DROP TABLE IF EXISTS sent_alerts")
 
             # 3. Sensor Data (UPDATED with predicted_alert_level and is_synced)
             cursor.execute("""
@@ -141,9 +133,5 @@ class DatabaseManager:
 
     # --- ALERT LOGGING ---
     def log_sent_alert(self, alert_level, message, recipient_count):
-        """Logs that an alert was sent (or attempted)."""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("INSERT INTO sent_alerts (timestamp, alert_level, message, recipient_count) VALUES (?, ?, ?, ?)",
-                           (datetime.now().isoformat(), alert_level, message, recipient_count))
-            conn.commit()
+        """Intentionally disabled to avoid storing SMS broadcast history."""
+        return

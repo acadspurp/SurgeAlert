@@ -2,6 +2,8 @@ package com.surgealert.controller;
 
 import com.surgealert.dto.ResidentAdminDTO;
 import com.surgealert.dto.ResidentRequest;
+import com.surgealert.service.NotificationService;
+import com.surgealert.service.OtpDeliveryService;
 import com.surgealert.service.ResidentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,17 +19,27 @@ import java.util.Map;
 public class ResidentController {
 
     private final ResidentService residentService;
+    private final NotificationService notificationService;
+    private final OtpDeliveryService otpDeliveryService;
 
-    public ResidentController(ResidentService residentService) {
+    public ResidentController(ResidentService residentService, NotificationService notificationService, OtpDeliveryService otpDeliveryService) {
         this.residentService = residentService;
+        this.notificationService = notificationService;
+        this.otpDeliveryService = otpDeliveryService;
     }
 
     @PostMapping("/send-otp")
     public ResponseEntity<?> sendOtp(@RequestBody Map<String, String> payload) {
         String phone = payload.get("phoneNumber");
         String otp = residentService.generateOtp(phone);
-        // Return the OTP in JSON for "Dev Mode" so you can see it in the browser console
-        return ResponseEntity.ok(Collections.singletonMap("dev_otp", otp));
+        String otpMessage = notificationService.getOtpMessage(otp);
+        OtpDeliveryService.DeliveryResult delivery = otpDeliveryService.deliverOtp(phone, otpMessage);
+        return ResponseEntity.ok(Map.of(
+                "status", "OTP_ISSUED",
+                "deliveryStatus", delivery.status(),
+                "deliveryChannel", delivery.channel(),
+                "detail", delivery.detail()
+        ));
     }
 
     @PostMapping("/verify-otp")

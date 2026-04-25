@@ -1,6 +1,7 @@
 package com.surgealert.controller;
 
 import com.surgealert.entity.User;
+import com.surgealert.security.SessionTokenService;
 import com.surgealert.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,9 +15,11 @@ import java.util.Map;
 public class AuthController {
 
     private final UserService userService;
+    private final SessionTokenService sessionTokenService;
 
-    public AuthController(UserService userService) {
+    public AuthController(UserService userService, SessionTokenService sessionTokenService) {
         this.userService = userService;
+        this.sessionTokenService = sessionTokenService;
     }
 
     @PostMapping("/login")
@@ -27,10 +30,33 @@ public class AuthController {
         User user = userService.login(username, password);
 
         if (user != null) {
-            return ResponseEntity.ok(user);
+            SessionTokenService.TokenPair tokenPair = sessionTokenService.issueTokens(user.getId(), user.getUsername(), user.getRole());
+            return ResponseEntity.ok(Map.of(
+                    "id", user.getId(),
+                    "username", user.getUsername(),
+                    "fullName", user.getFullName(),
+                    "role", user.getRole(),
+                    "accessToken", tokenPair.accessToken(),
+                    "refreshToken", tokenPair.refreshToken(),
+                    "accessExpiresAt", tokenPair.accessExpiresAt(),
+                    "refreshesRemaining", tokenPair.refreshesRemaining()
+            ));
         } else {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password");
         }
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(@RequestBody Map<String, String> payload) {
+        String refreshToken = payload.get("refreshToken");
+        return sessionTokenService.refresh(refreshToken)
+                .<ResponseEntity<?>>map(tokenPair -> ResponseEntity.ok(Map.of(
+                        "accessToken", tokenPair.accessToken(),
+                        "refreshToken", tokenPair.refreshToken(),
+                        "accessExpiresAt", tokenPair.accessExpiresAt(),
+                        "refreshesRemaining", tokenPair.refreshesRemaining()
+                )))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Refresh denied")));
     }
 
     @PostMapping("/register")

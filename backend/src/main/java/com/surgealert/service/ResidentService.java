@@ -30,8 +30,7 @@ public class ResidentService {
         // Generate random 6-digit code
         String otp = String.format("%06d", new Random().nextInt(999999));
         otpStorage.put(phoneNumber, otp);
-        // Log to console (Simulating SMS sending)
-        System.out.println(">>> GENERATED OTP for " + phoneNumber + ": " + otp);
+        // Avoid printing OTP/phone values in logs.
         return otp;
     }
 

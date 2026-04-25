@@ -430,8 +430,7 @@ export default function Admin() {
         if(!window.confirm(`Are you sure you want to broadcast a ${level} alert?`)) return;
 
         try {
-            const actor = `${displayName}${user?.id ? ` (${user.id})` : ''}`;
-            const safeReason = `${reason || 'Admin Manual Action'} [override by ${actor}]`;
+            const safeReason = reason || 'Admin Manual Action';
             await overrideAlert(level, safeReason);
             alert(`Alert level forcefully overridden to ${level}`);
             loadDashboardData();

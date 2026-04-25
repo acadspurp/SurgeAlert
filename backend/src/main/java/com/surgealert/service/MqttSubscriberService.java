@@ -23,6 +23,7 @@ public class MqttSubscriberService {
     private final NotificationService notificationService;
     private final ResidentService residentService;
     private final EmailService emailService;
+    private final CriticalAlertApprovalService criticalAlertApprovalService;
     private final ObjectMapper objectMapper;
 
     @Value("${mqtt.topic.sensor}")
@@ -30,13 +31,15 @@ public class MqttSubscriberService {
 
     public MqttSubscriberService(MqttClient mqttClient, MqttConnectOptions mqttConnectOptions,
                                  SensorDataService sensorDataService, NotificationService notificationService,
-                                 ResidentService residentService, EmailService emailService) {
+                                 ResidentService residentService, EmailService emailService,
+                                 CriticalAlertApprovalService criticalAlertApprovalService) {
         this.mqttClient = mqttClient;
         this.mqttConnectOptions = mqttConnectOptions;
         this.sensorDataService = sensorDataService;
         this.notificationService = notificationService;
         this.residentService = residentService;
         this.emailService = emailService;
+        this.criticalAlertApprovalService = criticalAlertApprovalService;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -70,6 +73,10 @@ public class MqttSubscriberService {
                                          level.equalsIgnoreCase("RED");
 
                     if (isCritical && messageToSend != null) {
+                        if (criticalAlertApprovalService.requiresApproval(level)) {
+                            criticalAlertApprovalService.createPendingAlert("mqtt-ingest", messageToSend, savedData.getWaterLevelM());
+                            return;
+                        }
                         List<String> emails = residentService.getAllActiveEmails();
                         if (!emails.isEmpty()) {
                             String subject = "SurgeAlert: " + level + " LEVEL WARNING";

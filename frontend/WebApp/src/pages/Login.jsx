@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginUser } from '../services/api.js';
-import { setUser } from '../services/auth.js';
+import { setSession } from '../services/auth.js';
 
 export default function Login() {
     const navigate = useNavigate();
@@ -15,12 +15,22 @@ export default function Login() {
         try {
             setLoading(true);
 
-            const user = await loginUser(username.trim(), password);
-            console.log("BACKEND RESPONSE (User):", user);
-            setUser(user);
+            const session = await loginUser(username.trim(), password);
+            const user = {
+                id: session.id,
+                username: session.username,
+                fullName: session.fullName,
+                role: session.role
+            };
+            setSession({
+                user,
+                accessToken: session.accessToken,
+                refreshToken: session.refreshToken,
+                accessExpiresAt: session.accessExpiresAt
+            });
 
             // --- CRITICAL ROLE CHECK & REDIRECT LOGIC ---
-            const rawRole = user.role || "";
+            const rawRole = session.role || "";
             const normalizedRole = String(rawRole).toUpperCase().trim();
 
             console.log("Detected Role:", normalizedRole);

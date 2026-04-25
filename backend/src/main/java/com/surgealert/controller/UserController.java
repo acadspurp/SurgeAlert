@@ -2,6 +2,7 @@ package com.surgealert.controller;
 
 import com.surgealert.entity.User;
 import com.surgealert.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,12 +17,14 @@ import java.util.Map;
 public class UserController {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     // Mock logs
     public static List<Map<String, String>> actionLogs = new ArrayList<>();
 
-    public UserController(UserRepository userRepository) {
+    public UserController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
         if (actionLogs.isEmpty()) {
             addLog("System initialized.");
         }
@@ -44,8 +47,12 @@ public class UserController {
 
     @PostMapping("/users")
     public ResponseEntity<User> createUser(@RequestBody User user) {
+        if (user.getPassword() != null && !user.getPassword().isEmpty()) {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+        }
         User saved = userRepository.save(user);
-        addLog("Admin created new user: " + user.getUsername());
+        saved.setPassword(null);
+        addLog("Admin created a user account.");
         return ResponseEntity.ok(saved);
     }
 
@@ -56,10 +63,11 @@ public class UserController {
         existing.setRole(user.getRole());
         // If password is provided and not empty
         if (user.getPassword() != null && !user.getPassword().isEmpty()) {
-            existing.setPassword(user.getPassword());
+            existing.setPassword(passwordEncoder.encode(user.getPassword()));
         }
         User saved = userRepository.save(existing);
-        addLog("Admin updated user: " + existing.getUsername() + " to role " + existing.getRole());
+        saved.setPassword(null);
+        addLog("Admin updated a user role/profile.");
         return ResponseEntity.ok(saved);
     }
 
@@ -67,7 +75,7 @@ public class UserController {
     public ResponseEntity<?> deleteUser(@PathVariable Long id) {
         User existing = userRepository.findById(id).orElseThrow();
         userRepository.deleteById(id);
-        addLog("Admin deleted user: " + existing.getUsername());
+        addLog("Admin deleted a user account.");
         return ResponseEntity.ok().build();
     }
 

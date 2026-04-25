@@ -2,6 +2,7 @@ package com.surgealert.controller;
 
 import com.surgealert.dto.AlertStatusDTO;
 import com.surgealert.dto.SensorDataDTO;
+import com.surgealert.service.CriticalAlertApprovalService;
 import com.surgealert.service.SensorDataService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,9 +19,11 @@ public class AlertController {
     public static String overrideLevel = null;
 
     private final SensorDataService sensorDataService;
+    private final CriticalAlertApprovalService criticalAlertApprovalService;
 
-    public AlertController(SensorDataService sensorDataService) {
+    public AlertController(SensorDataService sensorDataService, CriticalAlertApprovalService criticalAlertApprovalService) {
         this.sensorDataService = sensorDataService;
+        this.criticalAlertApprovalService = criticalAlertApprovalService;
     }
 
     @GetMapping("/status")
@@ -62,11 +65,7 @@ public class AlertController {
             UserController.addLog("Admin cleared manual override. System returned to AUTO.");
         } else {
             overrideLevel = level.toUpperCase().trim();
-            String logMsg = "Admin invoked MANUAL OVERRIDE to " + overrideLevel;
-            if (reason != null && !reason.trim().isEmpty()) {
-                logMsg += " (Reason: " + reason + ")";
-            }
-            UserController.addLog(logMsg);
+            UserController.addLog("Admin invoked manual override to " + overrideLevel + ".");
         }
         return ResponseEntity.ok(Collections.singletonMap("status", "success"));
     }
@@ -94,5 +93,34 @@ public class AlertController {
 
         // Frontend will use this as <img src="data:image/jpg;base64,...">
         return ResponseEntity.ok(Collections.singletonMap("img_base64", imgBase64));
+    }
+
+    @GetMapping("/critical/pending/{id}")
+    public ResponseEntity<?> getPendingCritical(@PathVariable String id) {
+        CriticalAlertApprovalService.PendingCriticalAlert pending = criticalAlertApprovalService.getPendingAlert(id);
+        if (pending == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(pending);
+    }
+
+    @PostMapping("/critical/pending/{id}/approve")
+    public ResponseEntity<?> approveCritical(@PathVariable String id) {
+        CriticalAlertApprovalService.PendingCriticalAlert pending = criticalAlertApprovalService.approve(id);
+        if (pending == null) {
+            return ResponseEntity.notFound().build();
+        }
+        UserController.addLog("Critical alert " + id + " approval set to " + pending.status() + ".");
+        return ResponseEntity.ok(pending);
+    }
+
+    @PostMapping("/critical/pending/{id}/reject")
+    public ResponseEntity<?> rejectCritical(@PathVariable String id) {
+        CriticalAlertApprovalService.PendingCriticalAlert pending = criticalAlertApprovalService.reject(id);
+        if (pending == null) {
+            return ResponseEntity.notFound().build();
+        }
+        UserController.addLog("Critical alert " + id + " approval set to " + pending.status() + ".");
+        return ResponseEntity.ok(pending);
     }
 }

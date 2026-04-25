@@ -48,10 +48,10 @@ public class EmailService {
             helper.setText(htmlBody, true); // 'true' indicates this is HTML
 
             mailSender.send(message);
-            System.out.println("HTML Email sent successfully to: " + to);
+            System.out.println("HTML Email sent successfully.");
 
         } catch (Exception e) {
-            System.err.println("Failed to send email to " + to + ": " + e.getMessage());
+            System.err.println("Failed to send alert email: " + e.getMessage());
         }
     }
 }

@@ -2,16 +2,21 @@ package com.surgealert.controller;
 
 import com.surgealert.dto.SensorDataDTO;
 import com.surgealert.entity.SensorData;
+import com.surgealert.service.CanaryRolloutService;
+import com.surgealert.service.CriticalAlertApprovalService;
 import com.surgealert.service.EmailService;
 import com.surgealert.service.NotificationService;
 import com.surgealert.service.ResidentService;
 import com.surgealert.service.SensorDataService;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Collections;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,32 +30,41 @@ public class SensorDataController {
     private final NotificationService notificationService;
     private final ResidentService residentService;
     private final EmailService emailService;
+    private final CanaryRolloutService canaryRolloutService;
+    private final CriticalAlertApprovalService criticalAlertApprovalService;
+
+    @Value("${surgealert.reports.max-range-days:31}")
+    private int maxReportRangeDays;
 
     // --- LIVE IMAGE STORAGE (Held in RAM) ---
     // We keep this for speed, but we will add a fallback to the DB
     public static String currentImageBase64 = "";
 
     // --- SECURITY KEY (Must match Python settings.py) ---
-    private static final String SECRET_API_KEY = "surge-alert-secret-123";
+    private static final String SECRET_API_KEY = System.getenv().getOrDefault("EDGE_API_KEY", "");
 
     public SensorDataController(SensorDataService sensorDataService,
                                 NotificationService notificationService,
                                 ResidentService residentService,
-                                EmailService emailService) {
+                                EmailService emailService,
+                                CanaryRolloutService canaryRolloutService,
+                                CriticalAlertApprovalService criticalAlertApprovalService) {
         this.sensorDataService = sensorDataService;
         this.notificationService = notificationService;
         this.residentService = residentService;
         this.emailService = emailService;
+        this.canaryRolloutService = canaryRolloutService;
+        this.criticalAlertApprovalService = criticalAlertApprovalService;
     }
 
     @PostMapping
     public ResponseEntity<Map<String, Object>> saveSensorData(
             @RequestHeader(value = "X-Edge-ApiKey", required = false) String apiKey,
+            @RequestHeader(value = "X-Sensor-Id", required = false) String sensorId,
             @RequestBody SensorDataDTO dto) {
 
         // 1. SECURITY CHECK
         if (apiKey == null || !apiKey.equals(SECRET_API_KEY)) {
-            System.out.println("Security Warning: Invalid API Key received.");
             return ResponseEntity.status(403).body(Map.of("error", "Unauthorized"));
         }
 
@@ -66,6 +80,7 @@ public class SensorDataController {
         Map<String, Object> response = new HashMap<>();
         response.put("saved_id", savedData.getId());
         response.put("status", "success");
+        response.put("canary", canaryRolloutService.isCanaryTraffic(sensorId));
 
         // 4. Check Logic for Alerts
         String level = savedData.getCurrentAlertLevel();
@@ -80,6 +95,14 @@ public class SensorDataController {
                              level.equalsIgnoreCase("RED");
 
         if (isCritical && messageToSend != null) {
+            if (criticalAlertApprovalService.requiresApproval(level)) {
+                CriticalAlertApprovalService.PendingCriticalAlert pending = criticalAlertApprovalService
+                        .createPendingAlert(sensorId == null ? "edge-unknown" : sensorId, messageToSend, savedData.getWaterLevelM());
+                response.put("command", "AWAITING_HUMAN_CONFIRMATION");
+                response.put("pendingAlertId", pending.id());
+                response.put("pendingUntil", pending.expiresAt().toString());
+                return ResponseEntity.ok(response);
+            }
             // A. EMAIL (Server Side)
             List<String> emails = residentService.getAllActiveEmails();
             if (!emails.isEmpty()) {
@@ -145,6 +168,25 @@ public class SensorDataController {
             @RequestParam(required = false) String endDate,
             @RequestParam(defaultValue = "true") boolean includeTelemetry,
             @RequestParam(defaultValue = "true") boolean includeAI) {
+        if ((startDate != null && !startDate.isBlank()) || (endDate != null && !endDate.isBlank())) {
+            if (startDate == null || startDate.isBlank() || endDate == null || endDate.isBlank()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Both startDate and endDate are required when filtering.");
+            }
+            try {
+                LocalDate start = LocalDate.parse(startDate);
+                LocalDate end = LocalDate.parse(endDate);
+                if (end.isBefore(start)) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("endDate must be on/after startDate.");
+                }
+                long days = ChronoUnit.DAYS.between(start, end) + 1;
+                if (days > Math.max(1, maxReportRangeDays)) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body("Date range exceeds the allowed maximum of " + maxReportRangeDays + " days.");
+                }
+            } catch (Exception ex) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid date format. Use YYYY-MM-DD.");
+            }
+        }
         
         // "Good-looking" CSV template with a title block, summary rows, then data table.
         List<SensorDataDTO> all = sensorDataService.getRecentSensorData(24 * 30); // Max 30 days

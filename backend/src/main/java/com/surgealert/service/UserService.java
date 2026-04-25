@@ -2,6 +2,7 @@ package com.surgealert.service;
 
 import com.surgealert.entity.User;
 import com.surgealert.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -10,10 +11,11 @@ import java.util.Map;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository) {
-
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public User registerUser(Map<String, String> request) {
@@ -27,7 +29,7 @@ public class UserService {
 
         User user = new User();
         user.setUsername(username);
-        user.setPassword(password);
+        user.setPassword(passwordEncoder.encode(password));
         user.setFullName(fullName);
         user.setRole(request.getOrDefault("role", "USER"));
 
@@ -36,7 +38,7 @@ public class UserService {
 
     public User login(String username, String password) {
         return userRepository.findByUsername(username)
-                .filter(user -> user.getPassword().equals(password))
+                .filter(user -> passwordEncoder.matches(password, user.getPassword()))
                 .orElse(null);
     }
 }

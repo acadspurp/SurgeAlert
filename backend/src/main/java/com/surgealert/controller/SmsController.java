@@ -12,7 +12,7 @@ import java.util.Map;
 public class SmsController {
 
     private final ResidentService residentService;
-    private static final String SECRET_API_KEY = "surge-alert-secret-123";
+    private static final String SECRET_API_KEY = System.getenv().getOrDefault("EDGE_API_KEY", "");
 
     public SmsController(ResidentService residentService) {
         this.residentService = residentService;
@@ -25,7 +25,6 @@ public class SmsController {
         
         // 1. SECURITY CHECK
         if (apiKey == null || !apiKey.equals(SECRET_API_KEY)) {
-            System.out.println("Security Warning: Invalid API Key received.");
             return ResponseEntity.status(403).body(Map.of("error", "Unauthorized"));
         }
 

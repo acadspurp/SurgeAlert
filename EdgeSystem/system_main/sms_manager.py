@@ -1,5 +1,14 @@
 import serial
 import time
+import requests
+
+from config.settings import (
+    SMS_ONLINE_PRIMARY,
+    SEMAPHORE_ENABLED,
+    SEMAPHORE_API_KEY,
+    SEMAPHORE_API_URL,
+    SEMAPHORE_SENDER_NAME,
+)
 
 class SMSManager:
     # If using USB, the AT command port is usually ttyUSB2 (sometimes ttyUSB3).
@@ -9,7 +18,32 @@ class SMSManager:
         self.baudrate = baudrate
 
     def send_sms(self, phone_number, message):
-        """Sends an SMS using AT commands to the SIM7600."""
+        """Sends an SMS through online service first, then GSM fallback."""
+        if SMS_ONLINE_PRIMARY and self._send_via_semaphore(phone_number, message):
+            return True
+        return self._send_via_gsm(phone_number, message)
+
+    def _send_via_semaphore(self, phone_number, message):
+        if not SEMAPHORE_ENABLED or not SEMAPHORE_API_KEY:
+            return False
+        try:
+            requests.post(
+                SEMAPHORE_API_URL,
+                json={
+                    "apikey": SEMAPHORE_API_KEY,
+                    "number": phone_number,
+                    "message": message,
+                    "sendername": SEMAPHORE_SENDER_NAME,
+                },
+                timeout=8,
+            )
+            print(" [SMS] Online provider accepted request.")
+            return True
+        except Exception:
+            return False
+
+    def _send_via_gsm(self, phone_number, message):
+        """GSM fallback using AT commands to SIM7600."""
         try:
             print(f" [SMS] Connecting to SIM7600 on {self.port}...")
             ser = serial.Serial(self.port, self.baudrate, timeout=2)
@@ -34,7 +68,7 @@ class SMSManager:
             ser.close()
             
             if "OK" in response:
-                print(f" [SMS] Successfully sent alert to {phone_number}")
+                print(" [SMS] Successfully sent alert.")
                 return True
             else:
                 print(f" [SMS] Failed. Response: {response}")

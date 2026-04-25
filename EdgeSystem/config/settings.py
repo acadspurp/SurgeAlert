@@ -18,7 +18,14 @@ SMS_TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates', 'sms_alerts')
 BACKEND_IP = os.getenv("BACKEND_IP", "192.168.100.1") 
 BACKEND_PORT = os.getenv("BACKEND_PORT", "8080")
 BACKEND_API_URL = f"http://{BACKEND_IP}:{BACKEND_PORT}/api"
-EDGE_API_KEY = os.getenv("EDGE_API_KEY", "surge-alert-secret-123")
+EDGE_API_KEY = os.getenv("EDGE_API_KEY", "")
+
+# --- HYBRID SMS/OTP DELIVERY ---
+SMS_ONLINE_PRIMARY = os.getenv("SMS_ONLINE_PRIMARY", "true").lower() == "true"
+SEMAPHORE_ENABLED = os.getenv("SEMAPHORE_ENABLED", "false").lower() == "true"
+SEMAPHORE_API_KEY = os.getenv("SEMAPHORE_API_KEY", "")
+SEMAPHORE_API_URL = os.getenv("SEMAPHORE_API_URL", "https://api.semaphore.co/api/v4/messages")
+SEMAPHORE_SENDER_NAME = os.getenv("SEMAPHORE_SENDER_NAME", "SurgeAlert")
 
 # --- SECURE MQTT SETTINGS (HiveMQ Cloud Serverless) ---
 # Replace these with your actual HiveMQ Cloud details
