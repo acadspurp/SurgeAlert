@@ -13,9 +13,30 @@ MODEL_PATH = os.path.join(MODEL_DIR, 'flood_prediction_model.joblib')
 # SMS Templates
 SMS_TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates', 'sms_alerts')
 
+
+def _load_env_file(env_path):
+    """Minimal .env loader so Edge can run without shell-exported variables."""
+    if not os.path.exists(env_path):
+        return
+    with open(env_path, "r", encoding="utf-8") as handle:
+        for raw in handle:
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
+# Load root .env first (shared by backend/frontend/edge), then local Edge override if present.
+_load_env_file(os.path.join(BASE_DIR, "..", ".env"))
+_load_env_file(os.path.join(BASE_DIR, ".env"))
+
 # --- SECURITY & NETWORK ---
 # Update these IPs to match your Java Backend PC's IP
-BACKEND_IP = os.getenv("BACKEND_IP", "192.168.100.1") 
+BACKEND_IP = os.getenv("BACKEND_IP", "127.0.0.1")
 BACKEND_PORT = os.getenv("BACKEND_PORT", "8080")
 BACKEND_API_URL = f"http://{BACKEND_IP}:{BACKEND_PORT}/api"
 EDGE_API_KEY = os.getenv("EDGE_API_KEY", "")
@@ -29,10 +50,10 @@ SEMAPHORE_SENDER_NAME = os.getenv("SEMAPHORE_SENDER_NAME", "SurgeAlert")
 
 # --- SECURE MQTT SETTINGS (HiveMQ Cloud Serverless) ---
 # Replace these with your actual HiveMQ Cloud details
-MQTT_BROKER = os.getenv("MQTT_BROKER", "83881dc9989d431389bb36af9054c44d.s1.eu.hivemq.cloud") 
+MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
 MQTT_PORT = 8883 # Port 8883 is required for MQTTS (SSL/TLS)
-MQTT_USERNAME = os.getenv("MQTT_USERNAME", "SurgeAlert")
-MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "Surgealert123")
+MQTT_USERNAME = os.getenv("MQTT_USERNAME", "")
+MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "")
 MQTT_TOPIC_SENSOR = "surgealert/sensor-data"
 
 
