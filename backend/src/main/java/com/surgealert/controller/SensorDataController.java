@@ -119,6 +119,26 @@ public class SensorDataController {
         return ResponseEntity.ok(sensorDataService.getRecentSensorData(hours));
     }
 
+    @GetMapping("/audit")
+    public ResponseEntity<Map<String, Object>> getAuditTrail() {
+        // Assume Edge sends data every 10 seconds. In 24 hours, expected is 8640.
+        long expected = 8640;
+        long actual = sensorDataService.getRecentSensorData(24).size();
+        long failed = expected - actual;
+        if (failed < 0) failed = 0; // Edge might have started/stopped or sent extras
+        if (actual > expected) expected = actual; // Prevent > 100%
+
+        double successRate = expected > 0 ? ((double) actual / expected) * 100.0 : 0;
+        
+        Map<String, Object> audit = new HashMap<>();
+        audit.put("expectedTransmissions", expected);
+        audit.put("successfulTransmissions", actual);
+        audit.put("failedAttempts", failed);
+        audit.put("capturePercentage", String.format("%.2f%%", successRate));
+        
+        return ResponseEntity.ok(audit);
+    }
+
     @GetMapping("/reports/export")
     public ResponseEntity<String> generateReport(
             @RequestParam(required = false) String startDate,

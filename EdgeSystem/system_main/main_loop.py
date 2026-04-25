@@ -28,14 +28,50 @@ from hardware.sensors.ultrasonic_driver import get_distance, init_sensor as init
 from hardware.sensors.radar_driver import get_flow_rate as get_radar_flow, init_radar, close_radar
 
 def send_to_backend(payload, mqtt_client):
-    """Sends JSON payload to Java Backend via Secure MQTT in a background thread."""
+    """Sends JSON payload to Java Backend via Secure MQTT."""
     try:
         # Publish to HiveMQ Cloud. payload is converted to JSON.
-        mqtt_client.publish(MQTT_TOPIC_SENSOR, json.dumps(payload), qos=1)
-        print(f" [Net] Data published to MQTT topic: {MQTT_TOPIC_SENSOR}")
+        result = mqtt_client.publish(MQTT_TOPIC_SENSOR, json.dumps(payload), qos=1)
+        if result.rc == mqtt.MQTT_ERR_SUCCESS:
+            print(f" [Net] Data published to MQTT topic: {MQTT_TOPIC_SENSOR}")
+            return True
+        else:
+            print(f" [Net] MQTT Publish queued/failed with rc: {result.rc}")
+            return False
     except Exception as e:
         print(f" [Net] MQTT Publish Error: {e}")
-        pass
+        return False
+
+def sync_offline_data(db, mqtt_client):
+    """Syncs unsynced data from SQLite to the backend."""
+    if not mqtt_client.is_connected():
+        return
+
+    unsynced_records = db.get_unsynced_data(limit=10)
+    if not unsynced_records:
+        return
+
+    synced_ids = []
+    print(f" [Sync] Attempting to sync {len(unsynced_records)} offline records...")
+    for record in unsynced_records:
+        payload = {
+            "waterLevelM": round(float(record['water_level_m']), 2),
+            "sensorFlowRateMps": round(float(record['sensor_flow_rate_mps']), 2),
+            "imageFlowRateMps": round(float(record['image_flow_rate_mps']), 2),
+            "imageRiseRateMps": round(float(record['image_rise_rate_mps']), 2),
+            "currentAlertLevel": record['current_alert_level'],
+            "predictedLevel": round(float(record['predicted_level']), 2),
+            "predictedAlertLevel": record['predicted_alert_level'],
+            "snapshotBase64": "" # Snapshots aren't saved offline to save space
+        }
+        
+        # Publish synchronously for syncing
+        if send_to_backend(payload, mqtt_client):
+            synced_ids.append(record['id'])
+            
+    if synced_ids:
+        db.mark_data_synced(synced_ids)
+        print(f" [Sync] Successfully synced {len(synced_ids)} records.")
 
 def main():
     print("--- STARTING SURGE ALERT EDGE SYSTEM (DATA COLLECTION MODE) ---")
@@ -58,7 +94,13 @@ def main():
     alerter = AlertManager()
     img_proc = ImageProcessor()
     tide_manager = TideManager()
-    # sms = SMSManager() # GSM Initializer (Commented out)
+    
+    # Initialize SMS Manager with fail-safe (Cross-Dependency Check)
+    sms = None
+    try:
+        sms = SMSManager() # GSM Initializer
+    except Exception as e:
+        print(f" [System] Warning: GSM Module initialization failed. SMS offline. Error: {e}")
     
     # 2. Initialize Sensors (Safe Laptop Initialization)
     cam = None
@@ -71,8 +113,10 @@ def main():
         print(f" [System] Running in Simulation Mode (Hardware not found): {e}")
 
     last_log_time = time.time()
+    last_sync_time = time.time()
     last_sms_time = 0
     LOG_INTERVAL = 10.0         # Set this to 10 seconds
+    SYNC_INTERVAL = 30.0        # Sync every 30 seconds
 
     try:
         while True:
@@ -105,7 +149,7 @@ def main():
             if current_time - last_log_time >= LOG_INTERVAL:
                 
                 # 1. Log to Local SQLite
-                db.log_sensor_data(
+                record_id = db.log_sensor_data(
                     water_level=current_wl,
                     sensor_flow=radar_flow,
                     img_flow=img_flow,
@@ -134,27 +178,36 @@ def main():
                 }
 
                 # 3. Send to Java Backend via MQTT in Thread
-                threading.Thread(target=send_to_backend, args=(payload, mqtt_client)).start()
+                def send_and_mark():
+                    if send_to_backend(payload, mqtt_client) and record_id:
+                        db.mark_data_synced([record_id])
+
+                threading.Thread(target=send_and_mark).start()
 
                 # Reset the timer!
                 last_log_time = current_time 
+                
+            # --- E.2. BACKGROUND SYNC (Every 30 seconds) ---
+            if current_time - last_sync_time >= SYNC_INTERVAL:
+                threading.Thread(target=sync_offline_data, args=(db, mqtt_client)).start()
+                last_sync_time = current_time
 
-            # --- F. OFFLINE FAILSAFE (SIM7600G-H) - FULLY RESTORED ---
+            # --- F. OFFLINE FAILSAFE (SIM7600G-H) - FULLY RESTORED & PROTECTED ---
             if current_alert == "RED":
                 print(" [ALERT] RED LEVEL DETECTED! (SMS logic prepared)")
-                # current_time = time.time()
-                # if current_time - last_sms_time >= 300: 
-                #     try:
-                #         recipients = db.get_all_registered_phone_numbers()
-                #         if recipients:
-                #             # sms = SMSManager(port=GSM_PORT, baudrate=GSM_BAUDRATE)
-                #             for number in recipients:
-                #                 msg = (f"SURGE ALERT: CRITICAL! Water level at {current_wl:.2f}m. "
-                #                        f"Flow: {radar_flow:.2f}mps. Evacuate immediately!")
-                #                 # threading.Thread(target=sms.send_sms, args=(number, msg)).start()
-                #             last_sms_time = current_time
-                #     except Exception as e:
-                #         print(f" [SMS] Failed to process emergency alerts: {e}")
+                current_time = time.time()
+                if current_time - last_sms_time >= 300: 
+                    try:
+                        recipients = db.get_all_registered_phone_numbers()
+                        if recipients and sms:
+                            for number in recipients:
+                                msg = (f"SURGE ALERT: CRITICAL! Water level at {current_wl:.2f}m. "
+                                       f"Flow: {radar_flow:.2f}mps. Evacuate immediately!")
+                                threading.Thread(target=sms.send_sms, args=(number, msg)).start()
+                            last_sms_time = current_time
+                    except Exception as e:
+                        # Cross-Dependency: Catch all errors so SMS failure doesn't stop logging
+                        print(f" [SMS] Failed to process emergency alerts (Non-Fatal): {e}")
 
             # --- G. VISUALIZATION & OUTPUT ---
             print(f"WL: {current_wl:.2f}m | Tide: {tide_effect:+.3f}m | Pred: {pred_level:.2f}m | P.Alert: {pred_alert}")

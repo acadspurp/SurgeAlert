@@ -40,7 +40,7 @@ class DatabaseManager:
                 )
             """)
 
-            # 3. Sensor Data (UPDATED with predicted_alert_level)
+            # 3. Sensor Data (UPDATED with predicted_alert_level and is_synced)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS sensor_data (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,9 +52,17 @@ class DatabaseManager:
                     predicted_level REAL,
                     current_alert_level TEXT,
                     predicted_alert_level TEXT,
-                    raw_cv_vectors TEXT
+                    raw_cv_vectors TEXT,
+                    is_synced INTEGER DEFAULT 0
                 )
             """)
+            
+            # Check if is_synced column exists (for backward compatibility if table already created)
+            cursor.execute("PRAGMA table_info(sensor_data)")
+            columns = [column[1] for column in cursor.fetchall()]
+            if 'is_synced' not in columns:
+                cursor.execute("ALTER TABLE sensor_data ADD COLUMN is_synced INTEGER DEFAULT 0")
+                
             conn.commit()
 
     # --- SENSOR LOGGING ---
@@ -70,12 +78,46 @@ class DatabaseManager:
                 cursor.execute("""
                     INSERT INTO sensor_data 
                     (timestamp, water_level_m, sensor_flow_rate_mps, image_flow_rate_mps, 
-                     image_rise_rate_mps, predicted_level, current_alert_level, predicted_alert_level, raw_cv_vectors)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     image_rise_rate_mps, predicted_level, current_alert_level, predicted_alert_level, raw_cv_vectors, is_synced)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
                 """, (timestamp, water_level, sensor_flow, img_flow, img_rise, pred_level, alert_level, pred_alert_level, raw_vectors_json))
+                inserted_id = cursor.lastrowid
                 conn.commit()
+                return inserted_id
         except Exception as e:
             print(f" [DB] Error logging sensor data: {e}")
+            return None
+
+    def get_unsynced_data(self, limit=50):
+        """Retrieves unsynced sensor data."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT id, water_level_m, sensor_flow_rate_mps, image_flow_rate_mps, 
+                           image_rise_rate_mps, current_alert_level, predicted_level, predicted_alert_level
+                    FROM sensor_data
+                    WHERE is_synced = 0
+                    ORDER BY id ASC LIMIT ?
+                """, (limit,))
+                columns = [col[0] for col in cursor.description]
+                return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        except Exception as e:
+            print(f" [DB] Error retrieving unsynced data: {e}")
+            return []
+
+    def mark_data_synced(self, record_ids):
+        """Marks a list of record IDs as synced."""
+        if not record_ids:
+            return
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                placeholders = ','.join('?' * len(record_ids))
+                cursor.execute(f"UPDATE sensor_data SET is_synced = 1 WHERE id IN ({placeholders})", record_ids)
+                conn.commit()
+        except Exception as e:
+            print(f" [DB] Error marking data as synced: {e}")
 
     # --- RESIDENT MANAGEMENT (Offline Support) ---
     def get_all_registered_phone_numbers(self):
