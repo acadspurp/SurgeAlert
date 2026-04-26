@@ -44,7 +44,7 @@ public class ExternalApiService {
     public WeatherResponse fetchWeatherForecast() {
         // Open-Meteo does not require an API key
         String url = String.format(
-            "https://api.open-meteo.com/v1/forecast?latitude=%s&longitude=%s&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=Asia/Manila",
+            "https://api.open-meteo.com/v1/forecast?latitude=%s&longitude=%s&daily=weathercode,apparent_temperature_max,apparent_temperature_min&timezone=Asia/Manila",
             LAT, LON
         );
 

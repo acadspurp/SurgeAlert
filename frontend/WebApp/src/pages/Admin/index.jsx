@@ -11,7 +11,7 @@ import {
     fetchTemplates as fetchTemplatesAPI, saveTemplate as saveTemplateAPI,
     fetchSensorData, overrideAlert, downloadReport,
     fetchAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser, fetchSystemLogs, fetchEvacuationSites,
-    fetchAllDatasetRequests, updateDatasetRequestStatus, registerResident
+    fetchAllDatasetRequests, updateDatasetRequestStatus, registerResident, updateCanaryConfig
 } from '../../services/api.js';
 import { useSensorMqtt } from '../../hooks/useSensorMqtt.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
@@ -713,6 +713,16 @@ export default function Admin() {
         }
     };
 
+    const handleUpdateCanaryConfig = async (config) => {
+        try {
+            await updateCanaryConfig(config);
+            await loadCanaryHealth();
+            alert('Canary configuration updated successfully.');
+        } catch (e) {
+            alert('Failed to update canary configuration.');
+        }
+    };
+
     // AI Recommendation Logic
     const getAiRecommendedStatus = () => {
         const predStr = dashData.prediction.replace(' m', '');
@@ -849,7 +859,7 @@ export default function Admin() {
         { key: 'templates', label: 'Message Templates', icon: 'fa-comment-sms' },
         { key: 'datasets', label: 'Data Requests', icon: 'fa-database' },
         { key: 'reports', label: 'Download Reports', icon: 'fa-file-export' },
-        { key: 'canary', label: 'Manual Canary Rollout', icon: 'fa-code-branch' },
+        { key: 'canary', label: 'System Update Testing', icon: 'fa-code-branch' },
     ];
     if (isHeadAdmin) navItems.push({ key: 'admin_users', label: 'User Management', icon: 'fa-user-shield' });
 
@@ -921,7 +931,7 @@ export default function Admin() {
     openCreateUserModal, openEditUserModal, saveUserModal, 
     beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
     handleDeleteAdminUser,
-    handleUpdateDatasetStatus, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert, canaryState, handleAdvanceCanaryPhase, handleRollbackCanaryPhase }; return (<>
+    handleUpdateDatasetStatus, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert, canaryState, handleAdvanceCanaryPhase, handleRollbackCanaryPhase, handleUpdateCanaryConfig }; return (<>
 
                 
                 {/* 1. DASHBOARD */}

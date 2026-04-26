@@ -1,5 +1,7 @@
 package com.surgealert.service;
 
+import com.surgealert.entity.SystemConfig;
+import com.surgealert.repository.SystemConfigRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -12,19 +14,49 @@ import java.util.concurrent.atomic.AtomicReference;
 @Service
 public class CanaryRolloutService {
     @Value("${surgealert.canary.enabled:false}")
-    private boolean canaryEnabled;
+    private boolean defaultCanaryEnabled;
 
     @Value("${surgealert.canary.percentage:0}")
-    private int canaryPercentage;
+    private int defaultCanaryPercentage;
 
     @Value("${surgealert.canary.sensor-allowlist:}")
-    private String sensorAllowlist;
+    private String defaultSensorAllowlist;
 
+    private final SystemConfigRepository configRepository;
     private final AtomicReference<CanaryPhase> currentPhase = new AtomicReference<>(CanaryPhase.HEAD_ADMIN_ONLY);
     private volatile Instant phaseUpdatedAt = Instant.now();
 
+    public CanaryRolloutService(SystemConfigRepository configRepository) {
+        this.configRepository = configRepository;
+    }
+
+    private boolean isCanaryEnabled() {
+        return configRepository.findById("canary.enabled")
+            .map(c -> Boolean.parseBoolean(c.getValue()))
+            .orElse(defaultCanaryEnabled);
+    }
+
+    private int getCanaryPercentage() {
+        return configRepository.findById("canary.percentage")
+            .map(c -> Integer.parseInt(c.getValue()))
+            .orElse(defaultCanaryPercentage);
+    }
+
+    private String getSensorAllowlist() {
+        return configRepository.findById("canary.sensor-allowlist")
+            .map(SystemConfig::getValue)
+            .orElse(defaultSensorAllowlist);
+    }
+
+    public CanaryState updateConfig(boolean enabled, int percentage, String allowlist) {
+        configRepository.save(new SystemConfig("canary.enabled", String.valueOf(enabled)));
+        configRepository.save(new SystemConfig("canary.percentage", String.valueOf(percentage)));
+        configRepository.save(new SystemConfig("canary.sensor-allowlist", allowlist != null ? allowlist : ""));
+        return getState();
+    }
+
     public boolean isCanaryTraffic(String sensorId, String userRole) {
-        if (!canaryEnabled) {
+        if (!isCanaryEnabled()) {
             return false;
         }
         return switch (currentPhase.get()) {
@@ -39,7 +71,13 @@ public class CanaryRolloutService {
     }
 
     public CanaryState getState() {
-        return new CanaryState(currentPhase.get().name(), phaseUpdatedAt.toString(), canaryEnabled, canaryPercentage);
+        return new CanaryState(
+            currentPhase.get().name(), 
+            phaseUpdatedAt.toString(), 
+            isCanaryEnabled(), 
+            getCanaryPercentage(),
+            getSensorAllowlist()
+        );
     }
 
     public CanaryState advancePhase() {
@@ -67,8 +105,9 @@ public class CanaryRolloutService {
     private boolean isSensorCanary(String sensorId) {
         if (sensorId == null || sensorId.isBlank()) return false;
         Set<String> allowlist = new HashSet<>();
-        if (sensorAllowlist != null && !sensorAllowlist.isBlank()) {
-            allowlist.addAll(Arrays.stream(sensorAllowlist.split(","))
+        String currentAllowlist = getSensorAllowlist();
+        if (currentAllowlist != null && !currentAllowlist.isBlank()) {
+            allowlist.addAll(Arrays.stream(currentAllowlist.split(","))
                     .map(String::trim)
                     .filter(v -> !v.isEmpty())
                     .map(String::toLowerCase)
@@ -77,7 +116,8 @@ public class CanaryRolloutService {
         if (allowlist.contains(sensorId.trim().toLowerCase())) {
             return true;
         }
-        int bounded = Math.max(0, Math.min(100, canaryPercentage));
+        int percentage = getCanaryPercentage();
+        int bounded = Math.max(0, Math.min(100, percentage));
         int bucket = Math.abs(sensorId.trim().toLowerCase().hashCode()) % 100;
         return bucket < bounded;
     }
@@ -95,6 +135,6 @@ public class CanaryRolloutService {
         EVERYONE
     }
 
-    public record CanaryState(String phase, String phaseUpdatedAt, boolean enabled, int sensorCanaryPercentage) {
+    public record CanaryState(String phase, String phaseUpdatedAt, boolean enabled, int sensorCanaryPercentage, String sensorAllowlist) {
     }
 }

@@ -40,6 +40,20 @@ public class CanaryController {
         return ResponseEntity.ok(canaryRolloutService.rollbackPhase());
     }
 
+    public static class ConfigRequest {
+        public boolean enabled;
+        public int percentage;
+        public String allowlist;
+    }
+
+    @PostMapping("/config")
+    public ResponseEntity<?> updateConfig(@RequestBody ConfigRequest request, Authentication authentication) {
+        if (!isHeadAdmin(authentication)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Only HEAD_ADMIN can modify canary configuration."));
+        }
+        return ResponseEntity.ok(canaryRolloutService.updateConfig(request.enabled, request.percentage, request.allowlist));
+    }
+
     private static boolean isHeadAdmin(Authentication authentication) {
         if (authentication == null) return false;
         for (GrantedAuthority authority : authentication.getAuthorities()) {

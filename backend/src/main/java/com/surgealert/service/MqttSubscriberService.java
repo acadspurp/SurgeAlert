@@ -25,6 +25,7 @@ public class MqttSubscriberService {
     private final EmailService emailService;
     private final CriticalAlertApprovalService criticalAlertApprovalService;
     private final AlertConfidenceService alertConfidenceService;
+    private final OtpDeliveryService otpDeliveryService;
     private final ObjectMapper objectMapper;
 
     @Value("${mqtt.topic.sensor}")
@@ -34,7 +35,8 @@ public class MqttSubscriberService {
                                  SensorDataService sensorDataService, NotificationService notificationService,
                                  ResidentService residentService, EmailService emailService,
                                  CriticalAlertApprovalService criticalAlertApprovalService,
-                                 AlertConfidenceService alertConfidenceService) {
+                                 AlertConfidenceService alertConfidenceService,
+                                 OtpDeliveryService otpDeliveryService) {
         this.mqttClient = mqttClient;
         this.mqttConnectOptions = mqttConnectOptions;
         this.sensorDataService = sensorDataService;
@@ -43,6 +45,7 @@ public class MqttSubscriberService {
         this.emailService = emailService;
         this.criticalAlertApprovalService = criticalAlertApprovalService;
         this.alertConfidenceService = alertConfidenceService;
+        this.otpDeliveryService = otpDeliveryService;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -93,6 +96,17 @@ public class MqttSubscriberService {
                                 emailService.sendAlertEmail(email, subject, messageToSend, dto.getSnapshotBase64());
                             }
                         }
+
+                        // Broadcast SMS to all residents via Hybrid system
+                        List<String> allPhoneNumbers = residentService.getAllActivePhoneNumbers();
+                        for (String phone : allPhoneNumbers) {
+                            if (phone != null && !phone.isBlank()) {
+                                OtpDeliveryService.DeliveryResult res = otpDeliveryService.deliverOtp(phone, messageToSend);
+                                if ("GSM_FALLBACK".equals(res.channel())) {
+                                    publishSmsToGsm(phone, messageToSend);
+                                }
+                            }
+                        }
                     }
                     System.out.println(" [MQTT] Successfully processed sensor payload block - Alert Level: " + level);
                 } catch (Exception e) {
@@ -102,6 +116,24 @@ public class MqttSubscriberService {
             System.out.println(" [MQTT] Subscribed to Topic: " + sensorTopic);
         } catch (MqttException e) {
             System.err.println(" [MQTT] FATAL: Could not connect to Broker! " + e.getMessage());
+        }
+    }
+
+    public void publishSmsToGsm(String phoneNumber, String textMessage) {
+        try {
+            if (mqttClient.isConnected()) {
+                // Ensure text is properly escaped for JSON
+                String safeText = textMessage != null ? textMessage.replace("\"", "\\\"").replace("\n", "\\n") : "";
+                String payload = String.format("{\"number\":\"%s\", \"message\":\"%s\"}", phoneNumber, safeText);
+                org.eclipse.paho.client.mqttv3.MqttMessage message = new org.eclipse.paho.client.mqttv3.MqttMessage(payload.getBytes());
+                message.setQos(1);
+                mqttClient.publish("surgealert/outbound/sms", message);
+                System.out.println(" [MQTT] Published SMS to GSM module for: " + phoneNumber);
+            } else {
+                System.err.println(" [MQTT] Cannot publish SMS; client disconnected.");
+            }
+        } catch (MqttException e) {
+            System.err.println(" [MQTT] Failed to publish SMS to GSM module: " + e.getMessage());
         }
     }
 

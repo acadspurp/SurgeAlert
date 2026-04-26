@@ -101,7 +101,7 @@ export default function AIView(props) {
                                 {/* HITL Panel */}
                                 <div className="bg-[#1e293b] rounded-2xl shadow-lg border border-slate-700 p-6">
                                     <h3 className="text-lg font-bold text-sky-100 mb-4 border-b border-slate-700 pb-2 flex items-center">
-                                        <i className="fa-solid fa-triangle-exclamation mr-2 text-red-500"></i> Human-In-The-Loop Queue
+                                        <i className="fa-solid fa-triangle-exclamation mr-2 text-red-500"></i> Pending Critical Alerts (Requires Approval)
                                     </h3>
                                     {(!pendingCriticalAlerts || pendingCriticalAlerts.length === 0) ? (
                                         <p className="text-sm text-slate-400">No pending critical alerts.</p>

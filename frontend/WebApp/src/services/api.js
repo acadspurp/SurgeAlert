@@ -399,3 +399,13 @@ export async function rollbackCanaryPhase() {
     if (!response.ok) throw new Error('Failed to rollback canary phase');
     return await response.json();
 }
+
+export async function updateCanaryConfig(configData) {
+    const response = await apiFetch(`${API_BASE_URL}/admin/canary/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(configData)
+    });
+    if (!response.ok) throw new Error('Failed to update canary config');
+    return await response.json();
+}

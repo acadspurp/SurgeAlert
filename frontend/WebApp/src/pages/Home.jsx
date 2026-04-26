@@ -149,8 +149,8 @@ export default function Home() {
                 if (!dayData.time[i]) continue;
                 const dateObj = new Date(dayData.time[i]);
                 const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-                const tempMax = Math.round(dayData.temperature_2m_max[i]);
-                const tempMin = Math.round(dayData.temperature_2m_min[i]);
+                const tempMax = Math.round(dayData.apparent_temperature_max[i]);
+                const tempMin = Math.round(dayData.apparent_temperature_min[i]);
                 const weatherCode = dayData.weathercode[i];
                 const info = getWeatherInfo(weatherCode);
                 cards.push({ dayName, tempMax, tempMin, icon: info.icon, description: info.description });
@@ -310,7 +310,7 @@ export default function Home() {
                              <div className="absolute bottom-0 left-0 h-full w-10 sm:w-12 bg-gray-900 rounded-full border-2 border-gray-700 overflow-hidden flex items-end">
                                  {/* Gradient inner fill that moves up. Highly distinct colors. */}
                                  <div className="w-full relative transition-all duration-1000 overflow-hidden" style={{ height: waterLevel !== '--.-- m' ? `${Math.min(100, (parseFloat(waterLevel) / 10) * 100)}%` : '0%' }}>
-                                    <div className="absolute bottom-0 w-full h-48" style={{ background: 'linear-gradient(to top, #22c55e 0%, #22c55e 55%, #eab308 55%, #eab308 70%, #ff8800 70%, #ff8800 85%, #ff0000 85%, #ff0000 100%)' }}></div>
+                                    <div className="absolute bottom-0 w-full h-48" style={{ background: 'linear-gradient(to top, #22c55e 0%, #22c55e 60%, #eab308 60%, #eab308 70%, #ff8800 70%, #ff8800 85%, #ff0000 85%, #ff0000 100%)' }}></div>
                                  </div>
                              </div>
 
@@ -404,7 +404,7 @@ export default function Home() {
 
             {/* MIDDLE ROW: ACTIONS CHECKLIST */}
             <div className={`rounded-2xl p-6 mb-6 border-2 bg-gradient-to-br from-[#1e293b] to-[#0f172a] ${colors.border} ${colors.glow}`}>
-                <h2 className="text-sm font-bold text-gray-400 tracking-widest mb-4 uppercase">Action Directive Checklist</h2>
+                <h2 className="text-sm font-bold text-gray-400 tracking-widest mb-4 uppercase">Safety Action Guide</h2>
                 <div className={`w-full py-3 text-center rounded-lg font-black text-xl tracking-wider uppercase mb-6 shadow-md ${alertLevelKey === 'red' ? 'bg-red-600 text-white' : alertLevelKey === 'orange' ? 'bg-orange-500 text-white' : alertLevelKey === 'yellow' ? 'bg-yellow-400 text-gray-900' : 'bg-green-500 text-white'}`}>
                     {alertLevelText}
                 </div>
@@ -416,7 +416,7 @@ export default function Home() {
                 
                 {/* TIDE SUMMARY */}
                 <div className="rounded-2xl p-6 bg-[#1e293b] border border-gray-800 flex flex-col">
-                    <h2 className="text-sm font-bold text-gray-400 tracking-widest mb-4 uppercase">Tide Status <span className="text-gray-600 font-normal lowercase ml-2">({today})</span></h2>
+                    <h2 className="text-sm font-bold text-gray-400 tracking-widest mb-4 uppercase">Tide Status</h2>
                     <div className="flex-1 flex flex-col justify-center">
                         {tidesError ? (
                             <div className="bg-gray-800 text-gray-400 p-4 rounded-xl text-center border border-gray-700">
@@ -434,26 +434,38 @@ export default function Home() {
                                 <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50 flex flex-col items-center justify-center">
                                     <span className="text-xs text-gray-400 uppercase tracking-wider mb-1">Current Tide</span>
                                     <div className="flex items-center gap-2">
-                                        <i className={`fa-solid ${tideSummary.status === 'High Tide' ? 'fa-arrow-up text-blue-400' : tideSummary.status === 'Low Tide' ? 'fa-arrow-down text-teal-400' : 'fa-wave-square text-cyan-300'}`}></i>
-                                        <span className="text-2xl font-black text-cyan-300">{tideSummary.status}</span>
+                                        <i className={`fa-solid ${tideSummary.status === 'High Tide' ? 'fa-arrow-up text-red-500' : tideSummary.status === 'Low Tide' ? 'fa-arrow-down text-blue-400' : 'fa-wave-square text-cyan-300'}`}></i>
+                                        <span className={`text-2xl font-black ${tideSummary.status === 'High Tide' ? 'text-red-500' : tideSummary.status === 'Low Tide' ? 'text-blue-400' : 'text-cyan-300'}`}>{tideSummary.status}</span>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50">
-                                        <span className="text-xs text-gray-400 uppercase tracking-wider">Next High Tide {formatTideDate(tideSummary.nextHigh?.dt)}</span>
-                                        <p className="text-lg font-bold text-blue-300 mt-1">
-                                            {tideSummary.nextHigh
-                                                ? formatTideTime(tideSummary.nextHigh.dt)
-                                                : 'N/A'}
-                                        </p>
+                                    <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50 flex flex-col justify-between">
+                                        <div>
+                                            <span className="text-xs text-gray-400 uppercase tracking-wider">Next High Tide</span>
+                                            <div className="text-[10px] text-gray-500 mt-0.5">{formatTideDate(tideSummary.nextHigh?.dt)}</div>
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <i className="fa-solid fa-arrow-up text-red-500"></i>
+                                            <p className="text-lg font-bold text-red-400">
+                                                {tideSummary.nextHigh
+                                                    ? formatTideTime(tideSummary.nextHigh.dt)
+                                                    : 'N/A'}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50">
-                                        <span className="text-xs text-gray-400 uppercase tracking-wider">Next Low Tide {formatTideDate(tideSummary.nextLow?.dt)}</span>
-                                        <p className="text-lg font-bold text-teal-300 mt-1">
-                                            {tideSummary.nextLow
-                                                ? formatTideTime(tideSummary.nextLow.dt)
-                                                : 'N/A'}
-                                        </p>
+                                    <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50 flex flex-col justify-between">
+                                        <div>
+                                            <span className="text-xs text-gray-400 uppercase tracking-wider">Next Low Tide</span>
+                                            <div className="text-[10px] text-gray-500 mt-0.5">{formatTideDate(tideSummary.nextLow?.dt)}</div>
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <i className="fa-solid fa-arrow-down text-blue-400"></i>
+                                            <p className="text-lg font-bold text-blue-300">
+                                                {tideSummary.nextLow
+                                                    ? formatTideTime(tideSummary.nextLow.dt)
+                                                    : 'N/A'}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -473,10 +485,16 @@ export default function Home() {
                                     <p className="font-bold text-cyan-400 text-sm mb-2">{card.dayName}</p>
                                     <div className="text-3xl mb-2 drop-shadow-lg">{card.icon}</div>
                                     <p className="text-xs text-gray-400 leading-tight mb-2 h-8 flex items-center justify-center">{card.description}</p>
-                                    <p className="text-xs font-mono text-gray-300">{card.tempMax}° / {card.tempMin}°</p>
+                                    <div className="flex flex-col items-center gap-0.5 text-xs font-mono text-gray-300">
+                                        <span><span className="text-red-400">H:</span> {card.tempMax}°</span>
+                                        <span><span className="text-blue-400">L:</span> {card.tempMin}°</span>
+                                    </div>
                                 </div>
                             ))
                         )}
+                    </div>
+                    <div className="mt-4 text-[10px] text-gray-500 text-center border-t border-gray-800 pt-2">
+                        <i className="fa-solid fa-circle-info mr-1"></i> Temperatures reflect the Heat Index ("Feels Like"). H = Maximum, L = Minimum.
                     </div>
                 </div>
             </div>

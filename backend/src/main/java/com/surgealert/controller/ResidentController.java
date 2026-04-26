@@ -21,11 +21,14 @@ public class ResidentController {
     private final ResidentService residentService;
     private final NotificationService notificationService;
     private final OtpDeliveryService otpDeliveryService;
+    private final com.surgealert.service.MqttSubscriberService mqttSubscriberService;
 
-    public ResidentController(ResidentService residentService, NotificationService notificationService, OtpDeliveryService otpDeliveryService) {
+    public ResidentController(ResidentService residentService, NotificationService notificationService,
+            OtpDeliveryService otpDeliveryService, com.surgealert.service.MqttSubscriberService mqttSubscriberService) {
         this.residentService = residentService;
         this.notificationService = notificationService;
         this.otpDeliveryService = otpDeliveryService;
+        this.mqttSubscriberService = mqttSubscriberService;
     }
 
     @PostMapping("/send-otp")
@@ -34,9 +37,14 @@ public class ResidentController {
         String otp = residentService.generateOtp(phone);
         String otpMessage = notificationService.getOtpMessage(otp);
         OtpDeliveryService.DeliveryResult delivery = otpDeliveryService.deliverOtp(phone, otpMessage);
+
+        if ("GSM_FALLBACK".equals(delivery.channel())) {
+            mqttSubscriberService.publishSmsToGsm(phone, otpMessage);
+        }
+
         return ResponseEntity.ok(Map.of(
                 "status", "OTP_ISSUED",
-                "deliveryStatus", delivery.status(),
+
                 "deliveryChannel", delivery.channel(),
                 "detail", delivery.detail()
         ));
@@ -46,7 +54,6 @@ public class ResidentController {
     public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> payload) {
         String phone = payload.get("phoneNumber");
         String code = payload.get("code");
-
         if (residentService.verifyOtp(phone, code)) {
             return ResponseEntity.ok(Collections.singletonMap("status", "verified"));
         } else {
