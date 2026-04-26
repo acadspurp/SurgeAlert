@@ -97,6 +97,24 @@ export async function fetchCameraFeed() {
     return await response.json();
 }
 
+export async function fetchPendingCriticalAlerts() {
+    const response = await apiFetch(`${API_BASE_URL}/public/alerts/critical/pending`);
+    if (!response.ok) throw new Error('Failed to fetch pending critical alerts');
+    return await response.json();
+}
+
+export async function approvePendingCriticalAlert(id) {
+    const response = await apiFetch(`${API_BASE_URL}/public/alerts/critical/pending/${id}/approve`, { method: 'POST' });
+    if (!response.ok) throw new Error('Failed to approve critical alert');
+    return await response.json();
+}
+
+export async function rejectPendingCriticalAlert(id) {
+    const response = await apiFetch(`${API_BASE_URL}/public/alerts/critical/pending/${id}/reject`, { method: 'POST' });
+    if (!response.ok) throw new Error('Failed to reject critical alert');
+    return await response.json();
+}
+
 // --- ACTION PLANS / ALERT GUIDE ---
 export async function fetchAlertGuide() {
     try {
@@ -361,4 +379,23 @@ export async function updateDatasetRequestStatus(id, status) {
         method: 'PUT'
     });
     if (!response.ok) throw new Error('Failed to update request status');
+}
+
+// --- ADMIN: MANUAL CANARY ROLLOUT ---
+export async function fetchCanaryHealth() {
+    const response = await apiFetch(`${API_BASE_URL}/admin/canary/health`);
+    if (!response.ok) throw new Error('Failed to fetch canary health');
+    return await response.json();
+}
+
+export async function advanceCanaryPhase() {
+    const response = await apiFetch(`${API_BASE_URL}/admin/canary/phase/advance`, { method: 'POST' });
+    if (!response.ok) throw new Error('Failed to advance canary phase');
+    return await response.json();
+}
+
+export async function rollbackCanaryPhase() {
+    const response = await apiFetch(`${API_BASE_URL}/admin/canary/phase/rollback`, { method: 'POST' });
+    if (!response.ok) throw new Error('Failed to rollback canary phase');
+    return await response.json();
 }

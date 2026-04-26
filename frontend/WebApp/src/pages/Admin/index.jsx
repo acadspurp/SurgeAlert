@@ -5,6 +5,8 @@ import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement
 import { getUser, clearUser } from '../../services/auth.js';
 import {
     fetchAlertStatus, fetchCameraFeed as fetchCameraAPI, fetchTidesData,
+    fetchPendingCriticalAlerts, approvePendingCriticalAlert, rejectPendingCriticalAlert,
+    fetchCanaryHealth, advanceCanaryPhase, rollbackCanaryPhase,
     fetchActiveResidents, deleteResident as deleteResidentAPI,
     fetchTemplates as fetchTemplatesAPI, saveTemplate as saveTemplateAPI,
     fetchSensorData, overrideAlert, downloadReport,
@@ -30,6 +32,7 @@ import TemplatesView from './views/TemplatesView';
 import DatasetsView from './views/DatasetsView';
 import ReportsView from './views/ReportsView';
 import AdminUsersView from './views/AdminUsersView';
+import CanaryView from './views/CanaryView';
 
 export default function Admin() {
     const navigate = useNavigate();
@@ -123,6 +126,8 @@ export default function Admin() {
     const [lastMqttAt, setLastMqttAt] = useState(null);
     const [secondsSinceUpdate, setSecondsSinceUpdate] = useState(null);
     const [evacuationSites, setEvacuationSites] = useState([]);
+    const [pendingCriticalAlerts, setPendingCriticalAlerts] = useState([]);
+    const [canaryState, setCanaryState] = useState(null);
     const evacuationSitesRef = useRef([]);
 
     const displayName = user ? (user.fullName || user.username) : 'Admin';
@@ -259,6 +264,24 @@ export default function Admin() {
         } catch (e) { console.error(e); }
     };
 
+    const loadPendingCriticalAlerts = async () => {
+        try {
+            const alerts = await fetchPendingCriticalAlerts();
+            setPendingCriticalAlerts(Array.isArray(alerts) ? alerts : []);
+        } catch {
+            setPendingCriticalAlerts([]);
+        }
+    };
+
+    const loadCanaryHealth = async () => {
+        try {
+            const state = await fetchCanaryHealth();
+            setCanaryState(state);
+        } catch {
+            setCanaryState(null);
+        }
+    };
+
     const handleUpdateDatasetStatus = async (id, status) => {
         try {
             await updateDatasetRequestStatus(id, status);
@@ -328,6 +351,8 @@ export default function Admin() {
         loadEvacuationSites();
         loadSystemLogsSafe();
         loadDatasetRequests();
+        loadPendingCriticalAlerts();
+        loadCanaryHealth();
 
         if (isHeadAdmin) {
             loadAdminUsersData();
@@ -335,10 +360,14 @@ export default function Admin() {
 
         const tideInterval = setInterval(loadTideData, 3600000);
         const logsInterval = setInterval(loadSystemLogsSafe, 45000);
+        const criticalInterval = setInterval(loadPendingCriticalAlerts, 15000);
+        const canaryInterval = setInterval(loadCanaryHealth, 20000);
 
         return () => {
             clearInterval(tideInterval);
             clearInterval(logsInterval);
+            clearInterval(criticalInterval);
+            clearInterval(canaryInterval);
         };
     }, []);
     
@@ -636,6 +665,54 @@ export default function Admin() {
 
     const switchView = (viewName) => setActiveView(viewName);
 
+    const handleApproveCriticalAlert = async (id) => {
+        if (!isHeadAdmin) {
+            alert('Only Head Admin can approve critical alerts.');
+            return;
+        }
+        try {
+            await approvePendingCriticalAlert(id);
+            await loadPendingCriticalAlerts();
+            alert('Critical alert approved.');
+        } catch (e) {
+            alert('Failed to approve critical alert.');
+        }
+    };
+
+    const handleRejectCriticalAlert = async (id) => {
+        if (!isHeadAdmin) {
+            alert('Only Head Admin can reject critical alerts.');
+            return;
+        }
+        try {
+            await rejectPendingCriticalAlert(id);
+            await loadPendingCriticalAlerts();
+            alert('Critical alert rejected.');
+        } catch (e) {
+            alert('Failed to reject critical alert.');
+        }
+    };
+
+    const handleAdvanceCanaryPhase = async () => {
+        try {
+            await advanceCanaryPhase();
+            await loadCanaryHealth();
+            alert('Canary phase advanced.');
+        } catch (e) {
+            alert('Failed to advance canary phase.');
+        }
+    };
+
+    const handleRollbackCanaryPhase = async () => {
+        try {
+            await rollbackCanaryPhase();
+            await loadCanaryHealth();
+            alert('Canary phase rolled back.');
+        } catch (e) {
+            alert('Failed to rollback canary phase.');
+        }
+    };
+
     // AI Recommendation Logic
     const getAiRecommendedStatus = () => {
         const predStr = dashData.prediction.replace(' m', '');
@@ -772,6 +849,7 @@ export default function Admin() {
         { key: 'templates', label: 'Message Templates', icon: 'fa-comment-sms' },
         { key: 'datasets', label: 'Data Requests', icon: 'fa-database' },
         { key: 'reports', label: 'Download Reports', icon: 'fa-file-export' },
+        { key: 'canary', label: 'Manual Canary Rollout', icon: 'fa-code-branch' },
     ];
     if (isHeadAdmin) navItems.push({ key: 'admin_users', label: 'User Management', icon: 'fa-user-shield' });
 
@@ -843,7 +921,7 @@ export default function Admin() {
     openCreateUserModal, openEditUserModal, saveUserModal, 
     beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
     handleDeleteAdminUser,
-    handleUpdateDatasetStatus, tides }; return (<>
+    handleUpdateDatasetStatus, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert, canaryState, handleAdvanceCanaryPhase, handleRollbackCanaryPhase }; return (<>
 
                 
                 {/* 1. DASHBOARD */}
@@ -862,6 +940,8 @@ export default function Admin() {
 {activeView === 'reports' && <ReportsView {...viewProps} />}
 {/* 7. ADMIN USERS (HEAD ADMIN ONLY) */}
 {activeView === 'admin_users' && <AdminUsersView {...viewProps} />}
+{/* 8. MANUAL CANARY */}
+{activeView === 'canary' && <CanaryView {...viewProps} />}
 </>
                 );
                 })()}

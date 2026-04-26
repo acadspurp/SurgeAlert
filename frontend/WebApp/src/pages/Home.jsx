@@ -31,6 +31,24 @@ export default function Home() {
     const [isFabOpen, setIsFabOpen] = useState(true);
     const [isDemoMode, setIsDemoMode] = useState(false);
 
+    const getCurrentTideSummary = (events) => {
+        if (!Array.isArray(events) || events.length === 0) return { status: 'Normal', nextHigh: null, nextLow: null };
+        const now = new Date();
+        const sorted = [...events].sort((a, b) => a.dt - b.dt);
+        const previous = [...sorted].reverse().find(t => new Date(t.dt * 1000) <= now);
+        const upcoming = sorted.filter(t => new Date(t.dt * 1000) > now);
+        const nextHigh = upcoming.find(t => String(t.type).toLowerCase() === 'high') || null;
+        const nextLow = upcoming.find(t => String(t.type).toLowerCase() === 'low') || null;
+
+        let status = 'Normal';
+        if (previous) {
+            const h = previous.height ?? 0;
+            if (String(previous.type).toLowerCase() === 'high' || h >= 1.8) status = 'High Tide';
+            else if (String(previous.type).toLowerCase() === 'low' || h <= 0.8) status = 'Low Tide';
+        }
+        return { status, nextHigh, nextLow };
+    };
+
     // Data fetching functions
     const loadAlertStatus = async () => {
         try {
@@ -267,6 +285,11 @@ export default function Home() {
     const colors = getAlertColors(alertLevelKey);
     const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const today = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+    const tideSummary = getCurrentTideSummary(tides);
+    const formatTideDate = (value) =>
+        value ? new Date(value * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
+    const formatTideTime = (value) =>
+        value ? new Date(value * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : 'N/A';
 
     return (
         <div id="home-view" className="min-h-screen bg-[#0f172a] text-gray-200 lg:p-6 pb-24">
@@ -391,9 +414,9 @@ export default function Home() {
             {/* BOTTOM ROW: TIDES & WEATHER */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
-                {/* TIDE PREDICTIONS */}
+                {/* TIDE SUMMARY */}
                 <div className="rounded-2xl p-6 bg-[#1e293b] border border-gray-800 flex flex-col">
-                    <h2 className="text-sm font-bold text-gray-400 tracking-widest mb-4 uppercase">Tide Predictions <span className="text-gray-600 font-normal lowercase ml-2">({today})</span></h2>
+                    <h2 className="text-sm font-bold text-gray-400 tracking-widest mb-4 uppercase">Tide Status <span className="text-gray-600 font-normal lowercase ml-2">({today})</span></h2>
                     <div className="flex-1 flex flex-col justify-center">
                         {tidesError ? (
                             <div className="bg-gray-800 text-gray-400 p-4 rounded-xl text-center border border-gray-700">
@@ -407,18 +430,32 @@ export default function Home() {
                         ) : tides.length === 0 ? (
                             <div className="text-center text-gray-500">No tide data available for today.</div>
                         ) : (
-                            <div className="grid grid-cols-2 gap-4">
-                                {tides.map((tide, i) => {
-                                    const tideTime = new Date(tide.dt * 1000);
-                                    const timeString = tideTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                                    const isHigh = tide.type === 'High';
-                                    return (
-                                        <div key={i} className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50 flex flex-col items-center justify-center">
-                                            <span className={`text-sm font-bold uppercase tracking-widest mb-1 ${isHigh ? 'text-blue-400' : 'text-cyan-600'}`}>{isHigh ? 'High Tide' : 'Low Tide'}</span>
-                                            <span className="text-xl font-mono text-gray-200">{timeString}</span>
-                                        </div>
-                                    );
-                                })}
+                            <div className="grid grid-cols-1 gap-4">
+                                <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50 flex flex-col items-center justify-center">
+                                    <span className="text-xs text-gray-400 uppercase tracking-wider mb-1">Current Tide</span>
+                                    <div className="flex items-center gap-2">
+                                        <i className={`fa-solid ${tideSummary.status === 'High Tide' ? 'fa-arrow-up text-blue-400' : tideSummary.status === 'Low Tide' ? 'fa-arrow-down text-teal-400' : 'fa-wave-square text-cyan-300'}`}></i>
+                                        <span className="text-2xl font-black text-cyan-300">{tideSummary.status}</span>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50">
+                                        <span className="text-xs text-gray-400 uppercase tracking-wider">Next High Tide {formatTideDate(tideSummary.nextHigh?.dt)}</span>
+                                        <p className="text-lg font-bold text-blue-300 mt-1">
+                                            {tideSummary.nextHigh
+                                                ? formatTideTime(tideSummary.nextHigh.dt)
+                                                : 'N/A'}
+                                        </p>
+                                    </div>
+                                    <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50">
+                                        <span className="text-xs text-gray-400 uppercase tracking-wider">Next Low Tide {formatTideDate(tideSummary.nextLow?.dt)}</span>
+                                        <p className="text-lg font-bold text-teal-300 mt-1">
+                                            {tideSummary.nextLow
+                                                ? formatTideTime(tideSummary.nextLow.dt)
+                                                : 'N/A'}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>

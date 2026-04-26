@@ -26,12 +26,12 @@ export default function TelemetryView(props) {
                         </div>
 
                         {/* Calculated Rates */}
-                        <div className="bg-[#1e293b] rounded-2xl shadow-lg border border-slate-700 p-8 mb-8 text-center bg-gradient-to-r from-blue-50 to-indigo-50">
-                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">Calculated Rate of Change</p>
+                        <div className="bg-[#1e293b] rounded-2xl shadow-lg border border-slate-700 p-8 mb-8 text-center bg-gradient-to-r from-[#0f172a] to-[#1e293b]">
+                            <p className="text-sm font-bold text-slate-300 uppercase tracking-widest mb-2">Calculated Rate of Change</p>
                             <h2 className="text-3xl font-black text-sky-100">
-                                Water is <span className="text-blue-600">Stable</span>
+                                Water is <span className="text-cyan-300">Stable</span>
                             </h2>
-                            <p className="text-xs mt-2 text-slate-500">Calculated over the last 15 minutes</p>
+                            <p className="text-xs mt-2 text-slate-300">Calculated over the last 15 minutes</p>
                         </div>
 
                         {/* Historical Graph */}

@@ -104,6 +104,11 @@ public class AlertController {
         return ResponseEntity.ok(pending);
     }
 
+    @GetMapping("/critical/pending")
+    public ResponseEntity<?> listPendingCritical() {
+        return ResponseEntity.ok(criticalAlertApprovalService.listAll());
+    }
+
     @PostMapping("/critical/pending/{id}/approve")
     public ResponseEntity<?> approveCritical(@PathVariable String id) {
         CriticalAlertApprovalService.PendingCriticalAlert pending = criticalAlertApprovalService.approve(id);

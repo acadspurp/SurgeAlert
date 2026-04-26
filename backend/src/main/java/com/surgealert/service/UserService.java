@@ -38,7 +38,26 @@ public class UserService {
 
     public User login(String username, String password) {
         return userRepository.findByUsername(username)
-                .filter(user -> passwordEncoder.matches(password, user.getPassword()))
+                .filter(user -> isPasswordValid(user, password))
                 .orElse(null);
+    }
+
+    private boolean isPasswordValid(User user, String rawPassword) {
+        String stored = user.getPassword();
+        if (stored == null || rawPassword == null) return false;
+        try {
+            if (passwordEncoder.matches(rawPassword, stored)) {
+                return true;
+            }
+        } catch (Exception ignored) {
+            // Stored value might be legacy plaintext.
+        }
+        // Backward-compatibility: allow existing plaintext users, then migrate hash.
+        if (stored.equals(rawPassword)) {
+            user.setPassword(passwordEncoder.encode(rawPassword));
+            userRepository.save(user);
+            return true;
+        }
+        return false;
     }
 }

@@ -10,4 +10,5 @@ import java.util.Optional;
 @Repository
 public interface TideCacheRepository extends JpaRepository<TideCache, Long> {
     Optional<TideCache> findByFetchDate(LocalDate fetchDate);
+    Optional<TideCache> findTopByOrderByFetchDateDesc();
 }

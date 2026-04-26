@@ -9,7 +9,15 @@ export default function AIView(props) {
     openCreateUserModal, openEditUserModal, saveUserModal, 
     beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
     handleDeleteAdminUser,
-    approveDatasetRequest, tides } = props;
+    approveDatasetRequest, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert } = props;
+
+  const groupedTides = (Array.isArray(tides) ? tides : []).reduce((acc, t) => {
+    const d = new Date(t.dt * 1000);
+    const key = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(t);
+    return acc;
+  }, {});
 
   return (
 <>
@@ -51,21 +59,79 @@ export default function AIView(props) {
                                     <h3 className="text-lg font-bold text-sky-100 mb-4 border-b border-slate-700 pb-2 flex items-center">
                                         <i className="fa-solid fa-water list-icon mr-2 text-teal-600"></i> Tide Timeline (24h)
                                     </h3>
-                                    <div className="space-y-4 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
-                                        {tides.slice(0, 10).map((t, i) => (
-                                            <div key={i} className="flex items-center">
-                                                <div className="w-12 text-xs font-bold text-slate-500">{new Date(t.dt * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                                                <div className="mx-3 flex flex-col items-center">
-                                                    <div className={`w-3 h-3 rounded-full ${t.type === 'High' ? 'bg-blue-500' : 'bg-teal-500'} ring-4 ring-gray-50`}></div>
-                                                    {i !== 9 && <div className="w-px h-10 bg-slate-700 my-1"></div>}
-                                                </div>
-                                                <div className="flex-1 bg-[#0f172a] rounded-lg p-2 border border-slate-700">
-                                                    <p className="text-sm font-bold text-slate-200">{t.type} Tide</p>
-                                                    <p className="text-xs text-slate-400">{t.height.toFixed(2)}m</p>
-                                                </div>
-                                            </div>
-                                        ))}
+                                    <div className="grid grid-cols-1 gap-2 mb-4 text-sm">
+                                        <div className="bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-slate-200">
+                                            <span className="text-slate-400 mr-2">Current:</span>
+                                            {(tides && tides.length > 0) ? (tides[0]?.type || 'Normal') : 'Normal'}
+                                        </div>
+                                        <div className="bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-slate-200">
+                                            <span className="text-slate-400 mr-2">Next High:</span>
+                                            {tides.find(t => t.type === 'High')
+                                                ? new Date(tides.find(t => t.type === 'High').dt * 1000).toLocaleString()
+                                                : 'N/A'}
+                                        </div>
+                                        <div className="bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-slate-200">
+                                            <span className="text-slate-400 mr-2">Next Low:</span>
+                                            {tides.find(t => t.type === 'Low')
+                                                ? new Date(tides.find(t => t.type === 'Low').dt * 1000).toLocaleString()
+                                                : 'N/A'}
+                                        </div>
                                     </div>
+                                    <div className="space-y-4 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                                        {Object.keys(groupedTides).length === 0 ? (
+                                          <p className="text-sm text-slate-400">No tide timeline data.</p>
+                                        ) : (
+                                          Object.entries(groupedTides).map(([day, items]) => (
+                                            <div key={day} className="bg-[#0f172a] border border-slate-700 rounded-lg p-3">
+                                              <p className="text-xs font-bold text-cyan-300 mb-2">{day}</p>
+                                              <div className="space-y-2">
+                                                {items.map((t, i) => (
+                                                  <div key={`${day}-${i}`} className="text-sm text-slate-200 flex justify-between gap-4">
+                                                    <span>{new Date(t.dt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {t.type} Tide</span>
+                                                    <span className="text-slate-400">{t.height.toFixed(2)}m</span>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          ))
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* HITL Panel */}
+                                <div className="bg-[#1e293b] rounded-2xl shadow-lg border border-slate-700 p-6">
+                                    <h3 className="text-lg font-bold text-sky-100 mb-4 border-b border-slate-700 pb-2 flex items-center">
+                                        <i className="fa-solid fa-triangle-exclamation mr-2 text-red-500"></i> Human-In-The-Loop Queue
+                                    </h3>
+                                    {(!pendingCriticalAlerts || pendingCriticalAlerts.length === 0) ? (
+                                        <p className="text-sm text-slate-400">No pending critical alerts.</p>
+                                    ) : (
+                                        <div className="space-y-3 max-h-[260px] overflow-y-auto">
+                                            {pendingCriticalAlerts.slice(0, 8).map((alert) => (
+                                                <div key={alert.id} className="bg-[#0f172a] border border-slate-700 rounded-lg p-3">
+                                                    <p className="text-xs text-slate-400">#{alert.id.slice(0, 8)} • {new Date(alert.createdAt).toLocaleString()}</p>
+                                                    <p className="text-sm font-bold text-red-300 mt-1">Status: {alert.status}</p>
+                                                    <p className="text-sm text-slate-200 mt-1">{alert.message}</p>
+                                                    <p className="text-xs text-slate-400 mt-1">Water Level: {alert.waterLevel ?? 'N/A'} m</p>
+                                                    <p className="text-xs text-amber-300 mt-1">Deadline: {new Date(alert.expiresAt).toLocaleString()}</p>
+                                                    <div className="flex gap-2 mt-3">
+                                                        <button
+                                                            onClick={() => handleApproveCriticalAlert(alert.id)}
+                                                            className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-bold"
+                                                        >
+                                                            Approve
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleRejectCriticalAlert(alert.id)}
+                                                            className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-bold"
+                                                        >
+                                                            Reject
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

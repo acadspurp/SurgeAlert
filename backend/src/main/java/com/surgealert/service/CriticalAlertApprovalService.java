@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.List;
 
 @Service
 public class CriticalAlertApprovalService {
@@ -62,6 +63,13 @@ public class CriticalAlertApprovalService {
         PendingCriticalAlert rejected = alert.withStatus("REJECTED");
         pendingAlerts.put(id, rejected);
         return rejected;
+    }
+
+    public List<PendingCriticalAlert> listAll() {
+        return pendingAlerts.values().stream()
+                .map(alert -> getPendingAlert(alert.id()))
+                .sorted((a, b) -> b.createdAt().compareTo(a.createdAt()))
+                .toList();
     }
 
     public record PendingCriticalAlert(

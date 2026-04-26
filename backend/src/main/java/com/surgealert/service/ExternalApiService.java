@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 
 @Service
@@ -28,6 +29,9 @@ public class ExternalApiService {
     // Inject API Key from application.properties for security
     @Value("${worldtides.api.key}")
     private String tideApiKey;
+
+    @Value("${surgealert.tides.cache-max-age-days:2}")
+    private long tideCacheMaxAgeDays;
 
     // Hardcoded coordinates for Marulas/Manila
     private final double LAT = 14.6773;
@@ -65,6 +69,20 @@ public class ExternalApiService {
             }
         }
 
+        // Reuse the latest cache when still fresh (API typically returns multi-day tide windows).
+        Optional<TideCache> latestOpt = tideCacheRepository.findTopByOrderByFetchDateDesc();
+        if (latestOpt.isPresent()) {
+            TideCache latest = latestOpt.get();
+            long age = Math.abs(ChronoUnit.DAYS.between(latest.getFetchDate(), today));
+            if (age <= Math.max(0, tideCacheMaxAgeDays)) {
+                try {
+                    return objectMapper.readValue(latest.getJsonResponse(), TideResponse.class);
+                } catch (Exception ignored) {
+                    // fall through to network refresh
+                }
+            }
+        }
+
         // WorldTides requires an API key
         String url = String.format(
             "https://www.worldtides.info/api/v3?extremes&lat=%s&lon=%s&key=%s",
@@ -88,4 +106,4 @@ public class ExternalApiService {
             return errorResponse;
         }
     }
-}
+}

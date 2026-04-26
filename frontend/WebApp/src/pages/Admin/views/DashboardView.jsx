@@ -80,7 +80,7 @@ export default function DashboardView(props) {
                                 <h3 className="text-lg font-bold text-sky-100 mb-4 flex items-center">
                                     <i className="fa-solid fa-heart-pulse mr-2 text-red-500"></i> Hardware Health
                                 </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                <div className="grid grid-cols-1 gap-3 text-sm">
                                     <HealthRow label="Main Controller" ok={hardwareOnline} />
                                     <HealthRow label="GSM Module" ok={hardwareOnline} />
                                     <HealthRow label="Ultrasonic" ok={hardwareOnline} />
@@ -123,15 +123,17 @@ export default function DashboardView(props) {
                                 <h3 className="text-lg font-bold text-sky-100 mb-4 flex items-center">
                                     <i className="fa-solid fa-moon mr-2 text-indigo-500"></i> Quick Tides
                                 </h3>
-                                <div className="flex-1 bg-gradient-to-b from-blue-50 to-indigo-50 rounded-xl p-6 flex flex-col justify-center text-center">
+                                <div className="flex-1 bg-gradient-to-b from-[#0f172a] to-[#111827] rounded-xl p-6 flex flex-col justify-center text-center border border-slate-700">
                                     {nextTide ? (
                                         <>
                                             <div className="w-20 h-20 mx-auto bg-[#1e293b] rounded-full flex items-center justify-center shadow-md mb-4 border border-blue-900/50">
                                                 <i className={`fa-solid ${nextTide.type === 'High' ? 'fa-arrow-up text-blue-500' : 'fa-arrow-down text-teal-500'} text-3xl`}></i>
                                             </div>
-                                            <h4 className="text-lg font-bold text-slate-200">Rising to {nextTide.type} Tide</h4>
-                                            <p className="text-3xl font-black text-sky-100 my-2">{new Date(nextTide.dt * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                                            <p className="text-sm font-semibold text-slate-400">Predicted Height: {nextTide.height.toFixed(2)}m</p>
+                                            <h4 className="text-lg font-bold text-slate-100">Rising to {nextTide.type} Tide</h4>
+                                            <p className="text-3xl font-black text-cyan-300 my-2">{new Date(nextTide.dt * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                                            <p className="text-xs font-semibold text-slate-300">{new Date(nextTide.dt * 1000).toLocaleDateString()}</p>
+                                            <p className="text-sm font-semibold text-slate-300 mt-1">Predicted Height: {nextTide.height.toFixed(2)}m</p>
+                                            <p className="text-xs text-slate-400 mt-2">Source: WorldTides station estimate</p>
                                         </>
                                     ) : (
                                         <p className="text-slate-400">Loading tide data...</p>
