@@ -445,8 +445,19 @@ export default function Admin() {
         try {
             const telemetryData = await fetchSensorData(24 * 7); // Export 7 days
             const safeData = Array.isArray(telemetryData) ? telemetryData : [];
-            const start = reportStart ? new Date(`${reportStart}T00:00:00`) : null;
-            const end = reportEnd ? new Date(`${reportEnd}T23:59:59`) : null;
+            const parseUiDate = (value, endOfDay = false) => {
+                if (!value) return null;
+                const match = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value.trim());
+                if (!match) return null;
+                const mm = Number(match[1]) - 1;
+                const dd = Number(match[2]);
+                const yyyy = Number(match[3]);
+                return endOfDay
+                    ? new Date(yyyy, mm, dd, 23, 59, 59, 999)
+                    : new Date(yyyy, mm, dd, 0, 0, 0, 0);
+            };
+            const start = parseUiDate(reportStart, false);
+            const end = parseUiDate(reportEnd, true);
             const filtered = safeData.filter(d => {
                 const ts = d?.timestamp ? new Date(d.timestamp) : null;
                 if (!ts || Number.isNaN(ts.getTime())) return false;

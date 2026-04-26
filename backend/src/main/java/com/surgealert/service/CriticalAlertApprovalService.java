@@ -41,9 +41,9 @@ public class CriticalAlertApprovalService {
         PendingCriticalAlert alert = pendingAlerts.get(id);
         if (alert == null) return null;
         if (Instant.now().isAfter(alert.expiresAt()) && "PENDING".equals(alert.status())) {
-            PendingCriticalAlert expired = alert.withStatus("EXPIRED");
-            pendingAlerts.put(id, expired);
-            return expired;
+            PendingCriticalAlert escalated = alert.withStatus("ESCALATED_HEAD_ADMIN");
+            pendingAlerts.put(id, escalated);
+            return escalated;
         }
         return alert;
     }

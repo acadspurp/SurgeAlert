@@ -4,6 +4,7 @@ import com.surgealert.dto.SensorDataDTO;
 import com.surgealert.entity.SensorData;
 import com.surgealert.service.CanaryRolloutService;
 import com.surgealert.service.CriticalAlertApprovalService;
+import com.surgealert.service.AlertConfidenceService;
 import com.surgealert.service.EmailService;
 import com.surgealert.service.NotificationService;
 import com.surgealert.service.ResidentService;
@@ -32,6 +33,7 @@ public class SensorDataController {
     private final EmailService emailService;
     private final CanaryRolloutService canaryRolloutService;
     private final CriticalAlertApprovalService criticalAlertApprovalService;
+    private final AlertConfidenceService alertConfidenceService;
 
     @Value("${surgealert.reports.max-range-days:31}")
     private int maxReportRangeDays;
@@ -48,19 +50,22 @@ public class SensorDataController {
                                 ResidentService residentService,
                                 EmailService emailService,
                                 CanaryRolloutService canaryRolloutService,
-                                CriticalAlertApprovalService criticalAlertApprovalService) {
+                                CriticalAlertApprovalService criticalAlertApprovalService,
+                                AlertConfidenceService alertConfidenceService) {
         this.sensorDataService = sensorDataService;
         this.notificationService = notificationService;
         this.residentService = residentService;
         this.emailService = emailService;
         this.canaryRolloutService = canaryRolloutService;
         this.criticalAlertApprovalService = criticalAlertApprovalService;
+        this.alertConfidenceService = alertConfidenceService;
     }
 
     @PostMapping
     public ResponseEntity<Map<String, Object>> saveSensorData(
             @RequestHeader(value = "X-Edge-ApiKey", required = false) String apiKey,
             @RequestHeader(value = "X-Sensor-Id", required = false) String sensorId,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @RequestBody SensorDataDTO dto) {
 
         // 1. SECURITY CHECK
@@ -80,7 +85,7 @@ public class SensorDataController {
         Map<String, Object> response = new HashMap<>();
         response.put("saved_id", savedData.getId());
         response.put("status", "success");
-        response.put("canary", canaryRolloutService.isCanaryTraffic(sensorId));
+        response.put("canary", canaryRolloutService.isCanaryTraffic(sensorId, userRole));
 
         // 4. Check Logic for Alerts
         String level = savedData.getCurrentAlertLevel();
@@ -95,7 +100,16 @@ public class SensorDataController {
                              level.equalsIgnoreCase("RED");
 
         if (isCritical && messageToSend != null) {
-            if (criticalAlertApprovalService.requiresApproval(level)) {
+            AlertConfidenceService.ConfidenceResult confidence = alertConfidenceService.evaluate(
+                    sensorId,
+                    dto,
+                    level,
+                    savedData.getPredictedAlertLevel()
+            );
+            response.put("redConfidenceHigh", confidence.highConfidence());
+            response.put("confidenceFailedGates", confidence.failedGates());
+
+            if (criticalAlertApprovalService.requiresApproval(level) && !confidence.highConfidence()) {
                 CriticalAlertApprovalService.PendingCriticalAlert pending = criticalAlertApprovalService
                         .createPendingAlert(sensorId == null ? "edge-unknown" : sensorId, messageToSend, savedData.getWaterLevelM());
                 response.put("command", "AWAITING_HUMAN_CONFIRMATION");
@@ -168,35 +182,36 @@ public class SensorDataController {
             @RequestParam(required = false) String endDate,
             @RequestParam(defaultValue = "true") boolean includeTelemetry,
             @RequestParam(defaultValue = "true") boolean includeAI) {
+        DateRange parsedRange = null;
         if ((startDate != null && !startDate.isBlank()) || (endDate != null && !endDate.isBlank())) {
             if (startDate == null || startDate.isBlank() || endDate == null || endDate.isBlank()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Both startDate and endDate are required when filtering.");
             }
             try {
-                LocalDate start = LocalDate.parse(startDate);
-                LocalDate end = LocalDate.parse(endDate);
-                if (end.isBefore(start)) {
+                parsedRange = parseUiDateRange(startDate, endDate);
+                if (parsedRange.end.isBefore(parsedRange.start)) {
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("endDate must be on/after startDate.");
                 }
-                long days = ChronoUnit.DAYS.between(start, end) + 1;
+                long days = ChronoUnit.DAYS.between(parsedRange.start, parsedRange.end) + 1;
                 if (days > Math.max(1, maxReportRangeDays)) {
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                             .body("Date range exceeds the allowed maximum of " + maxReportRangeDays + " days.");
                 }
             } catch (Exception ex) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid date format. Use YYYY-MM-DD.");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid date format. Use MM-DD-YYYY.");
             }
         }
         
         // "Good-looking" CSV template with a title block, summary rows, then data table.
         List<SensorDataDTO> all = sensorDataService.getRecentSensorData(24 * 30); // Max 30 days
+        final DateRange range = parsedRange;
 
         // Filter by date range when provided (YYYY-MM-DD)
         List<SensorDataDTO> filtered = all.stream().filter(d -> {
             if (d == null || d.getTimestamp() == null) return false;
-            if (startDate != null && endDate != null && !startDate.isBlank() && !endDate.isBlank()) {
+            if (range != null) {
                 String dateStr = d.getTimestamp().toLocalDate().toString();
-                return !(dateStr.compareTo(startDate) < 0 || dateStr.compareTo(endDate) > 0);
+                return !(dateStr.compareTo(range.start.toString()) < 0 || dateStr.compareTo(range.end.toString()) > 0);
             }
             return true;
         }).toList();
@@ -274,6 +289,13 @@ public class SensorDataController {
         return v == null ? "" : String.valueOf(v);
     }
 
+    private static DateRange parseUiDateRange(String startDate, String endDate) {
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("MM-dd-yyyy");
+        LocalDate start = LocalDate.parse(startDate, formatter);
+        LocalDate end = LocalDate.parse(endDate, formatter);
+        return new DateRange(start, end);
+    }
+
     private static String csvRow(String... cols) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < cols.length; i++) {
@@ -321,4 +343,6 @@ public class SensorDataController {
             return sum.divide(BigDecimal.valueOf(count), scale, RoundingMode.HALF_UP).toPlainString();
         }
     }
+
+    private record DateRange(LocalDate start, LocalDate end) {}
 }

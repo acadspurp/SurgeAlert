@@ -107,6 +107,14 @@ else:
     # Real river uses real tide height (1:1 ratio)
     TIDE_SCALING_FACTOR = 1.0
 
+# --- SITE CALIBRATION INPUTS (JSN-SR04T) ---
+# reference_height_m = mount height of sensor from riverbed.
+REFERENCE_HEIGHT_M = float(os.getenv("REFERENCE_HEIGHT_M", str(SENSOR_HEIGHT_FROM_MUDPLAIN)))
+# Median smoothing window for noisy ultrasonic readings.
+SMOOTHING_WINDOW = int(os.getenv("SMOOTHING_WINDOW", "5"))
+# Maximum plausible water-level jump per cycle in meters.
+MAX_DELTA_M_PER_CYCLE = float(os.getenv("MAX_DELTA_M_PER_CYCLE", "0.75"))
+
 # --- HARDWARE PINS & PORTS ---
 # Ultrasonic Pins (GPIO)
 TRIG_PIN = 23

@@ -24,6 +24,7 @@ public class MqttSubscriberService {
     private final ResidentService residentService;
     private final EmailService emailService;
     private final CriticalAlertApprovalService criticalAlertApprovalService;
+    private final AlertConfidenceService alertConfidenceService;
     private final ObjectMapper objectMapper;
 
     @Value("${mqtt.topic.sensor}")
@@ -32,7 +33,8 @@ public class MqttSubscriberService {
     public MqttSubscriberService(MqttClient mqttClient, MqttConnectOptions mqttConnectOptions,
                                  SensorDataService sensorDataService, NotificationService notificationService,
                                  ResidentService residentService, EmailService emailService,
-                                 CriticalAlertApprovalService criticalAlertApprovalService) {
+                                 CriticalAlertApprovalService criticalAlertApprovalService,
+                                 AlertConfidenceService alertConfidenceService) {
         this.mqttClient = mqttClient;
         this.mqttConnectOptions = mqttConnectOptions;
         this.sensorDataService = sensorDataService;
@@ -40,6 +42,7 @@ public class MqttSubscriberService {
         this.residentService = residentService;
         this.emailService = emailService;
         this.criticalAlertApprovalService = criticalAlertApprovalService;
+        this.alertConfidenceService = alertConfidenceService;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -73,7 +76,13 @@ public class MqttSubscriberService {
                                          level.equalsIgnoreCase("RED");
 
                     if (isCritical && messageToSend != null) {
-                        if (criticalAlertApprovalService.requiresApproval(level)) {
+                        AlertConfidenceService.ConfidenceResult confidence = alertConfidenceService.evaluate(
+                                "mqtt-ingest",
+                                dto,
+                                level,
+                                savedData.getPredictedAlertLevel()
+                        );
+                        if (criticalAlertApprovalService.requiresApproval(level) && !confidence.highConfidence()) {
                             criticalAlertApprovalService.createPendingAlert("mqtt-ingest", messageToSend, savedData.getWaterLevelM());
                             return;
                         }
