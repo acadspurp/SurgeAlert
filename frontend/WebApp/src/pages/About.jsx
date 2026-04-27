@@ -99,41 +99,84 @@ ${formData.abstractPurpose}
                     </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* III. Data & Methodology */}
-                    <div className="bg-[#1e293b] rounded-2xl p-8 shadow-lg border border-gray-800">
-                        <h2 className="text-xl font-bold mb-4 text-white flex items-center"><i className="fa-solid fa-server mr-3 text-cyan-400"></i> Data & Methodology</h2>
-                        <ul className="list-disc pl-5 text-gray-400 leading-relaxed space-y-2 mb-6 text-sm">
-                            <li><strong className="text-gray-200">Primary:</strong> PAGASA MacArthur Bridge Station.</li>
-                            <li><strong className="text-gray-200">Telemetry:</strong> SurgeAlert Edge System.</li>
-                        </ul>
-                        <h3 className="font-semibold text-gray-300 mb-2">Hardware Specifications:</h3>
-                        <ul className="list-disc pl-5 text-gray-400 leading-relaxed space-y-1 text-sm">
-                            <li><strong className="text-gray-200">Core:</strong> Raspberry Pi 4 (Solar Powered)</li>
-                            <li><strong className="text-gray-200">Sensors:</strong> JSN-SR04T (Ultrasonic), HLK-LD2415H (24GHz Radar)</li>
-                            <li><strong className="text-gray-200">Communication:</strong> Waveshare SIM7600G-H (Offline SMS)</li>
-                            <li><strong className="text-gray-200">Computer Vision:</strong> Raspberry Pi Camera Module 3</li>
-                        </ul>
-                        <h3 className="font-semibold text-gray-300 mb-2 mt-4">Software Stack:</h3>
-                        <ul className="list-disc pl-5 text-gray-400 leading-relaxed space-y-1 text-sm">
-                            <li><strong className="text-gray-200">Backend:</strong> Java Spring Boot, MySQL, HiveMQ Cloud</li>
-                            <li><strong className="text-gray-200">Frontend:</strong> React (Vite), Tailwind CSS, Chart.js</li>
-                        </ul>
+                {/* III. Data & Methodology — Full Width */}
+                <div className="bg-[#1e293b] rounded-2xl p-8 shadow-lg border border-gray-800">
+                    <h2 className="text-xl font-bold mb-2 text-white flex items-center">
+                        <i className="fa-solid fa-flask-vial mr-3 text-cyan-400"></i> How It Works
+                    </h2>
+                    <p className="text-gray-400 text-sm mb-7 leading-relaxed">
+                        SurgeAlert continuously monitors the Tullahan River using on-site sensors and a live camera feed. Data is automatically analyzed and sent to this platform — and directly to residents via SMS when internet is unavailable.
+                    </p>
+
+                    {/* 3-Step Flow */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                        {[
+                            { icon: 'fa-solid fa-tower-broadcast', color: 'text-teal-400', label: '1. Sense', desc: 'Waterproof ultrasonic and radar sensors measure the river\'s water level every 10 minutes. A camera provides a live visual feed for additional confirmation.' },
+                            { icon: 'fa-solid fa-brain', color: 'text-cyan-400', label: '2. Analyze', desc: 'The edge device processes sensor readings on-site and compares them against historical flood data to determine the current alert level.' },
+                            { icon: 'fa-solid fa-bell', color: 'text-yellow-400', label: '3. Alert', desc: 'If a threshold is exceeded, the system immediately notifies registered residents via SMS — even during power outages and internet disruptions.' },
+                        ].map(({ icon, color, label, desc }) => (
+                            <div key={label} className="bg-[#0f172a] rounded-xl p-5 border border-gray-700 text-center">
+                                <i className={`${icon} ${color} text-2xl mb-3 block`}></i>
+                                <p className="text-gray-100 font-bold text-sm mb-2">{label}</p>
+                                <p className="text-gray-400 text-xs leading-relaxed">{desc}</p>
+                            </div>
+                        ))}
                     </div>
 
-                    {/* IV. The Research Team */}
-                    <div className="bg-[#1e293b] rounded-2xl p-8 shadow-lg border border-gray-800">
-                        <h2 className="text-xl font-bold mb-4 text-white flex items-center"><i className="fa-solid fa-users mr-3 text-teal-400"></i> The Research Team</h2>
-                        <ul className="text-gray-300 leading-relaxed space-y-2 mb-6 font-medium text-lg">
-                            <li className="flex items-center"><i className="fa-solid fa-user-graduate text-sm text-gray-500 mr-2"></i> Angela Nicole P. Sison</li>
-                            <li className="flex items-center"><i className="fa-solid fa-user-graduate text-sm text-gray-500 mr-2"></i> Angelica Jane P. Tapar</li>
-                            <li className="flex items-center"><i className="fa-solid fa-user-graduate text-sm text-gray-500 mr-2"></i> Hannah Florence Bardon</li>
-                            <li className="flex items-center"><i className="fa-solid fa-user-graduate text-sm text-gray-500 mr-2"></i> Jayson Justin Cabus</li>
-                        </ul>
-                        <div className="pt-4 border-t border-gray-700">
-                            <p className="text-gray-300 font-bold">Dr. Remedios G. Ado</p>
-                            <p className="text-sm text-gray-500">Thesis Adviser</p>
-                            <p className="text-sm text-gray-500 mt-1">Dean, College of Engineering</p>
+                    {/* Data Sources + Hardware — 2 columns */}
+                    <div className="border-t border-gray-700 pt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div>
+                            <p className="text-xs font-bold text-cyan-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <i className="fa-solid fa-database"></i> Data Sources
+                            </p>
+                            <ul className="space-y-2 text-sm">
+                                {[
+                                    ['fa-solid fa-cloud-sun text-yellow-400', 'PAGASA MacArthur Bridge', 'Historical flood records for the Tullahan River basin'],
+                                    ['fa-solid fa-satellite-dish text-teal-400', 'SurgeAlert Edge Node', 'Live on-site sensor readings, updated every 10 minutes'],
+                                ].map(([iconClass, label, value]) => (
+                                    <li key={label} className="flex gap-3 items-start">
+                                        <i className={`${iconClass} mt-0.5 shrink-0`}></i>
+                                        <span><strong className="text-gray-200">{label}:</strong> <span className="text-gray-400">{value}</span></span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold text-cyan-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <i className="fa-solid fa-microchip"></i> Powered By
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                {['Raspberry Pi 4', 'Solar Power', 'JSN-SR04T Sensor', '24 GHz Radar', 'RPi Camera 3', '4G LTE / SMS'].map((tag) => (
+                                    <span key={tag} className="bg-[#0f172a] border border-gray-700 text-gray-300 text-xs px-3 py-1 rounded-full">{tag}</span>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* IV. The Research Team — Full Width */}
+                <div className="bg-[#1e293b] rounded-2xl p-8 shadow-lg border border-gray-800">
+                    <h2 className="text-xl font-bold mb-6 text-white flex items-center">
+                        <i className="fa-solid fa-users mr-3 text-teal-400"></i> The Research Team
+                    </h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                        {['Angela Nicole P. Sison', 'Angelica Jane P. Tapar', 'Hannah Florence Bardon', 'Jayson Justin Cabus'].map((name) => (
+                            <div key={name} className="bg-[#0f172a] border border-gray-700 rounded-xl p-4 text-center">
+                                <div className="w-10 h-10 rounded-full bg-[#1e293b] border border-gray-600 flex items-center justify-center mx-auto mb-3">
+                                    <i className="fa-solid fa-user-graduate text-gray-400"></i>
+                                </div>
+                                <p className="text-gray-200 text-sm font-semibold leading-snug">{name}</p>
+                                <p className="text-gray-500 text-xs mt-1">Researcher</p>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex items-center gap-4 pt-5 border-t border-gray-700">
+                        <div className="w-10 h-10 rounded-full bg-[#1e293b] border border-cyan-700 flex items-center justify-center shrink-0">
+                            <i className="fa-solid fa-chalkboard-teacher text-cyan-400"></i>
+                        </div>
+                        <div>
+                            <p className="text-white font-bold">Dr. Remedios G. Ado</p>
+                            <p className="text-sm text-gray-400">Thesis Adviser &nbsp;·&nbsp; Dean, College of Engineering</p>
                         </div>
                     </div>
                 </div>
@@ -166,7 +209,7 @@ ${formData.abstractPurpose}
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-100 mb-1">Full Name</label>
+                                    <label className="block text-sm font-bold text-slate-100 mb-1">Name (Optional)</label>
                                     <input type="text" name="name" required className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.name} onChange={handleChange} onKeyDown={(e) => { if (e.key.length === 1 && !/^[a-zA-Z.\s]$/.test(e.key)) e.preventDefault(); }} />
                                 </div>
                                 <div>
@@ -218,7 +261,7 @@ ${formData.abstractPurpose}
                                 <label className="block text-sm font-bold text-gray-400 mb-2">Data Privacy Agreement</label>
                                 <div className="p-4 bg-[#0f172a] border border-gray-600 rounded-lg text-xs leading-relaxed text-gray-400 mb-3 max-h-32 overflow-y-auto">
                                     <strong className="text-gray-200">Compliance with Data Privacy Act of 2012 (R.A. 10173)</strong><br /><br />
-                                    I hereby grant my independent and voluntary consent to the SurgeAlert administrators to collect, process, and retain my personal and institutional data (Full Name, Contact Number, Institutional Email, and Affiliations) exclusively for the assessment, verification, and fulfillment of this Dataset Request.<br /><br />
+                                    I hereby grant my independent and voluntary consent to the SurgeAlert administrators to collect, process, and retain my personal and institutional data (Name, Contact Number, Institutional Email, and Affiliations) exclusively for the assessment, verification, and fulfillment of this Dataset Request.<br /><br />
                                     I understand that my provided data will be safeguarded chronologically, kept strictly confidential, and will not be transferred to or shared with any unauthorized third parties without my explicit written consent. Furthermore, I recognize my fundamental rights to access, rectify, port, or request the immediate deletion of my personal information as definitively guaranteed by the Data Privacy Act of the Philippines.
                                 </div>
                                 <label className="flex items-center gap-3 cursor-pointer mt-2">

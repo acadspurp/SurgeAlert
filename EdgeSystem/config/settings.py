@@ -93,23 +93,33 @@ if ENVIRONMENT_MODE == "AQUARIUM":
     TIDE_SCALING_FACTOR = 0.025
 
 else:
-    # --- RIVER MODE (20 METER DEPTH CONFIG) ---
-    PIXELS_TO_METERS = 0.01
-    
-    # UPDATED: Set to 20.0m to allow for a 17.75m reading (20 - 2.25 = 17.75)
-    SENSOR_HEIGHT_FROM_MUDPLAIN = 20.0 
+    # --- RIVER MODE ---
+    # Physical setup: sensor is mounted above the riverbed.
+    # Water Level formula:  water_level_m = SENSOR_HEIGHT_FROM_MUDPLAIN - distance_from_sensor_m
+    #
+    # ✏️  TO UPDATE THE DEPTH: Change the value below.
+    #     This file is tracked by git, so the change will persist after every push.
+    #     Mirror the same value in: backend/src/main/resources/application.properties
+    #                              → surgealert.sensor.depth-m=6.1
+    SENSOR_HEIGHT_FROM_MUDPLAIN = 6.1  # 20 ft ≈ 6.096 m
 
-    # Thresholds (Meters) - Adjusted for River scale
-    WATER_LEVEL_YELLOW_THRESHOLD = 6.0
-    WATER_LEVEL_ORANGE_THRESHOLD = 8.0
-    WATER_LEVEL_RED_THRESHOLD = 9.0
+    PIXELS_TO_METERS = 0.01
+
+    # Thresholds derived as a % of total sensor depth
+    #   YELLOW → 57%  (past halfway, rising trend possible)
+    #   ORANGE → 74%  (¾ full, action window narrowing)
+    #   RED    → 90%  (near capacity, evacuate immediately)
+    WATER_LEVEL_YELLOW_THRESHOLD = round(SENSOR_HEIGHT_FROM_MUDPLAIN * 0.57, 2)
+    WATER_LEVEL_ORANGE_THRESHOLD = round(SENSOR_HEIGHT_FROM_MUDPLAIN * 0.74, 2)
+    WATER_LEVEL_RED_THRESHOLD    = round(SENSOR_HEIGHT_FROM_MUDPLAIN * 0.90, 2)
 
     # Real river uses real tide height (1:1 ratio)
     TIDE_SCALING_FACTOR = 1.0
 
 # --- SITE CALIBRATION INPUTS (JSN-SR04T) ---
-# reference_height_m = mount height of sensor from riverbed.
-REFERENCE_HEIGHT_M = float(os.getenv("REFERENCE_HEIGHT_M", str(SENSOR_HEIGHT_FROM_MUDPLAIN)))
+# REFERENCE_HEIGHT_M aliases SENSOR_HEIGHT_FROM_MUDPLAIN (which is set from SENSOR_DEPTH_M env var).
+# sensor_data_processor.py imports this name, so we keep it for compatibility.
+REFERENCE_HEIGHT_M = SENSOR_HEIGHT_FROM_MUDPLAIN
 # Median smoothing window for noisy ultrasonic readings.
 SMOOTHING_WINDOW = int(os.getenv("SMOOTHING_WINDOW", "5"))
 # Maximum plausible water-level jump per cycle in meters.

@@ -81,6 +81,20 @@ export async function fetchAlertStatus() {
     return await response.json();
 }
 
+// --- SYSTEM CONFIG / THRESHOLDS ---
+// Returns: { sensorDepthM: 6.1, thresholds: { yellow: 3.48, orange: 4.51, red: 5.49 } }
+// The frontend uses this instead of any hardcoded threshold values.
+export async function fetchSystemThresholds() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/public/config/thresholds`);
+        if (!response.ok) throw new Error('Config fetch failed');
+        return await response.json();
+    } catch {
+        // Safe fallback if backend is unreachable — keeps the UI functional
+        return { sensorDepthM: 6.1, thresholds: { yellow: 3.48, orange: 4.51, red: 5.49 } };
+    }
+}
+
 export async function overrideAlert(level, reason = "") {
     const response = await apiFetch(`${API_BASE_URL}/public/alerts/override`, {
         method: 'POST',

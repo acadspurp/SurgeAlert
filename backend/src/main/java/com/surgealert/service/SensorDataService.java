@@ -3,6 +3,7 @@ package com.surgealert.service;
 import com.surgealert.dto.SensorDataDTO;
 import com.surgealert.entity.SensorData;
 import com.surgealert.repository.SensorDataRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -13,6 +14,10 @@ import java.util.stream.Collectors;
 public class SensorDataService {
 
     private final SensorDataRepository sensorDataRepository;
+
+    // Reads from application.properties → surgealert.sensor.depth-m → SENSOR_DEPTH_M in .env
+    @Value("${surgealert.sensor.depth-m:6.1}")
+    private double sensorDepthM;
 
     // REMOVED IS_AQUARIUM_MODE to prevent logic conflict with Edge System.
     // We now strictly trust the Edge system's judgment.
@@ -103,16 +108,14 @@ public class SensorDataService {
         return dto;
     }
 
-    // This is now only a FALLBACK method.
-    // Real thresholds should be managed in Python (EdgeSystem/config/settings.py)
+    // Fallback alert classifier — used only when the Edge system is offline.
+    // Thresholds are derived from sensorDepthM which comes from SENSOR_DEPTH_M in .env.
+    // Mirrors the ratios in: EdgeSystem/config/settings.py and ConfigController.java
     private String calculateFallbackAlertLevel(Double waterLevel) {
         if (waterLevel == null) return "GREEN";
-        
-        // Default safe fallbacks if Edge logic fails completely
-        if (waterLevel >= 8.5) return "RED";
-        if (waterLevel >= 7.0) return "ORANGE";
-        if (waterLevel >= 6.0) return "YELLOW";
-
+        if (waterLevel >= sensorDepthM * 0.90) return "RED";    // ~5.49 m at 6.1 m depth
+        if (waterLevel >= sensorDepthM * 0.74) return "ORANGE"; // ~4.51 m
+        if (waterLevel >= sensorDepthM * 0.57) return "YELLOW"; // ~3.48 m
         return "GREEN";
     }
 }

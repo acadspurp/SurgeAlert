@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchAlertStatus, fetchAlertGuide, fetchCameraFeed, fetchWeatherData, fetchTidesData, getWeatherInfo } from '../services/api.js';
+import { fetchAlertStatus, fetchAlertGuide, fetchCameraFeed, fetchWeatherData, fetchTidesData, getWeatherInfo, fetchSystemThresholds } from '../services/api.js';
 import { useSensorMqtt } from '../hooks/useSensorMqtt.js';
+import { classifyAlertLevel, gaugeFillPercent, gaugeMarkers } from '../config/alertConfig.js';
 
 let CACHED_GUIDE = null;
 
@@ -31,6 +32,11 @@ export default function Home() {
     const [isOffline, setIsOffline] = useState(false);
     const [isFabOpen, setIsFabOpen] = useState(true);
     const [isDemoMode, setIsDemoMode] = useState(false);
+    // Thresholds fetched from backend (driven by SENSOR_DEPTH_M in .env)
+    const [sensorConfig, setSensorConfig] = useState({
+        sensorDepthM: 6.1,
+        thresholds: { yellow: 3.48, orange: 4.51, red: 5.49 }
+    });
 
     const getCurrentTideSummary = (events) => {
         if (!Array.isArray(events) || events.length === 0) return { status: 'Normal', nextHigh: null, nextLow: null };
@@ -77,10 +83,10 @@ export default function Home() {
             return;
         }
         
-        // Priority 1: Admin Override. Priority 2: Pure Mathematical Float Calculation vs Ghost Data.
-        const levelKey = isOverride 
-            ? rawLevel.toLowerCase() 
-            : (floatVal >= 8.5 ? 'red' : floatVal >= 7.0 ? 'orange' : floatVal >= 6.0 ? 'yellow' : 'green');
+        // Priority 1: Admin Override. Priority 2: Fetch-driven threshold classification.
+        const levelKey = isOverride
+            ? rawLevel.toLowerCase()
+            : classifyAlertLevel(floatVal, sensorConfig.thresholds);
 
         setWaterLevel(floatVal.toFixed(2) + ' m');
         setAlertLevelKey(levelKey);
@@ -205,6 +211,8 @@ export default function Home() {
         loadWeather();
         loadTides();
         loadCamera();
+        // Fetch thresholds from backend — no hardcoded numbers on the frontend
+        fetchSystemThresholds().then(config => setSensorConfig(config));
 
         const weatherInterval = setInterval(() => {
             loadWeather();
@@ -228,11 +236,11 @@ export default function Home() {
         checkSimulation();
 
         if (isSimulating) {
-            let fakeLevel = isNaN(parseFloat(waterLevel)) ? 5.8 : parseFloat(waterLevel);
+            let fakeLevel = isNaN(parseFloat(waterLevel)) ? sensorConfig.thresholds.yellow - 0.5 : parseFloat(waterLevel);
             const tick = () => {
-                const randomDrift = (Math.random() * 2) - 0.5; // push it up steadily
-                fakeLevel = Math.min(10.0, Math.max(0.0, fakeLevel + randomDrift));
-                const levelKey = fakeLevel >= 8.5 ? 'red' : fakeLevel >= 7.0 ? 'orange' : fakeLevel >= 6.0 ? 'yellow' : 'green';
+                const randomDrift = (Math.random() * 2) - 0.5;
+                fakeLevel = Math.min(sensorConfig.sensorDepthM, Math.max(0.0, fakeLevel + randomDrift));
+                const levelKey = classifyAlertLevel(fakeLevel, sensorConfig.thresholds);
                 setWaterLevel(fakeLevel.toFixed(2) + ' m');
                 setAlertLevelKey(levelKey);
                 
@@ -300,6 +308,8 @@ export default function Home() {
     const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const today = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
     const tideSummary = getCurrentTideSummary(tides);
+    // Compute gauge markers fresh from fetched config — no hardcoded percentages
+    const GAUGE_MARKS = gaugeMarkers(sensorConfig.thresholds, sensorConfig.sensorDepthM);
     const formatTideDate = (value) =>
         value ? new Date(value * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
     const formatTideTime = (value) =>
@@ -323,25 +333,25 @@ export default function Home() {
                              {/* The actual gauge */}
                              <div className="absolute bottom-0 left-0 h-full w-16 bg-gray-900 rounded-full border-2 border-gray-700 overflow-hidden flex items-end shadow-inner">
                                  {/* Gradient inner fill that moves up. Highly distinct colors. */}
-                                 <div className="w-full relative transition-all duration-1000 overflow-hidden" style={{ height: waterLevel !== '--.-- m' ? `${Math.min(100, (parseFloat(waterLevel) / 10) * 100)}%` : '0%' }}>
-                                    <div className="absolute bottom-0 w-full h-[320px]" style={{ background: 'linear-gradient(to top, #22c55e 0%, #22c55e 60%, #eab308 60%, #eab308 70%, #ff8800 70%, #ff8800 85%, #ff0000 85%, #ff0000 100%)' }}></div>
+                                 <div className="w-full relative transition-all duration-1000 overflow-hidden" style={{ height: waterLevel !== '--.-- m' ? `${gaugeFillPercent(parseFloat(waterLevel), sensorConfig.sensorDepthM)}%` : '0%' }}>
+                                    <div className="absolute bottom-0 w-full h-[320px]" style={{ background: `linear-gradient(to top, #22c55e 0%, #22c55e ${GAUGE_MARKS.yellow}%, #eab308 ${GAUGE_MARKS.yellow}%, #eab308 ${GAUGE_MARKS.orange}%, #ff8800 ${GAUGE_MARKS.orange}%, #ff8800 ${GAUGE_MARKS.red}%, #ff0000 ${GAUGE_MARKS.red}%, #ff0000 100%)` }}></div>
                                  </div>
                              </div>
 
-                             {/* Threshold Markers with Lines and Labels */}
-                             <div className="absolute bottom-[60%] left-0 w-full h-[2px] bg-yellow-400 z-10 flex items-center">
+                             {/* Threshold Markers — positions driven by fetched config */}
+                             <div className="absolute left-0 w-full h-[2px] bg-yellow-400 z-10 flex items-center" style={{ bottom: `${GAUGE_MARKS.yellow}%` }}>
                                 <span className="absolute left-[70px] text-xs font-bold text-yellow-400 whitespace-nowrap bg-[#0f172a] px-2 py-1 rounded shadow-sm border border-yellow-400/30">Yellow: Monitor</span>
                              </div>
-                             <div className="absolute bottom-[70%] left-0 w-full h-[2px] bg-orange-500 z-10 flex items-center">
+                             <div className="absolute left-0 w-full h-[2px] bg-orange-500 z-10 flex items-center" style={{ bottom: `${GAUGE_MARKS.orange}%` }}>
                                 <span className="absolute left-[70px] text-xs font-bold text-[#ff8800] whitespace-nowrap bg-[#0f172a] px-2 py-1 rounded shadow-sm border border-orange-500/30">Orange: Prepare</span>
                              </div>
-                             <div className="absolute bottom-[85%] left-0 w-full h-[2px] bg-red-600 z-10 flex items-center">
+                             <div className="absolute left-0 w-full h-[2px] bg-red-600 z-10 flex items-center" style={{ bottom: `${GAUGE_MARKS.red}%` }}>
                                 <span className="absolute left-[70px] text-xs font-bold text-red-500 whitespace-nowrap bg-[#0f172a] px-2 py-1 rounded shadow-sm border border-red-600/30">Red: Evacuate</span>
                              </div>
                              
                              {/* Current Water Level Pointer */}
                              {waterLevel !== '--.-- m' && (
-                                <div className="absolute left-0 w-16 h-1.5 bg-white shadow-[0_0_15px_white] z-20 transition-all duration-1000" style={{ bottom: `${Math.min(100, (parseFloat(waterLevel) / 10) * 100)}%` }}></div>
+                                <div className="absolute left-0 w-16 h-1.5 bg-white shadow-[0_0_15px_white] z-20 transition-all duration-1000" style={{ bottom: `${gaugeFillPercent(parseFloat(waterLevel), sensorConfig.sensorDepthM)}%` }}></div>
                              )}
                         </div>
                         
@@ -371,22 +381,22 @@ export default function Home() {
                                         <tr className="border-b border-gray-800">
                                             <td className="py-2 px-3 font-bold text-green-500">Green</td>
                                             <td className="py-2 px-3 font-bold text-white">Normal</td>
-                                            <td className="py-2 px-3 text-white">&lt; 6.0 m</td>
+                                            <td className="py-2 px-3 text-white">&lt; {sensorConfig.thresholds.yellow.toFixed(2)} m</td>
                                         </tr>
                                         <tr className="border-b border-gray-800">
                                             <td className="py-2 px-3 font-bold text-yellow-400">Yellow</td>
                                             <td className="py-2 px-3 font-bold text-white">Monitor</td>
-                                            <td className="py-2 px-3 text-white">6.0 - 7.0 m</td>
+                                            <td className="py-2 px-3 text-white">{sensorConfig.thresholds.yellow.toFixed(2)} – {sensorConfig.thresholds.orange.toFixed(2)} m</td>
                                         </tr>
                                         <tr className="border-b border-gray-800">
                                             <td className="py-2 px-3 font-bold text-orange-500">Orange</td>
                                             <td className="py-2 px-3 font-bold text-white">Prepare</td>
-                                            <td className="py-2 px-3 text-white">7.0 - 8.5 m</td>
+                                            <td className="py-2 px-3 text-white">{sensorConfig.thresholds.orange.toFixed(2)} – {sensorConfig.thresholds.red.toFixed(2)} m</td>
                                         </tr>
                                         <tr>
                                             <td className="py-2 px-3 font-bold text-red-500">Red</td>
                                             <td className="py-2 px-3 font-bold text-white">Evacuate</td>
-                                            <td className="py-2 px-3 text-white">&gt; 8.5 m</td>
+                                            <td className="py-2 px-3 text-white">&gt; {sensorConfig.thresholds.red.toFixed(2)} m</td>
                                         </tr>
                                     </tbody>
                                 </table>
