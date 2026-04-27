@@ -81,6 +81,12 @@ public class SensorDataController {
 
         // 3. Save Data to Database
         SensorData savedData = sensorDataService.saveSensorData(dto);
+        if (savedData == null) {
+            Map<String, Object> ignoredResponse = new HashMap<>();
+            ignoredResponse.put("status", "ignored");
+            ignoredResponse.put("reason", "Ghost value / noise (below 0.30m) blocked by Data Guard.");
+            return ResponseEntity.ok(ignoredResponse);
+        }
 
         Map<String, Object> response = new HashMap<>();
         response.put("saved_id", savedData.getId());

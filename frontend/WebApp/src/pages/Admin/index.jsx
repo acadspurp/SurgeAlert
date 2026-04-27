@@ -44,10 +44,14 @@ export default function Admin() {
     const isHeadAdmin = role === 'HEAD_ADMIN';
 
     useEffect(() => {
+        console.log("Admin Guard - User:", user);
+        console.log("Admin Guard - Role:", role);
+        
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) {
-            console.warn("Unauthorized access detected. Redirecting...");
-            alert("Access Denied. Admins Only.");
-            navigate('/');
+            console.warn("Unauthorized access detected. Role found:", role, "Redirecting to login...");
+            // Only alert if we actually have a user but wrong role
+            if (user) alert("Access Denied. Your account does not have Admin privileges.");
+            navigate('/login');
             return;
         }
     }, [user, role, navigate]);
@@ -130,6 +134,9 @@ export default function Admin() {
     const [pendingCriticalAlerts, setPendingCriticalAlerts] = useState([]);
     const [canaryState, setCanaryState] = useState(null);
     const evacuationSitesRef = useRef([]);
+
+    // Derived State for Hardware Health (Must be before useEffects that use it)
+    const hardwareOnline = demoMode ? true : (secondsSinceUpdate !== null ? secondsSinceUpdate <= 12 : false);
 
     const displayName = user ? (user.fullName || user.username) : 'Admin';
 
@@ -301,8 +308,20 @@ export default function Admin() {
     useEffect(() => {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
         
-        // Live Priority: Ensure system automatically displays real-time sensor/backend data
-        // when hardware is connected, bypassing all simulation logic.
+        // Handle Offline State: If hardware is disconnected and demo mode is off, reset values to --
+        if (!demoMode && !hardwareOnline) {
+            setDashData(prev => ({
+                ...prev,
+                waterLevel: '-- m',
+                flowRate: '-- m/s',
+                status: 'OFFLINE',
+                statusColor: 'text-slate-400',
+                prediction: '-- m'
+            }));
+            return;
+        }
+
+        // Live Priority
         if (mqttData && mqttData.waterLevelM !== null && mqttData.waterLevelM !== undefined) {
             if (demoMode) {
                 setDemoMode(false); // Force demo off
@@ -314,12 +333,17 @@ export default function Admin() {
         if (mqttData) {
             setLastMqttAt(Date.now());
             const newDash = { ...dashData };
-            newDash.waterLevel = (mqttData.waterLevelM !== null && mqttData.waterLevelM !== undefined) ? mqttData.waterLevelM.toFixed(2) + ' m' : '--';
+            // Apply noise filter (anything below 0.30m is ghost data)
+            const floatWl = mqttData.waterLevelM;
+            const isGhost = floatWl !== null && floatWl !== undefined && floatWl < 0.30;
+            
+            newDash.waterLevel = (floatWl !== null && !isGhost) ? floatWl.toFixed(2) + ' m' : '-- m';
             newDash.flowRate = (mqttData.sensorFlowRateMps !== null) ? mqttData.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s';
             
             const level = mqttData.currentAlertLevel || 'OFFLINE';
-            newDash.status = level;
-            if (level === 'RED') newDash.statusColor = 'text-red-600';
+            newDash.status = isGhost ? 'NORMAL (GHOST FILTERED)' : level;
+            if (isGhost) newDash.statusColor = 'text-green-600';
+            else if (level === 'RED') newDash.statusColor = 'text-red-600';
             else if (level === 'ORANGE') newDash.statusColor = 'text-orange-500';
             else if (level === 'YELLOW') newDash.statusColor = 'text-yellow-500';
             else if (level === 'GREEN') newDash.statusColor = 'text-green-600';
@@ -334,6 +358,9 @@ export default function Admin() {
             if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${mqttData.snapshotBase64}`);
                 setCameraLastUpdated(new Date().toLocaleTimeString());
+            } else {
+                // Keep the timestamp alive even if image doesn't update (shows system is polling)
+                if (!cameraLastUpdated) setCameraLastUpdated(new Date().toLocaleTimeString());
             }
             // Trend Indicator calculations
             if (prevReadings.current.waterLevel !== null && mqttData.waterLevelM !== null) {
@@ -351,7 +378,7 @@ export default function Admin() {
 
             loadChartData(telemetryTime);
         }
-    }, [mqttData, demoMode]);
+    }, [mqttData, demoMode]); // Removed hardwareOnline from here for now to avoid initialization issues
 
     useEffect(() => {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
@@ -409,6 +436,8 @@ export default function Admin() {
                     statusColor: newWl >= 8.5 ? 'text-red-600' : newWl >= 7.0 ? 'text-orange-500' : newWl >= 6.0 ? 'text-yellow-500' : 'text-green-600',
                     prediction: (newWl + 0.5).toFixed(2) + ' m'
                 }));
+
+                setCameraLastUpdated(new Date().toLocaleTimeString());
 
                 setTrendIndicators(prev => ({
                     waterLevel: newWl > prevWl ? '↑' : newWl < prevWl ? '↓' : '-',
@@ -766,6 +795,7 @@ export default function Admin() {
     // -------------------------------------------------------------
     // CHART CONFIGURATIONS
     // -------------------------------------------------------------
+
     const getChartLabels = () => rawSensorData.map(d => new Date(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     
     // Telemetry Chart (Multiple Lines)
@@ -870,8 +900,6 @@ export default function Admin() {
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
         .slice(0, 5);
 
-    const hardwareOnline = demoMode ? true : (secondsSinceUpdate !== null ? secondsSinceUpdate <= 12 : false);
-
     const filteredResidents = (Array.isArray(residents) ? residents : []).filter(r => {
         if (!searchTerm.trim()) return true;
         const q = searchTerm.toLowerCase();
@@ -895,12 +923,26 @@ export default function Admin() {
     ];
     if (isHeadAdmin) navItems.push({ key: 'admin_users', label: 'User Management', icon: 'fa-user-shield' });
 
-    if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return null;
+    // Show nothing (or a spinner) while checking auth in useEffect
+    if (!user) {
+        return (
+            <div className="h-screen w-screen bg-[#0f172a] flex items-center justify-center text-white">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-400 mx-auto mb-4"></div>
+                    <p className="text-xl font-bold">Verifying Session...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (role !== 'ADMIN' && role !== 'HEAD_ADMIN') {
+        return null; // The useEffect will handle the redirect
+    }
 
     return (
         <div className="flex h-screen overflow-hidden bg-[#0f172a]">
             {/* SIDEBAR */}
-            <aside className={`${isSidebarOpen ? 'w-68' : 'w-20'} bg-[#0f172a] text-white flex flex-col shadow-xl transition-all duration-300 relative`} id="sidebar">
+            <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-[#0f172a] text-white flex flex-col shadow-xl transition-all duration-300 relative`} id="sidebar">
                 {/* Demo Mode Toggle */}
                 <div className="absolute top-2 right-[-40px] z-50">
                     <button onClick={() => setDemoMode(!demoMode)} className={`p-2 rounded-r-lg shadow-md ${demoMode ? 'bg-orange-500 hover:bg-orange-600' : 'bg-slate-600 hover:bg-gray-400'} transition tooltip-parent`}>

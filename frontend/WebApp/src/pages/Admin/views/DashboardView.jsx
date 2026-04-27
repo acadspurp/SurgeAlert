@@ -149,7 +149,7 @@ export default function DashboardView(props) {
                                     <div className="flex items-center">
                                         <i className="fa-solid fa-camera mr-2 text-blue-500"></i> Media Center (Camera Feed)
                                     </div>
-                                    {cameraLastUpdated && <span className="text-xs text-slate-400 font-normal">Last updated: {cameraLastUpdated}</span>}
+                                    {cameraLastUpdated && <span className="text-sm font-bold text-cyan-400">Last updated: {cameraLastUpdated}</span>}
                                 </h3>
                                 <div className="bg-black rounded-xl overflow-hidden flex-1 relative min-h-[400px]">
                                     {cameraImg ? (
@@ -163,7 +163,7 @@ export default function DashboardView(props) {
                                         </div>
                                     )}
                                     {cameraLastUpdated && (
-                                        <div className="absolute top-4 right-4 bg-black/60 text-white text-xs font-mono px-2 py-1 rounded backdrop-blur-sm z-10">
+                                        <div className="absolute top-4 right-4 bg-black/80 text-cyan-400 text-sm font-black font-mono px-3 py-1.5 rounded-lg border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.2)] backdrop-blur-md z-10">
                                             {cameraLastUpdated}
                                         </div>
                                     )}

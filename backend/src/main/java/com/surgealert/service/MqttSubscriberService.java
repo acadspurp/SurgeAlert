@@ -69,6 +69,7 @@ public class MqttSubscriberService {
 
                     // 3. Save Data to Database
                     SensorData savedData = sensorDataService.saveSensorData(dto);
+                    if (savedData == null) return; // Ignore erroneous reading
 
                     // 4. Alert & Email Logic
                     String level = savedData.getCurrentAlertLevel();

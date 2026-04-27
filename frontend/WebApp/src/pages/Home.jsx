@@ -71,6 +71,12 @@ export default function Home() {
         setIsOffline(false);
         const floatVal = parseFloat(currentLevel);
         
+        // NOISE FILTER: Anything below 0.30m is considered "Offline" ghost data in river mode
+        if (floatVal < 0.30 && !isOverride) {
+            setIsOffline(true);
+            return;
+        }
+        
         // Priority 1: Admin Override. Priority 2: Pure Mathematical Float Calculation vs Ghost Data.
         const levelKey = isOverride 
             ? rawLevel.toLowerCase() 
@@ -394,10 +400,10 @@ export default function Home() {
                     <div className="flex justify-between items-center mb-4">
                         <div className="flex items-center gap-2">
                             <h2 className="text-sm font-bold text-gray-400 tracking-widest uppercase">Camera Feed</h2>
-                            {cameraLastUpdated && <span className="text-[10px] text-gray-500 hidden sm:inline">(Last updated: {cameraLastUpdated})</span>}
+                            {cameraLastUpdated && <span className="text-xs font-bold text-cyan-400 hidden sm:inline ml-2">(Last updated: {cameraLastUpdated})</span>}
                         </div>
                         <span className="text-xs text-gray-500 flex items-center gap-2">
-                            {cameraLastUpdated && <span className="text-[10px] sm:hidden mr-1">Updated: {cameraLastUpdated}</span>}
+                            {cameraLastUpdated && <span className="text-xs font-bold text-cyan-400 sm:hidden mr-1">Updated: {cameraLastUpdated}</span>}
                             <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span> Snapshot
                         </span>
                     </div>
@@ -411,11 +417,11 @@ export default function Home() {
                             </div>
                         )}
                         {cameraLastUpdated && (
-                            <div className="absolute top-4 right-4 bg-black/60 text-white text-xs font-mono px-2 py-1 rounded backdrop-blur-sm z-10">
+                            <div className="absolute top-4 right-4 bg-black/80 text-cyan-400 text-sm font-black font-mono px-3 py-1.5 rounded-lg border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.2)] backdrop-blur-md z-10">
                                 {cameraLastUpdated}
                             </div>
                         )}
-                        <div className="absolute bottom-4 left-4 bg-black/60 px-3 py-1 rounded backdrop-blur-sm text-sm font-bold text-white">TULLAHAN STATION</div>
+                        <div className="absolute bottom-4 left-4 bg-black/60 px-3 py-1 rounded backdrop-blur-sm text-sm font-bold text-white uppercase tracking-tighter">TULLAHAN STATION</div>
                     </div>
                 </div>
 

@@ -11,6 +11,10 @@ export function useSensorMqtt() {
             try {
                 // Poll backend instead of MQTT streaming to optimize resources
                 const response = await fetch(`${API_BASE_URL}/sensor-data/latest`);
+                if (response.status === 404) {
+                    if (isMounted) setMqttData(null);
+                    return;
+                }
                 if (!response.ok) throw new Error('Failed to fetch latest sensor data');
                 const payload = await response.json();
                 if (isMounted) {

@@ -22,6 +22,14 @@ public class SensorDataService {
     }
 
     public SensorData saveSensorData(SensorDataDTO dto) {
+        // --- DATA GUARD: REJECT GHOST VALUES / NOISE ---
+        // Typical ultrasonic sensor noise (like 0.17m, 0.10m) is blocked.
+        // Anything below 0.30m in a river context is likely an erroneous reading or sensor floor.
+        if (dto.getWaterLevelM() != null && dto.getWaterLevelM() < 0.30) {
+            System.out.println(" [DATA GUARD] Blocking ghost value: " + dto.getWaterLevelM() + "m");
+            return null; 
+        }
+
         SensorData sensorData = new SensorData();
 
         // Set Basic Data
@@ -66,7 +74,7 @@ public class SensorDataService {
     }
 
     public SensorDataDTO getLatestSensorData() {
-        return sensorDataRepository.findFirstByOrderByTimestampDesc()
+        return sensorDataRepository.findFirstByWaterLevelMGreaterThanEqualOrderByTimestampDesc(0.30)
                 .map(this::convertToDTO)
                 .orElse(null);
     }

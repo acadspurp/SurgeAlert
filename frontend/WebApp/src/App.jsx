@@ -14,7 +14,7 @@ function AppLayout() {
     const isAdminPage = location.pathname === '/admin';
 
     // Admin page has its own layout (sidebar, no header/footer)
-    if (isAdminPage) {
+    if (isAdminPage || location.pathname.startsWith('/admin')) {
         return <Admin />;
     }
 
@@ -39,7 +39,7 @@ export default function App() {
     return (
         <Router>
             <Routes>
-                <Route path="/admin" element={<Admin />} />
+                <Route path="/admin/*" element={<Admin />} />
                 <Route path="*" element={<AppLayout />} />
             </Routes>
         </Router>

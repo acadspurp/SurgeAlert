@@ -24,8 +24,8 @@ export default function TelemetryView(props) {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                             <TelemetryCard title="Ultrasonic WL" value={rawSensorData.length > 0 ? rawSensorData[rawSensorData.length-1].waterLevelM?.toFixed(2) + ' m' : '--'} icon="fa-ruler-vertical" color="blue" />
                             <TelemetryCard title="Speed Radar Flow" value={rawSensorData.length > 0 ? rawSensorData[rawSensorData.length-1].sensorFlowRateMps?.toFixed(2) + ' m/s' : '--'} icon="fa-radar" color="purple" />
-                            <TelemetryCard title="Optical Flow (Lucas-Kanade)" value={rawSensorData.length > 0 ? rawSensorData[rawSensorData.length-1].imageFlowRateMps?.toFixed(2) + ' m/s' : '--'} icon="fa-eye" color="teal" />
-                            <TelemetryCard title="Tracked Features (Shi-Tomasi)" value={cvTrackedFeatures} icon="fa-chart-scatter" color="fuchsia" />
+                            <TelemetryCard title="Optical Flow (CV)" value={rawSensorData.length > 0 ? rawSensorData[rawSensorData.length-1].imageFlowRateMps?.toFixed(2) + ' m/s' : '--'} icon="fa-eye" color="teal" />
+                            <TelemetryCard title="Tracked Features (CV)" value={cvTrackedFeatures} icon="fa-chart-scatter" color="fuchsia" />
                         </div>
 
                         {/* Calculated Rates */}
@@ -67,7 +67,7 @@ export default function TelemetryView(props) {
                                         <div className="relative tooltip-parent">
                                             <i className="fa-solid fa-circle-info text-slate-500"></i>
                                             <span className="tooltip-text whitespace-nowrap bg-black text-white text-xs px-2 py-1 rounded absolute top-full left-0 mt-1 pointer-events-none">
-                                                Lucas-Kanade & Shi-Tomasi (Derived)
+                                                Optical Flow (Derived)
                                             </span>
                                         </div>
                                     </div>
