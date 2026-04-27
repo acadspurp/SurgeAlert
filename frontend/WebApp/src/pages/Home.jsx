@@ -23,6 +23,7 @@ export default function Home() {
     const [alertLevelKey, setAlertLevelKey] = useState('green');
     const [alertHtml, setAlertHtml] = useState('<p class="text-gray-400">System is running normally.</p>');
     const [cameraImg, setCameraImg] = useState(null);
+    const [cameraLastUpdated, setCameraLastUpdated] = useState(null);
     const [weatherCards, setWeatherCards] = useState([]);
     const [tides, setTides] = useState([]);
     const [tidesError, setTidesError] = useState(null);
@@ -134,6 +135,7 @@ export default function Home() {
             const data = await fetchCameraFeed();
             if (data.img_base64 && data.img_base64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${data.img_base64}`);
+                setCameraLastUpdated(new Date().toLocaleTimeString());
             }
         } catch (error) {
             console.error("Camera fetch failed", error);
@@ -187,6 +189,7 @@ export default function Home() {
             processAlertData(mqttData.currentAlertLevel || 'green', mqttData.waterLevelM);
             if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${mqttData.snapshotBase64}`);
+                setCameraLastUpdated(new Date().toLocaleTimeString());
             }
         }
     }, [mqttData]);
@@ -226,6 +229,9 @@ export default function Home() {
                 const levelKey = fakeLevel >= 8.5 ? 'red' : fakeLevel >= 7.0 ? 'orange' : fakeLevel >= 6.0 ? 'yellow' : 'green';
                 setWaterLevel(fakeLevel.toFixed(2) + ' m');
                 setAlertLevelKey(levelKey);
+                
+                // Add fake camera timestamp so "Last updated: [Time]" is always visible in demo
+                setCameraLastUpdated(new Date().toLocaleTimeString());
                 
                 if (CACHED_GUIDE && (CACHED_GUIDE[levelKey] || CACHED_GUIDE['green'])) {
                     const guide = CACHED_GUIDE[levelKey] || CACHED_GUIDE['green'];
@@ -282,6 +288,8 @@ export default function Home() {
         return () => clearInterval(simInterval);
     }, [isOffline, mqttData]);
 
+
+
     const colors = getAlertColors(alertLevelKey);
     const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const today = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
@@ -303,40 +311,40 @@ export default function Home() {
                         <h2 className="text-sm font-bold text-gray-400 tracking-widest uppercase">River Level Gauge</h2>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-center sm:items-stretch gap-6 h-full w-full">
+                    <div className="flex flex-col sm:flex-row items-center sm:items-stretch gap-4 sm:gap-6 h-full w-full">
                          {/* Visual Thermometer */}
-                        <div className="relative h-48 w-32 sm:w-40 flex-shrink-0 pb-4 sm:pb-0">
+                        <div className="relative h-64 sm:h-80 w-48 flex-shrink-0 pb-4 sm:pb-0">
                              {/* The actual gauge */}
-                             <div className="absolute bottom-0 left-0 h-full w-10 sm:w-12 bg-gray-900 rounded-full border-2 border-gray-700 overflow-hidden flex items-end">
+                             <div className="absolute bottom-0 left-0 h-full w-16 bg-gray-900 rounded-full border-2 border-gray-700 overflow-hidden flex items-end shadow-inner">
                                  {/* Gradient inner fill that moves up. Highly distinct colors. */}
                                  <div className="w-full relative transition-all duration-1000 overflow-hidden" style={{ height: waterLevel !== '--.-- m' ? `${Math.min(100, (parseFloat(waterLevel) / 10) * 100)}%` : '0%' }}>
-                                    <div className="absolute bottom-0 w-full h-48" style={{ background: 'linear-gradient(to top, #22c55e 0%, #22c55e 60%, #eab308 60%, #eab308 70%, #ff8800 70%, #ff8800 85%, #ff0000 85%, #ff0000 100%)' }}></div>
+                                    <div className="absolute bottom-0 w-full h-[320px]" style={{ background: 'linear-gradient(to top, #22c55e 0%, #22c55e 60%, #eab308 60%, #eab308 70%, #ff8800 70%, #ff8800 85%, #ff0000 85%, #ff0000 100%)' }}></div>
                                  </div>
                              </div>
 
                              {/* Threshold Markers with Lines and Labels */}
                              <div className="absolute bottom-[60%] left-0 w-full h-[2px] bg-yellow-400 z-10 flex items-center">
-                                <span className="absolute left-[54px] sm:left-[60px] text-xs font-bold text-yellow-400 whitespace-nowrap bg-[#0f172a] px-2 py-0.5 rounded shadow-sm border border-yellow-400/30">Yellow: Monitor</span>
+                                <span className="absolute left-[70px] text-xs font-bold text-yellow-400 whitespace-nowrap bg-[#0f172a] px-2 py-1 rounded shadow-sm border border-yellow-400/30">Yellow: Monitor</span>
                              </div>
                              <div className="absolute bottom-[70%] left-0 w-full h-[2px] bg-orange-500 z-10 flex items-center">
-                                <span className="absolute left-[54px] sm:left-[60px] text-xs font-bold text-[#ff8800] whitespace-nowrap bg-[#0f172a] px-2 py-0.5 rounded shadow-sm border border-orange-500/30">Orange: Prepare</span>
+                                <span className="absolute left-[70px] text-xs font-bold text-[#ff8800] whitespace-nowrap bg-[#0f172a] px-2 py-1 rounded shadow-sm border border-orange-500/30">Orange: Prepare</span>
                              </div>
                              <div className="absolute bottom-[85%] left-0 w-full h-[2px] bg-red-600 z-10 flex items-center">
-                                <span className="absolute left-[54px] sm:left-[60px] text-xs font-bold text-red-500 whitespace-nowrap bg-[#0f172a] px-2 py-0.5 rounded shadow-sm border border-red-600/30">Red: Evacuate</span>
+                                <span className="absolute left-[70px] text-xs font-bold text-red-500 whitespace-nowrap bg-[#0f172a] px-2 py-1 rounded shadow-sm border border-red-600/30">Red: Evacuate</span>
                              </div>
                              
                              {/* Current Water Level Pointer */}
                              {waterLevel !== '--.-- m' && (
-                                <div className="absolute left-0 w-10 sm:w-12 h-1 bg-white shadow-[0_0_12px_white] z-20 transition-all duration-1000" style={{ bottom: `${Math.min(100, (parseFloat(waterLevel) / 10) * 100)}%` }}></div>
+                                <div className="absolute left-0 w-16 h-1.5 bg-white shadow-[0_0_15px_white] z-20 transition-all duration-1000" style={{ bottom: `${Math.min(100, (parseFloat(waterLevel) / 10) * 100)}%` }}></div>
                              )}
                         </div>
                         
                         <div className="flex-1 w-full min-w-0 flex flex-col justify-center">
-                            <div className="text-center truncate">
+                            <div className="text-center truncate w-full">
                                 {waterLevel === '--.-- m' ? (
                                     <div className="w-32 h-16 bg-gray-700 rounded-lg animate-pulse mx-auto"></div>
                                 ) : (
-                                    <p className="text-5xl sm:text-6xl font-black tracking-tighter text-[#38bdf8] truncate">{waterLevel}</p>
+                                    <p className="text-6xl sm:text-7xl font-black tracking-tighter text-[#38bdf8] truncate">{waterLevel}</p>
                                 )}
                                 <div className={`mt-4 px-2 sm:px-4 py-2 rounded-md border text-center font-black font-mono tracking-wider shadow-lg text-sm sm:text-base truncate ${alertLevelKey === 'red' ? 'bg-red-900/60 border-red-500 text-red-500 shadow-[0_0_15px_rgba(255,0,0,0.5)]' : alertLevelKey === 'orange' ? 'bg-orange-900/60 border-orange-500 text-[#ff8800] shadow-[0_0_15px_rgba(255,136,0,0.4)]' : alertLevelKey === 'yellow' ? 'bg-yellow-900/60 border-yellow-400 text-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.2)]' : 'bg-green-900/40 border-green-500 text-green-400'}`}>
                                     {alertLevelText}
@@ -381,19 +389,30 @@ export default function Home() {
                     </div>
                 </div>
 
-                {/* LIVE CAMERA FEED */}
+                {/* CAMERA FEED */}
                 <div className="lg:col-span-7 xl:col-span-6 rounded-2xl p-6 bg-[#1e293b] border border-gray-800 flex flex-col">
                     <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-sm font-bold text-gray-400 tracking-widest uppercase">Live Camera Feed</h2>
-                        <span className="text-xs text-gray-500 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Live</span>
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-sm font-bold text-gray-400 tracking-widest uppercase">Camera Feed</h2>
+                            {cameraLastUpdated && <span className="text-[10px] text-gray-500 hidden sm:inline">(Last updated: {cameraLastUpdated})</span>}
+                        </div>
+                        <span className="text-xs text-gray-500 flex items-center gap-2">
+                            {cameraLastUpdated && <span className="text-[10px] sm:hidden mr-1">Updated: {cameraLastUpdated}</span>}
+                            <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span> Snapshot
+                        </span>
                     </div>
                     <div className="w-full h-64 lg:h-80 bg-black rounded-xl overflow-hidden relative border border-gray-700 shadow-inner">
                         {cameraImg ? (
-                            <img src={cameraImg} className="w-full h-full object-cover" alt="Live River Feed" />
+                            <img src={cameraImg} className="w-full h-full object-cover" alt="Camera Feed" />
                         ) : (
                             <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500">
-                                <i className="fa-solid fa-video mb-2 text-3xl opacity-50"></i>
-                                <span>Waiting for Camera Feed...</span>
+                                <i className="fa-solid fa-camera mb-2 text-3xl opacity-50"></i>
+                                <span>Camera feed currently unavailable</span>
+                            </div>
+                        )}
+                        {cameraLastUpdated && (
+                            <div className="absolute top-4 right-4 bg-black/60 text-white text-xs font-mono px-2 py-1 rounded backdrop-blur-sm z-10">
+                                {cameraLastUpdated}
                             </div>
                         )}
                         <div className="absolute bottom-4 left-4 bg-black/60 px-3 py-1 rounded backdrop-blur-sm text-sm font-bold text-white">TULLAHAN STATION</div>
@@ -474,9 +493,10 @@ export default function Home() {
                 </div>
 
                 {/* WEATHER FORECAST */}
-                <div className="rounded-2xl p-6 bg-[#1e293b] border border-gray-800">
-                    <h2 className="text-sm font-bold text-gray-400 tracking-widest mb-4 uppercase">Weather Forecast</h2>
-                    <div className="grid grid-cols-5 gap-2 text-center h-full items-center">
+                <div className="rounded-2xl p-6 bg-[#1e293b] border border-gray-800 flex flex-col justify-between">
+                    <div>
+                        <h2 className="text-sm font-bold text-gray-400 tracking-widest mb-4 uppercase">Weather Forecast</h2>
+                        <div className="grid grid-cols-5 gap-2 text-center items-center">
                         {weatherCards.length === 0 ? (
                             <p className="col-span-full text-gray-500">Loading Weather Data...</p>
                         ) : (
@@ -486,15 +506,16 @@ export default function Home() {
                                     <div className="text-3xl mb-2 drop-shadow-lg">{card.icon}</div>
                                     <p className="text-xs text-gray-400 leading-tight mb-2 h-8 flex items-center justify-center">{card.description}</p>
                                     <div className="flex flex-col items-center gap-0.5 text-xs font-mono text-gray-300">
-                                        <span><span className="text-red-400">H:</span> {card.tempMax}°</span>
-                                        <span><span className="text-blue-400">L:</span> {card.tempMin}°</span>
+                                        <span><span className="text-red-400">H:</span> {card.tempMax}°C</span>
+                                        <span><span className="text-blue-400">L:</span> {card.tempMin}°C</span>
                                     </div>
                                 </div>
                             ))
                         )}
+                        </div>
                     </div>
-                    <div className="mt-4 text-[10px] text-gray-500 text-center border-t border-gray-800 pt-2">
-                        <i className="fa-solid fa-circle-info mr-1"></i> Temperatures reflect the Heat Index ("Feels Like"). H = Maximum, L = Minimum.
+                    <div className="mt-4 text-[10px] sm:text-xs font-bold text-gray-300 text-center border-t border-gray-700 pt-3 pb-1">
+                        <i className="fa-solid fa-circle-info mr-1 text-cyan-400"></i> Temperatures reflect the Heat Index ("Feels Like"). <span className="text-red-400">H</span> = Maximum, <span className="text-blue-400">L</span> = Minimum.
                     </div>
                 </div>
             </div>

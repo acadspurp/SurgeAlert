@@ -24,7 +24,7 @@ export default function About() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         if (!formData.dpaConsent) {
             alert("You must agree to the Data Privacy Agreement to proceed.");
             return;
@@ -63,26 +63,26 @@ ${formData.abstractPurpose}
     return (
         <div id="about-view" className="py-10 bg-[#0f172a] min-h-screen -mt-8 pt-16 -mx-8 px-8">
             <div className="max-w-4xl mx-auto space-y-8">
-                
+
                 {/* I. Hero Section */}
                 <div className="text-center py-8 text-white border-0">
                     <div className="inline-block p-4 rounded-full bg-[#1e293b] mb-4 shadow-xl border border-gray-700">
                         <i className="fa-solid fa-water text-4xl text-teal-400"></i>
                     </div>
-                    <h1 className="text-4xl font-black tracking-tight mb-4 text-[#38bdf8]">SurgeAlert Monitoring System</h1>
-                    <p className="text-lg font-medium text-gray-400">A Final Year Research Project by the Computer Engineering Department, Polytechnic University of the Philippines Manila.</p>
+                    <h1 className="text-4xl font-black tracking-tight mb-4 text-[#38bdf8]">SurgeAlert - Flood Monitoring System</h1>
+                    <p className="text-lg font-medium text-gray-400">A Thesis Project by 4th-Year Computer Engineering students of Polytechnic University of the Philippines - Manila.</p>
                 </div>
 
                 {/* II. Research Abstract & System Purpose */}
                 <div className="bg-[#1e293b] rounded-2xl p-8 border-l-4 border-[#38bdf8] shadow-lg border border-gray-800">
                     <h2 className="text-2xl font-bold mb-4 text-white flex items-center"><i className="fa-solid fa-book-open mr-3 text-gray-400"></i> Research Abstract & System Purpose</h2>
                     <p className="text-gray-300 leading-relaxed mb-4 text-lg">
-                        SurgeAlert is a high-resilience flood monitoring solution designed specifically for the Tullahan River basin. 
-                        By leveraging Edge Computing via Raspberry Pi and a robust Waveshare SIM7600G-H cellular interface, the system ensures 
+                        SurgeAlert is a high-resilience flood monitoring solution designed specifically for the Tullahan River basin.
+                        By leveraging Edge Computing via Raspberry Pi and a robust Waveshare SIM7600G-H cellular interface, the system ensures
                         that critical flood alerts reach the community even during total internet outages.
                     </p>
                     <p className="text-gray-300 leading-relaxed text-lg">
-                        The system integrates advanced regression models to analyze historical and real-time sensor data, providing 
+                        The system integrates advanced regression models to analyze historical and real-time sensor data, providing
                         residents and local authorities with a predictive window to act before water levels reach a critical stage.
                     </p>
                 </div>
@@ -92,14 +92,20 @@ ${formData.abstractPurpose}
                     <div className="bg-[#1e293b] rounded-2xl p-8 shadow-lg border border-gray-800">
                         <h2 className="text-xl font-bold mb-4 text-white flex items-center"><i className="fa-solid fa-server mr-3 text-cyan-400"></i> Data & Methodology</h2>
                         <ul className="list-disc pl-5 text-gray-400 leading-relaxed space-y-2 mb-6 text-sm">
-                            <li><strong className="text-gray-200">Primary Datasets:</strong> Historical hydrological data sourced from PAGASA (MacArthur Bridge Station).</li>
-                            <li><strong className="text-gray-200">Real-time Telemetry:</strong> localized water level and rainfall data captured via the SurgeAlert Edge System.</li>
+                            <li><strong className="text-gray-200">Primary:</strong> PAGASA MacArthur Bridge Station.</li>
+                            <li><strong className="text-gray-200">Telemetry:</strong> SurgeAlert Edge System.</li>
                         </ul>
-                        <h3 className="font-semibold text-gray-300 mb-2">Technologies:</h3>
+                        <h3 className="font-semibold text-gray-300 mb-2">Hardware Specifications:</h3>
                         <ul className="list-disc pl-5 text-gray-400 leading-relaxed space-y-1 text-sm">
-                            <li><strong className="text-gray-200">Backend:</strong> Spring Boot (Java) for secure data and role management.</li>
-                            <li><strong className="text-gray-200">Frontend:</strong> React (JavaScript) with a dark-themed dashboard.</li>
-                            <li><strong className="text-gray-200">Edge/Hardware:</strong> Python-based monitoring, Raspberry Pi, and 4G/LTE GSM Alerting.</li>
+                            <li><strong className="text-gray-200">Core:</strong> Raspberry Pi 4 (Solar Powered)</li>
+                            <li><strong className="text-gray-200">Sensors:</strong> JSN-SR04T (Ultrasonic), HLK-LD2415H (24GHz Radar)</li>
+                            <li><strong className="text-gray-200">Communication:</strong> Waveshare SIM7600G-H (Offline SMS)</li>
+                            <li><strong className="text-gray-200">Computer Vision:</strong> Raspberry Pi Camera Module 3</li>
+                        </ul>
+                        <h3 className="font-semibold text-gray-300 mb-2 mt-4">Software Stack:</h3>
+                        <ul className="list-disc pl-5 text-gray-400 leading-relaxed space-y-1 text-sm">
+                            <li><strong className="text-gray-200">Backend:</strong> Java Spring Boot, MySQL, HiveMQ Cloud</li>
+                            <li><strong className="text-gray-200">Frontend:</strong> React (Vite), Tailwind CSS, Chart.js</li>
                         </ul>
                     </div>
 
@@ -107,15 +113,15 @@ ${formData.abstractPurpose}
                     <div className="bg-[#1e293b] rounded-2xl p-8 shadow-lg border border-gray-800">
                         <h2 className="text-xl font-bold mb-4 text-white flex items-center"><i className="fa-solid fa-users mr-3 text-teal-400"></i> The Research Team</h2>
                         <ul className="text-gray-300 leading-relaxed space-y-2 mb-6 font-medium text-lg">
-                            <li className="flex items-center"><i className="fa-solid fa-user-graduate text-sm text-gray-500 mr-2"></i> Angelica Jane P. Tapar</li>
                             <li className="flex items-center"><i className="fa-solid fa-user-graduate text-sm text-gray-500 mr-2"></i> Angela Nicole P. Sison</li>
+                            <li className="flex items-center"><i className="fa-solid fa-user-graduate text-sm text-gray-500 mr-2"></i> Angelica Jane P. Tapar</li>
                             <li className="flex items-center"><i className="fa-solid fa-user-graduate text-sm text-gray-500 mr-2"></i> Hannah Florence Bardon</li>
                             <li className="flex items-center"><i className="fa-solid fa-user-graduate text-sm text-gray-500 mr-2"></i> Jayson Justin Cabus</li>
                         </ul>
                         <div className="pt-4 border-t border-gray-700">
                             <p className="text-gray-300 font-bold">Dr. Remedios G. Ado</p>
-                            <p className="text-sm text-gray-500">Research Adviser</p>
-                            <p className="text-sm text-gray-500 mt-1">BSCPE, PUP Manila</p>
+                            <p className="text-sm text-gray-500">Thesis Adviser</p>
+                            <p className="text-sm text-gray-500 mt-1">Dean, College of Engineering</p>
                         </div>
                     </div>
                 </div>
@@ -124,7 +130,7 @@ ${formData.abstractPurpose}
                 <div className="bg-gradient-to-r from-[#1e293b] to-[#0f172a] rounded-2xl p-8 border border-cyan-800 shadow-xl text-center">
                     <h2 className="text-2xl font-black mb-2 text-white">Academic Collaboration</h2>
                     <p className="text-gray-400 leading-relaxed mb-6 max-w-2xl mx-auto">
-                        Are you a researcher or student looking to access localized flood data for a case study or predictive modeling? We support academic collaboration to improve disaster resilience. Please submit a request below.
+                        Are you a researcher or a student looking to access localized flood data for a case study or predictive modeling? We support academic collaboration to improve disaster resilience. Please submit a request below.
                     </p>
                     <button onClick={() => setShowModal(true)} className="bg-cyan-600 hover:bg-cyan-500 text-white font-black px-8 py-4 rounded-full shadow-[0_0_20px_rgba(8,145,178,0.4)] transition-transform transform hover:-translate-y-1 flex items-center justify-center mx-auto gap-2">
                         <i className="fa-solid fa-database"></i> Dataset Request
@@ -149,7 +155,7 @@ ${formData.abstractPurpose}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-400 mb-1">Full Name</label>
-                                    <input type="text" name="name" required className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.name} onChange={handleChange} />
+                                    <input type="text" name="name" required className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.name} onChange={handleChange} onKeyDown={(e) => { if (e.key.length === 1 && !/^[a-zA-Z.\s]$/.test(e.key)) e.preventDefault(); }} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-400 mb-1">Institutional Email</label>
@@ -162,7 +168,7 @@ ${formData.abstractPurpose}
                                     <label className="block text-sm font-bold text-gray-400 mb-1">Contact Number</label>
                                     <div className="flex">
                                         <span className="bg-gray-700 text-white p-3 rounded-l-lg border border-gray-600 border-r-0 font-bold">+63</span>
-                                        <input type="number" name="contactNumber" required placeholder="9123456789" className="w-full bg-[#0f172a] border border-gray-600 rounded-r-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.contactNumber} onChange={handleChange} />
+                                        <input type="tel" name="contactNumber" required placeholder="9123456789" className="w-full bg-[#0f172a] border border-gray-600 rounded-r-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.contactNumber} onChange={handleChange} onKeyDown={(e) => { if (e.key.length === 1 && !/^[0-9]$/.test(e.key)) e.preventDefault(); }} />
                                     </div>
                                 </div>
                                 <div>
@@ -170,14 +176,14 @@ ${formData.abstractPurpose}
                                     <input type="text" name="affiliation" required placeholder="e.g. PUP Manila, DOST" className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.affiliation} onChange={handleChange} />
                                 </div>
                             </div>
-                            
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-400 mb-1">Requested Date Range</label>
                                     <div className="flex gap-2">
-                                        <input type="date" name="dateFrom" required min="2099-01-01" max={new Date().toISOString().split('T')[0]} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-cyan-500 focus:outline-none" value={formData.dateFrom} onChange={handleChange} title="No data currently available for selection." />
+                                        <input type="date" name="dateFrom" required min="2026-01-01" max={new Date().toISOString().split('T')[0]} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-cyan-500 focus:outline-none cursor-pointer" onClick={(e) => e.target.showPicker()} value={formData.dateFrom} onChange={handleChange} />
                                         <span className="flex items-center text-gray-500 text-sm">to</span>
-                                        <input type="date" name="dateTo" required min="2099-01-01" max={new Date().toISOString().split('T')[0]} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-cyan-500 focus:outline-none" value={formData.dateTo} onChange={handleChange} title="No data currently available for selection." />
+                                        <input type="date" name="dateTo" required min="2026-01-01" max={new Date().toISOString().split('T')[0]} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-cyan-500 focus:outline-none cursor-pointer" onClick={(e) => e.target.showPicker()} value={formData.dateTo} onChange={handleChange} />
                                     </div>
                                 </div>
                                 <div>

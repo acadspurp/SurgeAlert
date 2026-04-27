@@ -59,6 +59,7 @@ export default function Admin() {
         prediction: '-- m', predColor: 'text-slate-400', subscriberCount: 0 
     });
     const [cameraImg, setCameraImg] = useState(null);
+    const [cameraLastUpdated, setCameraLastUpdated] = useState(null);
     const [tides, setTides] = useState([]);
     const [nextTide, setNextTide] = useState(null);
     
@@ -163,7 +164,10 @@ export default function Admin() {
     const loadCameraFeed = async () => {
         try {
             const data = await fetchCameraAPI();
-            if (data.img_base64 && data.img_base64 !== "") setCameraImg(`data:image/jpeg;base64,${data.img_base64}`);
+            if (data.img_base64 && data.img_base64 !== "") {
+                setCameraImg(`data:image/jpeg;base64,${data.img_base64}`);
+                setCameraLastUpdated(new Date().toLocaleTimeString());
+            }
         } catch (e) { console.error("Camera fetch error:", e); }
     };
 
@@ -296,6 +300,15 @@ export default function Admin() {
     // -------------------------------------------------------------
     useEffect(() => {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
+        
+        // Live Priority: Ensure system automatically displays real-time sensor/backend data
+        // when hardware is connected, bypassing all simulation logic.
+        if (mqttData && mqttData.waterLevelM !== null && mqttData.waterLevelM !== undefined) {
+            if (demoMode) {
+                setDemoMode(false); // Force demo off
+            }
+        }
+        
         if (demoMode) return;
         
         if (mqttData) {
@@ -320,6 +333,7 @@ export default function Admin() {
 
             if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${mqttData.snapshotBase64}`);
+                setCameraLastUpdated(new Date().toLocaleTimeString());
             }
             // Trend Indicator calculations
             if (prevReadings.current.waterLevel !== null && mqttData.waterLevelM !== null) {
@@ -424,7 +438,19 @@ export default function Admin() {
                 });
             }, 3000);
         } else if (user) {
+            // When Demo OFF: Immediately purge simulated data. Clear all graphs.
+            setRawSensorData([]);
+            setDashData(prev => ({
+                ...prev,
+                waterLevel: '-- m', flowRate: '-- m/s', status: 'OFFLINE', statusColor: 'text-slate-400',
+                prediction: '-- m', predColor: 'text-slate-400'
+            }));
+            setTrendIndicators({ waterLevel: '-', flowRate: '-' });
+            
+            // If hardware is disconnected, it will stay blank.
+            // If it is connected, loadDashboardData/loadChartData will fetch real data.
             loadDashboardData();
+            loadChartData(telemetryTime);
         }
         return () => clearInterval(interval);
     }, [demoMode]);
@@ -476,11 +502,11 @@ export default function Admin() {
             const safeData = Array.isArray(telemetryData) ? telemetryData : [];
             const parseUiDate = (value, endOfDay = false) => {
                 if (!value) return null;
-                const match = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value.trim());
+                const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
                 if (!match) return null;
-                const mm = Number(match[1]) - 1;
-                const dd = Number(match[2]);
-                const yyyy = Number(match[3]);
+                const yyyy = Number(match[1]);
+                const mm = Number(match[2]) - 1;
+                const dd = Number(match[3]);
                 return endOfDay
                     ? new Date(yyyy, mm, dd, 23, 59, 59, 999)
                     : new Date(yyyy, mm, dd, 0, 0, 0, 0);
@@ -747,8 +773,14 @@ export default function Admin() {
         labels: getChartLabels(),
         datasets: [
             { label: 'Water Level (m)', data: rawSensorData.map(d => d.waterLevelM), borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', tension: 0.3, yAxisID: 'y' },
-            { label: 'Radar Flow (m/s)', data: rawSensorData.map(d => d.sensorFlowRateMps), borderColor: '#8b5cf6', backgroundColor: 'transparent', tension: 0.3, yAxisID: 'y1' },
-            { label: 'Optical Flow (m/s)', data: rawSensorData.map(d => d.imageFlowRateMps), borderColor: '#10b981', backgroundColor: 'transparent', tension: 0.3, yAxisID: 'y1' }
+            { label: 'Radar Flow (m/s)', data: rawSensorData.map(d => d.sensorFlowRateMps), borderColor: '#8b5cf6', backgroundColor: 'transparent', tension: 0.3, yAxisID: 'y1' }
+        ]
+    };
+
+    const cvChartData = {
+        labels: getChartLabels(),
+        datasets: [
+            { label: 'Optical Flow (m/s)', data: rawSensorData.map(d => d.imageFlowRateMps), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.3 }
         ]
     };
     
@@ -927,7 +959,7 @@ export default function Admin() {
 
             {/* MAIN CONTENT */}
             <main className="flex-1 overflow-y-auto relative w-full pt-6 pb-12 px-8">
-{(() => { const viewProps = { demoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, 
+{(() => { const viewProps = { demoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, 
     openCreateUserModal, openEditUserModal, saveUserModal, 
     beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
     handleDeleteAdminUser,

@@ -7,7 +7,7 @@ import TelemetryCard from '../components/TelemetryCard';
 export default function ReportsView(props) {
   const { demoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, openCreateUserModal, openEditUserModal, saveUserModal, beginEditTemplate, cancelEditTemplate, saveEditedTemplate, handleDeleteAdminUser, approveDatasetRequest } = props;
 
-  const isValidUiDate = (value) => !value || /^\d{2}-\d{2}-\d{4}$/.test(value);
+
 
   return (
     <>
@@ -23,21 +23,25 @@ export default function ReportsView(props) {
                         <div>
                             <label className="block text-sm font-bold text-slate-200 mb-1">Start Date</label>
                             <input
-                              type="text"
-                              placeholder="MM-DD-YYYY"
+                              type="date"
+                              min="2026-01-01"
+                              max={new Date().toISOString().split('T')[0]}
                               value={reportStart}
+                              onClick={(e) => e.target.showPicker()}
                               onChange={(e)=>setReportStart(e.target.value)}
-                              className={`w-full border-2 rounded-xl p-3 focus:border-blue-500 outline-none transition bg-[#0f172a] ${isValidUiDate(reportStart) ? 'border-slate-700' : 'border-red-500'}`}
+                              className={`w-full border-2 rounded-xl p-3 focus:border-blue-500 outline-none transition bg-[#0f172a] border-slate-700 cursor-pointer text-white`}
                             />
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-slate-200 mb-1">End Date</label>
                             <input
-                              type="text"
-                              placeholder="MM-DD-YYYY"
+                              type="date"
+                              min="2026-01-01"
+                              max={new Date().toISOString().split('T')[0]}
                               value={reportEnd}
+                              onClick={(e) => e.target.showPicker()}
                               onChange={(e)=>setReportEnd(e.target.value)}
-                              className={`w-full border-2 rounded-xl p-3 focus:border-blue-500 outline-none transition bg-[#0f172a] ${isValidUiDate(reportEnd) ? 'border-slate-700' : 'border-red-500'}`}
+                              className={`w-full border-2 rounded-xl p-3 focus:border-blue-500 outline-none transition bg-[#0f172a] border-slate-700 cursor-pointer text-white`}
                             />
                         </div>
                     </div>

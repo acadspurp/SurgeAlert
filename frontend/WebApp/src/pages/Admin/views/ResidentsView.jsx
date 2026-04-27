@@ -49,13 +49,13 @@ export default function ResidentsView(props) {
                                 <form onSubmit={handleAddManualResident} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                                     <div>
                                         <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Full Name</label>
-                                        <input required type="text" className="w-full bg-[#0f172a] border border-slate-700 text-slate-200 text-sm rounded-lg px-4 py-2 focus:border-sky-500 outline-none" value={newResidentState.name} onChange={e => setNewResidentState({...newResidentState, name: e.target.value})} placeholder="Juan Dela Cruz" />
+                                        <input required type="text" className="w-full bg-[#0f172a] border border-slate-700 text-slate-200 text-sm rounded-lg px-4 py-2 focus:border-sky-500 outline-none" value={newResidentState.name} onChange={e => setNewResidentState({...newResidentState, name: e.target.value})} placeholder="Juan Dela Cruz" onKeyDown={(e) => { if (e.key.length === 1 && !/^[a-zA-Z.\s]$/.test(e.key)) e.preventDefault(); }} />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Phone Number</label>
                                         <div className="flex">
                                             <span className="inline-flex items-center px-3 text-sm font-mono text-slate-400 bg-slate-800 border border-r-0 border-slate-700 rounded-l-lg">+63</span>
-                                            <input required type="tel" maxLength="10" className="w-full bg-[#0f172a] font-mono border border-slate-700 text-slate-200 text-sm rounded-r-lg px-4 py-2 outline-none focus:border-sky-500" value={newResidentState.phone} onChange={e => setNewResidentState({...newResidentState, phone: e.target.value})} placeholder="9123456789" />
+                                            <input required type="tel" maxLength="10" className="w-full bg-[#0f172a] font-mono border border-slate-700 text-slate-200 text-sm rounded-r-lg px-4 py-2 outline-none focus:border-sky-500" value={newResidentState.phone} onChange={e => setNewResidentState({...newResidentState, phone: e.target.value})} placeholder="9123456789" onKeyDown={(e) => { if (e.key.length === 1 && !/^[0-9]$/.test(e.key)) e.preventDefault(); }} />
                                         </div>
                                     </div>
                                     <div className="flex gap-2">

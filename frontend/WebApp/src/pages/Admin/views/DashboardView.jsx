@@ -5,7 +5,7 @@ import HealthRow from '../components/HealthRow';
 import TelemetryCard from '../components/TelemetryCard';
 
 export default function DashboardView(props) {
-  const { demoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, 
+  const { demoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, 
     openCreateUserModal, openEditUserModal, saveUserModal, 
     beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
     handleDeleteAdminUser,
@@ -21,7 +21,7 @@ export default function DashboardView(props) {
                             <div className="text-xs font-bold text-slate-400 flex items-center gap-2">
                                 <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${hardwareOnline ? 'bg-green-900/40 border-green-200 text-green-700' : 'bg-[#0f172a] border-slate-700 text-slate-300'}`}>
                                     <span className={`inline-block w-2.5 h-2.5 rounded-full ${hardwareOnline ? 'bg-green-500' : 'bg-gray-400'} ${hardwareOnline ? 'animate-pulse' : ''}`}></span>
-                                    {demoMode ? 'Demo stream' : 'Live stream'}
+                                    {demoMode ? 'Demo stream' : 'Hardware stream'}
                                 </span>
                                 <span className="hidden sm:inline">
                                     Last updated: {secondsSinceUpdate === null ? '—' : `${secondsSinceUpdate}s ago`}
@@ -145,18 +145,26 @@ export default function DashboardView(props) {
                         {/* MEDIA CENTER & QUICK TIDES */}
                         <div className="grid grid-cols-1 gap-6">
                             <div className="bg-[#1e293b] p-6 rounded-2xl shadow-lg border border-slate-700 flex flex-col">
-                                <h3 className="text-xl font-bold text-sky-100 mb-4 flex items-center">
-                                    <i className="fa-solid fa-camera mr-2 text-blue-500"></i> Media Center (Live Feed)
+                                <h3 className="text-xl font-bold text-sky-100 mb-4 flex items-center justify-between">
+                                    <div className="flex items-center">
+                                        <i className="fa-solid fa-camera mr-2 text-blue-500"></i> Media Center (Camera Feed)
+                                    </div>
+                                    {cameraLastUpdated && <span className="text-xs text-slate-400 font-normal">Last updated: {cameraLastUpdated}</span>}
                                 </h3>
                                 <div className="bg-black rounded-xl overflow-hidden flex-1 relative min-h-[400px]">
                                     {cameraImg ? (
-                                        <img src={cameraImg} alt="Live Feed" className="absolute inset-0 w-full h-full object-cover" />
+                                        <img src={cameraImg} alt="Camera Feed" className="absolute inset-0 w-full h-full object-cover" />
                                     ) : (
                                         <div className="flex items-center justify-center h-full text-slate-400 border-2 border-dashed border-gray-700 m-8 rounded-xl">
                                             <div className="text-center">
                                                 <i className="fa-solid fa-video-slash text-4xl mb-3"></i>
-                                                <p>{demoMode ? 'Demo Mode: Simulated camera feed' : 'Camera feed currently unavailable'}</p>
+                                                <p>Camera feed currently unavailable</p>
                                             </div>
+                                        </div>
+                                    )}
+                                    {cameraLastUpdated && (
+                                        <div className="absolute top-4 right-4 bg-black/60 text-white text-xs font-mono px-2 py-1 rounded backdrop-blur-sm z-10">
+                                            {cameraLastUpdated}
                                         </div>
                                     )}
                                 </div>
