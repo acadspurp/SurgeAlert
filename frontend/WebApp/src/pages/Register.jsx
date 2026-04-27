@@ -7,7 +7,6 @@ export default function Register() {
 
     // Form state
     const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [consent, setConsent] = useState(false);
     const [otpCode, setOtpCode] = useState('');
@@ -16,12 +15,23 @@ export default function Register() {
     const [step, setStep] = useState('subscribe_phone'); 
     const [sending, setSending] = useState(false);
 
+    const validateAndNormalizePhone = (p) => {
+        if (/^9\d{9}$/.test(p)) return p;
+        if (/^09\d{9}$/.test(p)) return p.substring(1);
+        return null;
+    };
+
     // --- SUBSCRIBE HANDLERS ---
     const handleSubPhoneSubmit = async (e) => {
         e.preventDefault();
+        const normalized = validateAndNormalizePhone(phone);
+        if (!normalized) {
+            alert("Invalid Phone Number. Use 10 digits starting with 9 (e.g. 9123...) or 11 digits starting with 09 (e.g. 0912...).");
+            return;
+        }
         try {
             setSending(true);
-            const data = await sendOtp(phone);
+            const data = await sendOtp(normalized);
             const via = data?.deliveryChannel ? ` via ${data.deliveryChannel}` : '';
             alert(`Verification code sent${via}. Please check your messages.`);
             setStep('subscribe_otp');
@@ -35,9 +45,10 @@ export default function Register() {
 
     const handleSubOtpSubmit = async (e) => {
         e.preventDefault();
+        const normalized = validateAndNormalizePhone(phone);
         try {
-            await verifyOtp(phone, otpCode);
-            await registerResident({ fullName: name, email: email, phoneNumber: phone });
+            await verifyOtp(normalized, otpCode);
+            await registerResident({ fullName: name, phoneNumber: normalized });
             setStep('success_sub');
         } catch (error) {
             alert("Invalid OTP or Registration Failed. " + error.message);
@@ -47,9 +58,14 @@ export default function Register() {
     // --- UNSUBSCRIBE HANDLERS ---
     const handleUnsubPhoneSubmit = async (e) => {
         e.preventDefault();
+        const normalized = validateAndNormalizePhone(phone);
+        if (!normalized) {
+            alert("Invalid Phone Number. Use 10 digits starting with 9 (e.g. 9123...) or 11 digits starting with 09 (e.g. 0912...).");
+            return;
+        }
         try {
             setSending(true);
-            const data = await sendOtp(phone);
+            const data = await sendOtp(normalized);
             const via = data?.deliveryChannel ? ` via ${data.deliveryChannel}` : '';
             alert(`Verification code sent${via}. Please check your messages.`);
             setStep('unsubscribe_otp');
@@ -63,8 +79,10 @@ export default function Register() {
 
     const handleUnsubOtpSubmit = async (e) => {
         e.preventDefault();
+        const normalized = validateAndNormalizePhone(phone);
         try {
-            await unsubscribeOtp(phone, otpCode);
+            await verifyOtp(normalized, otpCode);
+            await unsubscribeOtp(normalized, otpCode);
             setStep('success_unsub');
         } catch (error) {
             alert("Unsubscribe Failed. " + error.message);
@@ -87,28 +105,24 @@ export default function Register() {
                 {step === 'subscribe_phone' && (
                     <div id="phone-step">
                         <h2 className="text-2xl font-semibold mb-2 text-center section-title">Subscribe for Alerts</h2>
-                        <p className="text-center text-gray-500 text-sm mb-6">Receive SMS and Email notifications during floods.</p>
+                        <p className="text-center text-gray-500 text-sm mb-6">Receive SMS notifications during floods.</p>
 
                         <form onSubmit={handleSubPhoneSubmit}>
                             <div className="mb-4">
-                                <label className="block text-gray-700 text-sm font-medium mb-2">Full Name</label>
-                                <input type="text" className="custom-input" required value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key.length === 1 && !/^[a-zA-Z.\s]$/.test(e.key)) e.preventDefault(); }} />
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 text-sm font-medium mb-2">Email Address <span className="text-gray-400 font-normal">(Optional)</span></label>
-                                <input type="email" className="custom-input" placeholder="name@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                                <label className="block text-gray-700 text-sm font-medium mb-2">Name <span className="text-gray-400 font-normal">(Optional)</span></label>
+                                <input type="text" className="custom-input" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key.length === 1 && !/^[a-zA-Z.\s]$/.test(e.key)) e.preventDefault(); }} />
                             </div>
                             <div className="mb-4">
                                 <label className="block text-gray-700 text-sm font-medium mb-2">Phone Number</label>
                                 <div className="flex">
                                     <span className="inline-flex items-center px-3 text-sm text-gray-900 bg-gray-200 border border-r-0 border-gray-300 rounded-l-lg">+63</span>
-                                    <input type="tel" className="custom-input rounded-l-none" maxLength="10" placeholder="9123456789" required value={phone} onChange={(e) => setPhone(e.target.value)} onKeyDown={(e) => { if (e.key.length === 1 && !/^[0-9]$/.test(e.key)) e.preventDefault(); }} />
+                                    <input type="tel" className="custom-input rounded-l-none" maxLength="11" placeholder="09XXXXXXXXX" required value={phone} onChange={(e) => setPhone(e.target.value)} onKeyDown={(e) => { if (e.key.length === 1 && !/^[0-9]$/.test(e.key)) e.preventDefault(); }} />
                                 </div>
                             </div>
 
-                            <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600 h-40 overflow-y-auto">
+                            <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600 h-40 overflow-y-auto text-justify">
                                 <strong>Data Privacy Agreement (Compliance with R.A. 10173)</strong><br/><br/>
-                                Strictly in adherence to the Data Privacy Act of 2012 (Republic Act No. 10173), by subscribing to SurgeAlert, you explicitly consent to the collection, processing, and retention of your personal data (Full Name, Phone Number, and Optional Email) by the SurgeAlert administrative body.<br/><br/>
+                                Strictly in adherence to the Data Privacy Act of 2012 (Republic Act No. 10173), by subscribing to SurgeAlert, you explicitly consent to the collection, processing, and retention of your personal data (Name and Phone Number) by the SurgeAlert administrative body.<br/><br/>
                                 <strong>1. Purpose of Collection:</strong> Your data will be exclusively utilized for the sole purpose of transmitting automated emergency flood alerts, system announcements, and disaster-response coordination.<br/>
                                 <strong>2. Data Protection:</strong> We employ symmetric encryption to ensure your contact details remain strictly confidential. Your information will neither be repurposed nor disclosed to unauthorized third parties without your explicit legal consent.<br/>
                                 <strong>3. Right to Withdraw:</strong> You reserve the absolute right to revoke this consent, permanently erasing your data from our active SMS database, either by using our Unsubscribe portal or by texting "STOP" directly to the system.
@@ -166,7 +180,7 @@ export default function Register() {
                                 <label className="block text-gray-700 text-sm font-medium mb-2">Phone Number</label>
                                 <div className="flex">
                                     <span className="inline-flex items-center px-3 text-sm text-gray-900 bg-gray-200 border border-r-0 border-gray-300 rounded-l-lg">+63</span>
-                                    <input type="tel" className="custom-input rounded-l-none" maxLength="10" placeholder="9123456789" required value={phone} onChange={(e) => setPhone(e.target.value)} onKeyDown={(e) => { if (e.key.length === 1 && !/^[0-9]$/.test(e.key)) e.preventDefault(); }} />
+                                    <input type="tel" className="custom-input rounded-l-none" maxLength="11" placeholder="09XXXXXXXXX" required value={phone} onChange={(e) => setPhone(e.target.value)} onKeyDown={(e) => { if (e.key.length === 1 && !/^[0-9]$/.test(e.key)) e.preventDefault(); }} />
                                 </div>
                             </div>
                             <button type="submit" className="custom-btn btn-red w-full" disabled={sending}>

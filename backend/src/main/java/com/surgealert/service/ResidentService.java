@@ -51,10 +51,31 @@ public class ResidentService {
 
         Resident resident = new Resident();
         resident.setPhoneNumber(request.getPhoneNumber());
-        resident.setEmail(request.getEmail());
-        resident.setFullName(request.getFullName());
+        resident.setIsPriority(request.getIsPriority() != null ? request.getIsPriority() : false);
+        
+        // REDACT NAME BEFORE SAVING
+        String rawName = request.getFullName();
+        if (rawName != null && !rawName.trim().isEmpty()) {
+            String[] parts = rawName.trim().split("\\s+");
+            if (parts.length > 1) {
+                // "Juan Dela Cruz" -> "J. Cruz"
+                resident.setFullName(parts[0].charAt(0) + ". " + parts[parts.length - 1]);
+            } else {
+                resident.setFullName(rawName.trim());
+            }
+        } else {
+            resident.setFullName("Anonymous");
+        }
 
         return residentRepository.save(resident);
+    }
+
+    @Transactional
+    public void togglePriority(Long id) {
+        Resident resident = residentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Resident not found"));
+        resident.setIsPriority(!resident.getIsPriority());
+        residentRepository.save(resident);
     }
 
     @Transactional
@@ -82,22 +103,15 @@ public class ResidentService {
     }
 
     // --- USED FOR SMS ALERTS (INTERNAL USE - RETURNS RAW DATA) ---
-    // The system needs the REAL phone numbers to send alerts.
+    // PRIORITIZED: Returns numbers sorted by isPriority DESC
     public List<String> getAllActivePhoneNumbers() {
         return residentRepository.findByIsActiveTrue().stream()
+                .sorted((a, b) -> Boolean.compare(b.getIsPriority(), a.getIsPriority()))
                 .map(Resident::getPhoneNumber)
                 .collect(Collectors.toList());
     }
 
-    public List<String> getAllActiveEmails() {
-        return residentRepository.findByIsActiveTrue().stream()
-                .map(Resident::getEmail)
-                .filter(email -> email != null && !email.isEmpty())
-                .collect(Collectors.toList());
-    }
-
     // --- USED FOR ADMIN DASHBOARD (EXTERNAL USE - RETURNS MASKED DATA) ---
-    // We strictly convert to DTO here to hide sensitive info
     public List<ResidentAdminDTO> getAllActiveResidentsForAdmin() {
         return residentRepository.findByIsActiveTrue().stream()
                 .map(this::maskResidentData)
@@ -107,23 +121,17 @@ public class ResidentService {
     // MASKING HELPER
     private ResidentAdminDTO maskResidentData(Resident resident) {
         String rawPhone = resident.getPhoneNumber() != null ? resident.getPhoneNumber() : "";
-        String rawName = resident.getFullName() != null ? resident.getFullName() : "";
-
-        // 1. Mask Phone: Keep only last 4 digits (e.g. ******6789); full number is AES-encrypted in DB
+        
+        // Mask Phone: Keep only last 4 digits
         String maskedPhone = "******" + (rawPhone.length() > 4 ? rawPhone.substring(rawPhone.length() - 4) : rawPhone);
 
-        // 2. Abbreviate Name: "Juan Dela Cruz" -> "J. Cruz"
-        String abbreviatedName = rawName;
-        String[] parts = rawName.trim().split("\\s+");
-        if (parts.length > 1) {
-            abbreviatedName = parts[0].charAt(0) + ". " + parts[parts.length - 1];
-        }
-
+        // Note: Name is already redacted in DB at registration time
         return new ResidentAdminDTO(
                 resident.getId(),
-                abbreviatedName,
+                resident.getFullName(),
                 maskedPhone,
-                resident.getEmail()
+                resident.getIsPriority(),
+                resident.getRegistrationDate()
         );
     }
 }

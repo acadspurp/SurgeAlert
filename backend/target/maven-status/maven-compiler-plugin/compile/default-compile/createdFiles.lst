@@ -31,6 +31,7 @@ com\surgealert\dto\AlertTemplateDTO.class
 com\surgealert\config\SecurityConfig.class
 com\surgealert\controller\UserController.class
 com\surgealert\service\ExternalApiService.class
+com\surgealert\config\UserSeeder.class
 com\surgealert\entity\SensorData.class
 com\surgealert\controller\AuthController.class
 com\surgealert\repository\EvacuationSiteRepository.class

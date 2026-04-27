@@ -259,6 +259,11 @@ export async function deleteResident(id) {
     if (!response.ok) throw new Error('Delete failed');
 }
 
+export async function toggleResidentPriority(id) {
+    const response = await apiFetch(`${API_BASE_URL}/residents/${id}/toggle-priority`, { method: 'PUT' });
+    if (!response.ok) throw new Error('Toggle priority failed');
+}
+
 // --- ADMIN: TEMPLATES ---
 export async function fetchTemplates() {
     const response = await apiFetch(`${API_BASE_URL}/admin/templates`);

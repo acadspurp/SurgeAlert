@@ -22,11 +22,23 @@ export default function About() {
         setFormData({ ...formData, [name]: type === 'checkbox' ? checked : value });
     };
 
+    const validateAndNormalizePhone = (p) => {
+        if (/^9\d{9}$/.test(p)) return p;
+        if (/^09\d{9}$/.test(p)) return p.substring(1);
+        return null;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
         if (!formData.dpaConsent) {
             alert("You must agree to the Data Privacy Agreement to proceed.");
+            return;
+        }
+
+        const normalizedPhone = validateAndNormalizePhone(formData.contactNumber);
+        if (!normalizedPhone) {
+            alert("Invalid Contact Number. Please use 10 digits starting with 9 (e.g. 9123...) or 11 digits starting with 09 (e.g. 0912...).");
             return;
         }
 
@@ -42,7 +54,7 @@ ${formData.abstractPurpose}
 
         const payload = {
             name: formData.name,
-            contactNumber: formData.contactNumber,
+            contactNumber: normalizedPhone,
             email: formData.email,
             abstractPurpose: fullPurpose
         };
@@ -168,7 +180,7 @@ ${formData.abstractPurpose}
                                     <label className="block text-sm font-bold text-gray-400 mb-1">Contact Number</label>
                                     <div className="flex">
                                         <span className="bg-gray-700 text-white p-3 rounded-l-lg border border-gray-600 border-r-0 font-bold">+63</span>
-                                        <input type="tel" name="contactNumber" required placeholder="9123456789" className="w-full bg-[#0f172a] border border-gray-600 rounded-r-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.contactNumber} onChange={handleChange} onKeyDown={(e) => { if (e.key.length === 1 && !/^[0-9]$/.test(e.key)) e.preventDefault(); }} />
+                                        <input type="tel" name="contactNumber" required placeholder="09XXXXXXXXX" className="w-full bg-[#0f172a] border border-gray-600 rounded-r-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.contactNumber} onChange={handleChange} onKeyDown={(e) => { if (e.key.length === 1 && !/^[0-9]$/.test(e.key)) e.preventDefault(); }} maxLength="11" />
                                     </div>
                                 </div>
                                 <div>

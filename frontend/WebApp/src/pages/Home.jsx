@@ -535,7 +535,7 @@ export default function Home() {
                     </button>
                     <button onClick={() => navigate('/register')} className="bg-[#a3e635] hover:bg-[#84cc16] text-[#1a2e05] font-bold text-xs sm:text-sm tracking-wide py-3 px-5 rounded-full shadow-[0_4px_10px_rgba(163,230,53,0.3)] transform transition hover:-translate-y-1 flex items-center justify-center gap-2 border border-[#bef264] flex-shrink-0 w-full sm:w-auto">
                         <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
-                        SMS Alert
+                        Subscribe to SMS Alert
                     </button>
                 </div>
                 <button 

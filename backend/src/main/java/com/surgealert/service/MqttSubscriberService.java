@@ -90,14 +90,6 @@ public class MqttSubscriberService {
                             criticalAlertApprovalService.createPendingAlert("mqtt-ingest", messageToSend, savedData.getWaterLevelM());
                             return;
                         }
-                        List<String> emails = residentService.getAllActiveEmails();
-                        if (!emails.isEmpty()) {
-                            String subject = "SurgeAlert: " + level + " LEVEL WARNING";
-                            for (String email : emails) {
-                                emailService.sendAlertEmail(email, subject, messageToSend, dto.getSnapshotBase64());
-                            }
-                        }
-
                         // Broadcast SMS to all residents via Hybrid system
                         List<String> allPhoneNumbers = residentService.getAllActivePhoneNumbers();
                         for (String phone : allPhoneNumbers) {

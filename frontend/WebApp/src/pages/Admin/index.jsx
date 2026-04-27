@@ -11,7 +11,8 @@ import {
     fetchTemplates as fetchTemplatesAPI, saveTemplate as saveTemplateAPI,
     fetchSensorData, overrideAlert, downloadReport,
     fetchAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser, fetchSystemLogs, fetchEvacuationSites,
-    fetchAllDatasetRequests, updateDatasetRequestStatus, registerResident, updateCanaryConfig
+    fetchAllDatasetRequests, updateDatasetRequestStatus, registerResident, updateCanaryConfig,
+    toggleResidentPriority
 } from '../../services/api.js';
 import { useSensorMqtt } from '../../hooks/useSensorMqtt.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
@@ -82,7 +83,7 @@ export default function Admin() {
     // Residents & Templates
     const [residents, setResidents] = useState([]);
     const [isAddingResident, setIsAddingResident] = useState(false);
-    const [newResidentState, setNewResidentState] = useState({ name: '', phone: '' });
+    const [newResidentState, setNewResidentState] = useState({ name: '', phone: '', isPriority: false });
     const [templates, setTemplates] = useState([]);
     const [editingTemplateType, setEditingTemplateType] = useState(null);
     const [templateDrafts, setTemplateDrafts] = useState({});
@@ -614,21 +615,29 @@ export default function Admin() {
         } catch (e) { alert('Delete failed'); }
     };
 
-    const handleAddManualResident = async (e) => {
-        e.preventDefault();
+    const handleAddManualResident = async (e, phoneOverride = null) => {
+        if (e && e.preventDefault) e.preventDefault();
         try {
             await registerResident({ 
                 fullName: newResidentState.name, 
-                phoneNumber: newResidentState.phone 
+                phoneNumber: phoneOverride || newResidentState.phone,
+                isPriority: newResidentState.isPriority
             });
             setIsAddingResident(false);
-            setNewResidentState({ name: '', phone: '' });
+            setNewResidentState({ name: '', phone: '', isPriority: false });
             loadResidents();
             loadDashboardData();
             alert('Resident manually added successfully.');
         } catch(e) {
             alert('Error adding resident: ' + e.message);
         }
+    };
+
+    const handleTogglePriority = async (id) => {
+        try {
+            await toggleResidentPriority(id);
+            loadResidents();
+        } catch (e) { alert("Failed to toggle priority: " + e.message); }
     };
 
     const handleSaveTemplate = async (type, template) => {
@@ -1001,7 +1010,7 @@ export default function Admin() {
 
             {/* MAIN CONTENT */}
             <main className="flex-1 overflow-y-auto relative w-full pt-6 pb-12 px-8">
-{(() => { const viewProps = { demoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, 
+{(() => { const viewProps = { demoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, 
     openCreateUserModal, openEditUserModal, saveUserModal, 
     beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
     handleDeleteAdminUser,

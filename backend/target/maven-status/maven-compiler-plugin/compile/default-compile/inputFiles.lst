@@ -43,6 +43,7 @@ C:\Surge\SurgeAlert\backend\src\main\java\com\surgealert\repository\TideCacheRep
 C:\Surge\SurgeAlert\backend\src\main\java\com\surgealert\entity\ActionPlan.java
 C:\Surge\SurgeAlert\backend\src\main\java\com\surgealert\repository\UserRepository.java
 C:\Surge\SurgeAlert\backend\src\main\java\com\surgealert\service\CriticalAlertApprovalService.java
+C:\Surge\SurgeAlert\backend\src\main\java\com\surgealert\config\UserSeeder.java
 C:\Surge\SurgeAlert\backend\src\main\java\com\surgealert\service\AlertService.java
 C:\Surge\SurgeAlert\backend\src\main\java\com\surgealert\repository\AlertTemplateRepository.java
 C:\Surge\SurgeAlert\backend\src\main\java\com\surgealert\entity\Alert.java

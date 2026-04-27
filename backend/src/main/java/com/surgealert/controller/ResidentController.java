@@ -109,7 +109,16 @@ public class ResidentController {
         }
     }
 
-    // --- UPDATED to return MASKED DTO objects for Admin Dashboard ---
+    @PutMapping("/{id}/toggle-priority")
+    public ResponseEntity<?> togglePriority(@PathVariable Long id) {
+        try {
+            residentService.togglePriority(id);
+            return ResponseEntity.ok("Priority toggled");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
     @GetMapping("/active")
     public ResponseEntity<List<ResidentAdminDTO>> getActiveResidents() {
         return ResponseEntity.ok(residentService.getAllActiveResidentsForAdmin());

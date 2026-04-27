@@ -123,14 +123,6 @@ public class SensorDataController {
                 response.put("pendingUntil", pending.expiresAt().toString());
                 return ResponseEntity.ok(response);
             }
-            // A. EMAIL (Server Side)
-            List<String> emails = residentService.getAllActiveEmails();
-            if (!emails.isEmpty()) {
-                String subject = "SurgeAlert: " + level + " LEVEL WARNING";
-                for (String email : emails) {
-                    emailService.sendAlertEmail(email, subject, messageToSend, dto.getSnapshotBase64());
-                }
-            }
 
             // B. SMS Command (Tell Python to send SMS via Hardware)
             List<String> phoneNumbers = residentService.getAllActivePhoneNumbers();

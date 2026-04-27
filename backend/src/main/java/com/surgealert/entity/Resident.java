@@ -17,8 +17,8 @@ public class Resident {
     @Column(nullable = false, unique = true)
     private String phoneNumber;
 
-    @Column
-    private String email;
+    @Column(nullable = false)
+    private Boolean isPriority = false;
 
     // --- ADDED COLUMNS ---
     @Column(nullable = false)
@@ -42,8 +42,8 @@ public class Resident {
     public String getPhoneNumber() { return phoneNumber; }
     public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+    public Boolean getIsPriority() { return isPriority; }
+    public void setIsPriority(Boolean isPriority) { this.isPriority = isPriority; }
 
     public String getFullName() { return fullName; }
     public void setFullName(String fullName) { this.fullName = fullName; }

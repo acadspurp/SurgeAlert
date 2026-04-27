@@ -3,14 +3,16 @@ package com.surgealert.dto;
 public class ResidentAdminDTO {
     private Long id;
     private String fullName;
-    private String phoneNumber; // Masked for display (e.g. ******1234); stored encrypted at rest
-    private String email;
+    private String phoneNumber; // Masked for display
+    private Boolean isPriority;
+    private java.time.LocalDateTime registrationDate;
 
-    public ResidentAdminDTO(Long id, String fullName, String phoneNumber, String email) {
+    public ResidentAdminDTO(Long id, String fullName, String phoneNumber, Boolean isPriority, java.time.LocalDateTime registrationDate) {
         this.id = id;
         this.fullName = fullName;
         this.phoneNumber = phoneNumber;
-        this.email = email;
+        this.isPriority = isPriority;
+        this.registrationDate = registrationDate;
     }
 
     // Getters and Setters
@@ -23,6 +25,9 @@ public class ResidentAdminDTO {
     public String getPhoneNumber() { return phoneNumber; }
     public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+    public Boolean getIsPriority() { return isPriority; }
+    public void setIsPriority(Boolean isPriority) { this.isPriority = isPriority; }
+
+    public java.time.LocalDateTime getRegistrationDate() { return registrationDate; }
+    public void setRegistrationDate(java.time.LocalDateTime registrationDate) { this.registrationDate = registrationDate; }
 }
