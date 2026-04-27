@@ -83,6 +83,13 @@ public class ExternalApiService {
             }
         }
 
+        if (tideApiKey == null || tideApiKey.trim().isEmpty()) {
+            System.err.println("WARNING: WORLDTIDES_API_KEY is missing in .env! Tide data will not be fetched.");
+            TideResponse errorResponse = new TideResponse();
+            errorResponse.setError("Tide API Key is missing. Check your .env file.");
+            return errorResponse;
+        }
+
         // WorldTides requires an API key
         String url = String.format(
             "https://www.worldtides.info/api/v3?extremes&lat=%s&lon=%s&key=%s",

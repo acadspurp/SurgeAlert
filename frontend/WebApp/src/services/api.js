@@ -233,18 +233,25 @@ export async function unsubscribeOtp(phoneNumber, code) {
 
 // --- AUTH ---
 export async function loginUser(username, password) {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-    });
+    try {
+        const response = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Invalid username or password');
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || 'Invalid username or password');
+        }
+
+        return await response.json();
+    } catch (error) {
+        if (error.message.includes('Failed to fetch') || error.name === 'TypeError') {
+            throw new Error('Could not connect to the Backend server. Please ensure the Backend is running on port 8080 and your Database is connected.');
+        }
+        throw error;
     }
-
-    return await response.json();
 }
 
 // --- ADMIN: RESIDENTS ---
