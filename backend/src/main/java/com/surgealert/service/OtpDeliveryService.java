@@ -44,17 +44,26 @@ public class OtpDeliveryService {
             return false;
         }
         try {
+            // Semaphore expects 09XXXXXXXXX format or 639XXXXXXXXX. 
+            // We ensure it starts with 0 for reliability.
+            String formattedNumber = phoneNumber.startsWith("0") ? phoneNumber : "0" + phoneNumber;
+
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            Map<String, Object> body = Map.of(
-                    "apikey", semaphoreApiKey,
-                    "number", phoneNumber,
-                    "message", message,
-                    "sendername", semaphoreSenderName
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            String body = String.format(
+                "apikey=%s&number=%s&message=%s&sendername=%s",
+                semaphoreApiKey,
+                formattedNumber,
+                java.net.URLEncoder.encode(message, "UTF-8"),
+                semaphoreSenderName
             );
-            restTemplate.postForEntity(semaphoreApiUrl, new HttpEntity<>(body, headers), String.class);
+
+            HttpEntity<String> request = new HttpEntity<>(body, headers);
+            restTemplate.postForEntity(semaphoreApiUrl, request, String.class);
             return true;
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            System.err.println("Semaphore Delivery Error: " + e.getMessage());
             return false;
         }
     }

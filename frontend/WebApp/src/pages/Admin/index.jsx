@@ -955,7 +955,7 @@ export default function Admin() {
                 {/* Demo Mode Toggle */}
                 <div className="absolute top-2 right-[-40px] z-50">
                     <button onClick={() => setDemoMode(!demoMode)} className={`p-2 rounded-r-lg shadow-md ${demoMode ? 'bg-orange-500 hover:bg-orange-600' : 'bg-slate-600 hover:bg-gray-400'} transition tooltip-parent`}>
-                        <i className={`fa-solid ${demoMode ? 'fa-vial-circle-check text-white' : 'fa-vial text-slate-200'}`}></i>
+                        <i className={`fa-solid ${demoMode ? 'fa-vial-circle-check text-white' : 'fa-vial text-white'}`}></i>
                         <span className="tooltip-text whitespace-nowrap bg-black text-white text-xs px-2 py-1 rounded absolute top-full left-0 mt-1 pointer-events-none">Demo Mode</span>
                     </button>
                     <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 rounded-r-lg shadow-md bg-blue-600 hover:bg-blue-700 text-white mt-1 transition">
@@ -989,7 +989,7 @@ export default function Admin() {
                                     className={`w-full flex items-center p-3 rounded-xl transition-all duration-200 ${
                                         activeView === item.key 
                                         ? 'bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-md transform scale-[1.02]' 
-                                        : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                                        : 'text-slate-100 hover:bg-gray-800 hover:text-white'
                                     } ${!isSidebarOpen ? 'justify-center' : ''}`}
                                     title={!isSidebarOpen ? item.label : ""}
                                 >

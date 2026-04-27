@@ -273,7 +273,7 @@ export default function Home() {
                                         <p class="text-sm font-semibold opacity-90">${descEn.toUpperCase()}</p>
                                     </div>
                                 </div>
-                                <div class="mt-2 text-sm text-gray-400 bg-black/20 p-2 rounded">
+                                <div class="mt-2 text-sm text-slate-100 bg-black/20 p-2 rounded">
                                     <strong>${titleTl}</strong> ${descTl}
                                 </div>
                             </div>`;
@@ -371,22 +371,22 @@ export default function Home() {
                                         <tr className="border-b border-gray-800">
                                             <td className="py-2 px-3 font-bold text-green-500">Green</td>
                                             <td className="py-2 px-3 font-bold text-white">Normal</td>
-                                            <td className="py-2 px-3 text-gray-400">&lt; 6.0 m</td>
+                                            <td className="py-2 px-3 text-white">&lt; 6.0 m</td>
                                         </tr>
                                         <tr className="border-b border-gray-800">
                                             <td className="py-2 px-3 font-bold text-yellow-400">Yellow</td>
                                             <td className="py-2 px-3 font-bold text-white">Monitor</td>
-                                            <td className="py-2 px-3 text-gray-400">6.0 - 7.0 m</td>
+                                            <td className="py-2 px-3 text-white">6.0 - 7.0 m</td>
                                         </tr>
                                         <tr className="border-b border-gray-800">
                                             <td className="py-2 px-3 font-bold text-orange-500">Orange</td>
                                             <td className="py-2 px-3 font-bold text-white">Prepare</td>
-                                            <td className="py-2 px-3 text-gray-400">7.0 - 8.5 m</td>
+                                            <td className="py-2 px-3 text-white">7.0 - 8.5 m</td>
                                         </tr>
                                         <tr>
                                             <td className="py-2 px-3 font-bold text-red-500">Red</td>
                                             <td className="py-2 px-3 font-bold text-white">Evacuate</td>
-                                            <td className="py-2 px-3 text-gray-400">&gt; 8.5 m</td>
+                                            <td className="py-2 px-3 text-white">&gt; 8.5 m</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -399,10 +399,10 @@ export default function Home() {
                 <div className="lg:col-span-7 xl:col-span-6 rounded-2xl p-6 bg-[#1e293b] border border-gray-800 flex flex-col">
                     <div className="flex justify-between items-center mb-4">
                         <div className="flex items-center gap-2">
-                            <h2 className="text-sm font-bold text-gray-400 tracking-widest uppercase">Camera Feed</h2>
+                            <h2 className="text-sm font-bold text-slate-100 tracking-widest uppercase">Camera Feed</h2>
                             {cameraLastUpdated && <span className="text-xs font-bold text-cyan-400 hidden sm:inline ml-2">(Last updated: {cameraLastUpdated})</span>}
                         </div>
-                        <span className="text-xs text-gray-500 flex items-center gap-2">
+                        <span className="text-xs text-slate-300 flex items-center gap-2">
                             {cameraLastUpdated && <span className="text-xs font-bold text-cyan-400 sm:hidden mr-1">Updated: {cameraLastUpdated}</span>}
                             <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span> Snapshot
                         </span>
@@ -429,7 +429,7 @@ export default function Home() {
 
             {/* MIDDLE ROW: ACTIONS CHECKLIST */}
             <div className={`rounded-2xl p-6 mb-6 border-2 bg-gradient-to-br from-[#1e293b] to-[#0f172a] ${colors.border} ${colors.glow}`}>
-                <h2 className="text-sm font-bold text-gray-400 tracking-widest mb-4 uppercase">Safety Action Guide</h2>
+                <h2 className="text-sm font-bold text-slate-100 tracking-widest mb-4 uppercase">Safety Action Guide</h2>
                 <div className={`w-full py-3 text-center rounded-lg font-black text-xl tracking-wider uppercase mb-6 shadow-md ${alertLevelKey === 'red' ? 'bg-red-600 text-white' : alertLevelKey === 'orange' ? 'bg-orange-500 text-white' : alertLevelKey === 'yellow' ? 'bg-yellow-400 text-gray-900' : 'bg-green-500 text-white'}`}>
                     {alertLevelText}
                 </div>
@@ -441,10 +441,10 @@ export default function Home() {
                 
                 {/* TIDE SUMMARY */}
                 <div className="rounded-2xl p-6 bg-[#1e293b] border border-gray-800 flex flex-col">
-                    <h2 className="text-sm font-bold text-gray-400 tracking-widest mb-4 uppercase">Tide Status</h2>
+                    <h2 className="text-sm font-bold text-slate-100 tracking-widest mb-4 uppercase">Tide Status</h2>
                     <div className="flex-1 flex flex-col justify-center">
                         {tidesError ? (
-                            <div className="bg-gray-800 text-gray-400 p-4 rounded-xl text-center border border-gray-700">
+                            <div className="bg-gray-800 text-slate-200 p-4 rounded-xl text-center border border-gray-700">
                                 ℹ️ {tidesError}
                             </div>
                         ) : isTidesLoading ? (

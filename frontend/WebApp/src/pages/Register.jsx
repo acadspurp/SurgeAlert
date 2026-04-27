@@ -116,7 +116,7 @@ export default function Register() {
                                 <label className="block text-gray-700 text-sm font-medium mb-2">Phone Number</label>
                                 <div className="flex">
                                     <span className="inline-flex items-center px-3 text-sm text-gray-900 bg-gray-200 border border-r-0 border-gray-300 rounded-l-lg">+63</span>
-                                    <input type="tel" className="custom-input rounded-l-none" maxLength="11" placeholder="09XXXXXXXXX" required value={phone} onChange={(e) => setPhone(e.target.value)} onKeyDown={(e) => { if (e.key.length === 1 && !/^[0-9]$/.test(e.key)) e.preventDefault(); }} />
+                                    <input type="tel" className="custom-input rounded-l-none" maxLength={phone.startsWith('0') ? 11 : 10} placeholder="9XXXXXXXXX" required value={phone} onChange={(e) => setPhone(e.target.value)} onKeyDown={(e) => { if (e.key.length === 1 && !/^[0-9]$/.test(e.key)) e.preventDefault(); }} />
                                 </div>
                             </div>
 
@@ -180,7 +180,7 @@ export default function Register() {
                                 <label className="block text-gray-700 text-sm font-medium mb-2">Phone Number</label>
                                 <div className="flex">
                                     <span className="inline-flex items-center px-3 text-sm text-gray-900 bg-gray-200 border border-r-0 border-gray-300 rounded-l-lg">+63</span>
-                                    <input type="tel" className="custom-input rounded-l-none" maxLength="11" placeholder="09XXXXXXXXX" required value={phone} onChange={(e) => setPhone(e.target.value)} onKeyDown={(e) => { if (e.key.length === 1 && !/^[0-9]$/.test(e.key)) e.preventDefault(); }} />
+                                    <input type="tel" className="custom-input rounded-l-none" maxLength={phone.startsWith('0') ? 11 : 10} placeholder="9XXXXXXXXX" required value={phone} onChange={(e) => setPhone(e.target.value)} onKeyDown={(e) => { if (e.key.length === 1 && !/^[0-9]$/.test(e.key)) e.preventDefault(); }} />
                                 </div>
                             </div>
                             <button type="submit" className="custom-btn btn-red w-full" disabled={sending}>

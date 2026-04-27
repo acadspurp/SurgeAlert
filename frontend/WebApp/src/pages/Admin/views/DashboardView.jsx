@@ -18,7 +18,7 @@ export default function DashboardView(props) {
                     <div className="animate-fade-in">
                         <div className="flex justify-between items-center mb-8">
                             <h1 className="text-3xl font-black text-sky-100 tracking-tight pl-10">Dashboard</h1>
-                            <div className="text-xs font-bold text-slate-400 flex items-center gap-2">
+                            <div className="text-xs font-bold text-slate-200 flex items-center gap-2">
                                 <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${hardwareOnline ? 'bg-green-900/40 border-green-200 text-green-700' : 'bg-[#0f172a] border-slate-700 text-slate-300'}`}>
                                     <span className={`inline-block w-2.5 h-2.5 rounded-full ${hardwareOnline ? 'bg-green-500' : 'bg-gray-400'} ${hardwareOnline ? 'animate-pulse' : ''}`}></span>
                                     {demoMode ? 'Demo stream' : 'Hardware stream'}
@@ -46,7 +46,7 @@ export default function DashboardView(props) {
                                             </span>
                                             {isDivergent && <i className="fa-solid fa-triangle-exclamation text-yellow-500 ml-2 animate-pulse" title="Divergence Detected!"></i>}
                                         </p>
-                                        <p className="text-xs text-slate-400 mt-1">Force the system to broadcast a specific alert level to residents.</p>
+                                        <p className="text-xs text-slate-200 mt-1">Force the system to broadcast a specific alert level to residents.</p>
                                     </div>
                                     <div className="flex flex-col items-end space-y-2">
                                         <div className="flex space-x-2">
@@ -86,7 +86,7 @@ export default function DashboardView(props) {
                                     <HealthRow label="Ultrasonic" ok={hardwareOnline} />
                                     <HealthRow label="Radar" ok={hardwareOnline} />
                                 </div>
-                                <div className="mt-4 text-xs text-slate-400">
+                                <div className="mt-4 text-xs text-slate-200">
                                     {demoMode ? 'Mocked as online for presentations.' : 'Online if receiving telemetry in the last ~12 seconds.'}
                                 </div>
                             </div>
@@ -97,7 +97,7 @@ export default function DashboardView(props) {
                                 </h3>
                                 <div className="flex-1 space-y-3">
                                     {latestLogs.length === 0 ? (
-                                        <div className="text-sm text-slate-400 bg-[#0f172a] border border-slate-700 rounded-xl p-4">
+                                        <div className="text-sm text-slate-200 bg-[#0f172a] border border-slate-700 rounded-xl p-4">
                                             No recent system logs yet.
                                         </div>
                                     ) : (
@@ -105,7 +105,7 @@ export default function DashboardView(props) {
                                             <div key={i} className="flex items-start gap-3 bg-[#0f172a] border border-slate-700 rounded-xl p-3">
                                                 <span className="mt-1 inline-block w-2 h-2 rounded-full bg-blue-500"></span>
                                                 <div className="flex-1">
-                                                    <div className="text-xs font-bold text-slate-400">
+                                                    <div className="text-xs font-bold text-slate-200">
                                                         {log.timestamp ? new Date(log.timestamp).toLocaleString() : '—'}
                                                     </div>
                                                     <div className="text-sm font-semibold text-slate-200">
@@ -116,7 +116,7 @@ export default function DashboardView(props) {
                                         ))
                                     )}
                                 </div>
-                                <div className="mt-3 text-xs text-slate-500">Showing latest 5 entries.</div>
+                                <div className="mt-3 text-xs text-slate-300">Showing latest 5 entries.</div>
                             </div>
 
                             <div className="bg-[#1e293b] p-6 rounded-2xl shadow-lg border border-slate-700 flex flex-col">
@@ -133,7 +133,7 @@ export default function DashboardView(props) {
                                             <p className="text-3xl font-black text-cyan-300 my-2">{new Date(nextTide.dt * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                                             <p className="text-xs font-semibold text-slate-300">{new Date(nextTide.dt * 1000).toLocaleDateString()}</p>
                                             <p className="text-sm font-semibold text-slate-300 mt-1">Predicted Height: {nextTide.height.toFixed(2)}m</p>
-                                            <p className="text-xs text-slate-400 mt-2">Source: WorldTides station estimate</p>
+                                            <p className="text-xs text-slate-300 mt-2">Source: WorldTides station estimate</p>
                                         </>
                                     ) : (
                                         <p className="text-slate-400">Loading tide data...</p>

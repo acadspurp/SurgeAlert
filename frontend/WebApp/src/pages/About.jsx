@@ -166,32 +166,32 @@ ${formData.abstractPurpose}
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-400 mb-1">Full Name</label>
+                                    <label className="block text-sm font-bold text-slate-100 mb-1">Full Name</label>
                                     <input type="text" name="name" required className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.name} onChange={handleChange} onKeyDown={(e) => { if (e.key.length === 1 && !/^[a-zA-Z.\s]$/.test(e.key)) e.preventDefault(); }} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-400 mb-1">Institutional Email</label>
+                                    <label className="block text-sm font-bold text-slate-100 mb-1">Institutional Email</label>
                                     <input type="email" name="email" required placeholder="name@institution.edu.ph" className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.email} onChange={handleChange} />
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-400 mb-1">Contact Number</label>
+                                    <label className="block text-sm font-bold text-slate-100 mb-1">Contact Number</label>
                                     <div className="flex">
                                         <span className="bg-gray-700 text-white p-3 rounded-l-lg border border-gray-600 border-r-0 font-bold">+63</span>
-                                        <input type="tel" name="contactNumber" required placeholder="09XXXXXXXXX" className="w-full bg-[#0f172a] border border-gray-600 rounded-r-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.contactNumber} onChange={handleChange} onKeyDown={(e) => { if (e.key.length === 1 && !/^[0-9]$/.test(e.key)) e.preventDefault(); }} maxLength="11" />
+                                        <input type="tel" name="contactNumber" required placeholder="9XXXXXXXXX" className="w-full bg-[#0f172a] border border-gray-600 rounded-r-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.contactNumber} onChange={handleChange} onKeyDown={(e) => { if (e.key.length === 1 && !/^[0-9]$/.test(e.key)) e.preventDefault(); }} maxLength={formData.contactNumber.startsWith('0') ? 11 : 10} />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-400 mb-1">Affiliation / Organization</label>
+                                    <label className="block text-sm font-bold text-slate-100 mb-1">Affiliation / Organization</label>
                                     <input type="text" name="affiliation" required placeholder="e.g. PUP Manila, DOST" className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.affiliation} onChange={handleChange} />
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-400 mb-1">Requested Date Range</label>
+                                    <label className="block text-sm font-bold text-slate-100 mb-1">Requested Date Range</label>
                                     <div className="flex gap-2">
                                         <input type="date" name="dateFrom" required min="2026-01-01" max={new Date().toISOString().split('T')[0]} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-cyan-500 focus:outline-none cursor-pointer" onClick={(e) => e.target.showPicker()} value={formData.dateFrom} onChange={handleChange} />
                                         <span className="flex items-center text-gray-500 text-sm">to</span>
@@ -199,13 +199,13 @@ ${formData.abstractPurpose}
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-400 mb-1">Data Fields Needed</label>
+                                    <label className="block text-sm font-bold text-slate-100 mb-1">Data Fields Needed</label>
                                     <input type="text" name="dataFields" required placeholder="e.g. Water Level, Flow Rate" className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.dataFields} onChange={handleChange} />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-gray-400 mb-1">Formal Request Letter (Link/URL)</label>
+                                <label className="block text-sm font-bold text-slate-100 mb-1">Formal Request Letter (Link/URL)</label>
                                 <input type="url" name="requestLetterUrl" placeholder="Optional: Google Drive link to endorsed letter" className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" value={formData.requestLetterUrl} onChange={handleChange} />
                             </div>
 

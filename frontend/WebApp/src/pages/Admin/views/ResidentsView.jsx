@@ -164,11 +164,11 @@ export default function ResidentsView(props) {
                   <input 
                     required 
                     type="tel" 
-                    maxLength="11" 
+                    maxLength={newResidentState.phone.startsWith('0') ? 11 : 10} 
                     className="w-full bg-[#0f172a] font-black border-2 border-slate-700 text-white rounded-r-xl px-4 py-3 outline-none focus:border-sky-500 transition-all" 
                     value={newResidentState.phone} 
                     onChange={e => setNewResidentState({...newResidentState, phone: e.target.value})} 
-                    placeholder="09XXXXXXXXX" 
+                    placeholder="9XXXXXXXXX" 
                   />
                 </div>
               </div>
@@ -235,7 +235,7 @@ export default function ResidentsView(props) {
                       {res.isPriority ? 'Priority' : 'Normal'}
                     </button>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-xs font-black text-slate-200">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-100">
                     {formatDate(res.registrationDate)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
