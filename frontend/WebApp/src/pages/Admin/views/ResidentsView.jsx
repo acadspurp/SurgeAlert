@@ -88,51 +88,50 @@ export default function ResidentsView(props) {
       
       {/* TOOLBAR */}
       <div className="bg-[#1e293b] rounded-2xl p-6 mb-6 border border-slate-700 shadow-xl">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
           
           {/* Search */}
-          <div className="lg:col-span-5 relative">
+          <div className="flex-1 relative min-w-[250px]">
             <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
             <input
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              placeholder="Search by name or phone..."
+              placeholder="Search subscribers..."
               className="w-full pl-11 pr-4 py-3 rounded-xl border-2 border-slate-700 bg-[#0f172a] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-bold text-white transition-all placeholder:text-slate-500"
             />
           </div>
 
-          {/* Filters */}
-          <div className="lg:col-span-4 flex gap-2">
-            <select 
-              value={priorityFilter}
-              onChange={(e) => { setPriorityFilter(e.target.value); setCurrentPage(1); }}
-              className="flex-1 bg-[#0f172a] border-2 border-slate-700 text-white rounded-xl px-4 py-2 outline-none focus:border-blue-500 font-bold"
-            >
-              <option value="ALL">All Subscribers</option>
-              <option value="PRIORITY">Priority Only</option>
-              <option value="REGULAR">Regular Only</option>
-            </select>
-            <select 
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value)}
-              className="flex-1 bg-[#0f172a] border-2 border-slate-700 text-white rounded-xl px-4 py-2 outline-none focus:border-blue-500 font-bold"
-            >
-              <option value="DESC">Newest Registered</option>
-              <option value="ASC">Oldest Registered</option>
-            </select>
-          </div>
+          {/* Filters & Add Button */}
+          <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
+            <div className="flex gap-2 w-full sm:w-auto">
+              <select 
+                value={priorityFilter}
+                onChange={(e) => { setPriorityFilter(e.target.value); setCurrentPage(1); }}
+                className="flex-1 sm:w-auto bg-[#0f172a] border-2 border-slate-700 text-white rounded-xl px-4 py-2 outline-none focus:border-blue-500 font-bold min-h-[48px]"
+              >
+                <option value="ALL">All Subscribers</option>
+                <option value="PRIORITY">Priority Only</option>
+                <option value="REGULAR">Regular Only</option>
+              </select>
+              <select 
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                className="flex-1 sm:w-auto bg-[#0f172a] border-2 border-slate-700 text-white rounded-xl px-4 py-2 outline-none focus:border-blue-500 font-bold min-h-[48px]"
+              >
+                <option value="DESC">Newest Registered</option>
+                <option value="ASC">Oldest Registered</option>
+              </select>
+            </div>
 
-          {/* Add Button */}
-          <div className="lg:col-span-3 flex gap-2">
+            {/* Add Button */}
             <button
               onClick={() => setIsAddingResident(!isAddingResident)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-black transition-all ${isAddingResident ? 'bg-slate-700 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20'}`}
+              className={`w-full sm:w-auto whitespace-nowrap px-6 flex items-center justify-center gap-2 py-3 rounded-xl font-black transition-all min-h-[48px] ${isAddingResident ? 'bg-slate-700 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20'}`}
             >
               <i className={`fa-solid ${isAddingResident ? 'fa-xmark' : 'fa-user-plus'}`}></i>
               {isAddingResident ? 'Close' : 'Add Subscriber'}
             </button>
           </div>
-
         </div>
       </div>
 
@@ -172,7 +171,7 @@ export default function ResidentsView(props) {
                   />
                 </div>
               </div>
-              <div className="flex items-center h-[52px] pl-2">
+              <div className="flex items-center min-h-[52px] pl-2">
                 <label className="flex items-center gap-3 cursor-pointer group">
                   <div className="relative">
                     <input 

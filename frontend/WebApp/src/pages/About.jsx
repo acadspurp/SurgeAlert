@@ -78,8 +78,8 @@ ${formData.abstractPurpose}
 
                 {/* I. Hero Section */}
                 <div className="text-center py-8 text-white border-0">
-                    <div className="inline-block p-4 rounded-full bg-[#1e293b] mb-4 shadow-xl border border-gray-700">
-                        <i className="fa-solid fa-water text-4xl text-teal-400"></i>
+                    <div className="inline-block p-2 rounded-2xl bg-[#1e293b] mb-4 shadow-xl border border-gray-700">
+                        <img src="/src/assets/logo.png" alt="SurgeAlert" className="w-48 h-48 object-contain" />
                     </div>
                     <h1 className="text-4xl font-black tracking-tight mb-4 text-[#38bdf8]">SurgeAlert - Flood Monitoring System</h1>
                     <p className="text-lg font-medium text-gray-400">A Thesis Project by 4th-Year Computer Engineering students of Polytechnic University of the Philippines - Manila.</p>
@@ -146,7 +146,7 @@ ${formData.abstractPurpose}
                                 <i className="fa-solid fa-microchip"></i> Powered By
                             </p>
                             <div className="flex flex-wrap gap-2">
-                                {['Raspberry Pi 4', 'Solar Power', 'JSN-SR04T Sensor', '24 GHz Radar', 'RPi Camera 3', '4G LTE / SMS'].map((tag) => (
+                                {['Raspberry Pi 4', 'Solar Power', 'RPi Camera 3', 'Ultrasonic Sensor', 'Speed Radar Sensor', 'GSM Module', '4G LTE / SMS'].map((tag) => (
                                     <span key={tag} className="bg-[#0f172a] border border-gray-700 text-gray-300 text-xs px-3 py-1 rounded-full">{tag}</span>
                                 ))}
                             </div>

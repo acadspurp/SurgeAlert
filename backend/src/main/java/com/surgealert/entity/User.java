@@ -16,7 +16,7 @@ public class User {
     private String username; // CHANGED FROM EMAIL TO USERNAME
 
     @Column(nullable = false)
-    @JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     @Column(nullable = false)

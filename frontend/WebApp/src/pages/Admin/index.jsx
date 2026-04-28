@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend } from 'chart.js';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend, TimeScale } from 'chart.js';
 import { getUser, clearUser } from '../../services/auth.js';
 import {
     fetchAlertStatus, fetchCameraFeed as fetchCameraAPI, fetchTidesData,
@@ -15,12 +15,13 @@ import {
     toggleResidentPriority
 } from '../../services/api.js';
 import { useSensorMqtt } from '../../hooks/useSensorMqtt.js';
+import 'chartjs-adapter-date-fns';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import Papa from 'papaparse';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend, annotationPlugin);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend, TimeScale, annotationPlugin);
 
 import DashboardCard from './components/DashboardCard';
 import HealthRow from './components/HealthRow';
@@ -47,7 +48,7 @@ export default function Admin() {
     useEffect(() => {
         console.log("Admin Guard - User:", user);
         console.log("Admin Guard - Role:", role);
-        
+
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) {
             console.warn("Unauthorized access detected. Role found:", role, "Redirecting to login...");
             // Only alert if we actually have a user but wrong role
@@ -59,19 +60,21 @@ export default function Admin() {
 
     // UI State
     const [activeView, setActiveView] = useState('dashboard');
-    const [dashData, setDashData] = useState({ 
-        waterLevel: '-- m', flowRate: '-- m/s', status: 'Normal', statusColor: 'text-green-600', 
-        prediction: '-- m', predColor: 'text-slate-400', subscriberCount: 0 
+    const [dashData, setDashData] = useState({
+        waterLevel: '-- m', flowRate: '-- m/s', status: 'Normal', statusColor: 'text-green-600',
+        prediction: '-- m', predColor: 'text-slate-400', subscriberCount: 0
     });
     const [cameraImg, setCameraImg] = useState(null);
     const [cameraLastUpdated, setCameraLastUpdated] = useState(null);
     const [tides, setTides] = useState([]);
     const [nextTide, setNextTide] = useState(null);
-    
+
     // Telemetry State
     const [telemetryTime, setTelemetryTime] = useState(24);
+    const [cvTime, setCvTime] = useState(24);
     const [rawSensorData, setRawSensorData] = useState([]);
-    
+    const [cvSensorData, setCvSensorData] = useState([]);
+
     // Report Data
     const [reportStart, setReportStart] = useState("");
     const [reportEnd, setReportEnd] = useState("");
@@ -79,7 +82,7 @@ export default function Admin() {
     const [reportAI, setReportAI] = useState(true);
     const [reportSms, setReportSms] = useState(false);
     const [reportSubscribers, setReportSubscribers] = useState(false);
-    
+
     // Residents & Templates
     const [residents, setResidents] = useState([]);
     const [isAddingResident, setIsAddingResident] = useState(false);
@@ -87,31 +90,35 @@ export default function Admin() {
     const [templates, setTemplates] = useState([]);
     const [editingTemplateType, setEditingTemplateType] = useState(null);
     const [templateDrafts, setTemplateDrafts] = useState({});
-    
+
     // Formatters for user-friendly SMS templates
     const backendToUI = (str) => {
         if (!str) return '';
-        return str
-            .replace(/\{level\}/g, '[Current Water Height]')
-            .replace(/\{waterLevel\}/g, '[Current Water Height]')
-            .replace(/\{status\}/g, '[Alert Color]')
-            .replace(/\{timestamp\}/g, '[Time Recorded]')
-            .replace(/\{name\}/g, '[Resident Name]')
-            .replace(/\{otp\}/g, '[OTP Code]')
-            .replace(/\{code\}/g, '[OTP Code]')
-            .replace(/\{message\}/g, '[Manual Message]')
-            .replace(/\[?%s\]?/g, '[Time Recorded]');
+        let s = String(str);
+        s = s.replaceAll('{level}', '[Current Water Height]');
+        s = s.replaceAll('{waterLevel}', '[Current Water Height]');
+        s = s.replaceAll('{status}', '[Alert Color]');
+        s = s.replaceAll('{timestamp}', '[Time]');
+        s = s.replaceAll('{name}', '[Resident Name]');
+        s = s.replaceAll('{otp}', '[OTP Code]');
+        s = s.replaceAll('{code}', '[OTP Code]');
+        s = s.replaceAll('{message}', '[Manual Message]');
+        // LEGACY MIGRATION
+        s = s.replaceAll('[%s]', '[Time]');
+        s = s.replaceAll('%s', '[Time]');
+        return s;
     };
 
     const uiToBackend = (str) => {
         if (!str) return '';
-        return str
-            .replace(/\[Current Water Height\]/g, '{level}')
-            .replace(/\[Alert Color\]/g, '{status}')
-            .replace(/\[Time Recorded\]/g, '{timestamp}')
-            .replace(/\[Resident Name\]/g, '{name}')
-            .replace(/\[OTP Code\]/g, '{otp}')
-            .replace(/\[Manual Message\]/g, '{message}');
+        let s = String(str);
+        s = s.replaceAll('[Current Water Height]', '{level}');
+        s = s.replaceAll('[Alert Color]', '{status}');
+        s = s.replaceAll('[Time]', '[%s]');
+        s = s.replaceAll('[Resident Name]', '{name}');
+        s = s.replaceAll('[OTP Code]', '{otp}');
+        s = s.replaceAll('[Manual Message]', '{message}');
+        return s;
     };
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -191,19 +198,22 @@ export default function Admin() {
         } catch (e) { console.error(e); }
     };
 
-    const loadChartData = async (hours) => {
+    const loadChartData = async (hours, type = 'TELEMETRY') => {
         try {
             const data = await fetchSensorData(hours);
             data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-            setRawSensorData(data);
-            
-            if (data.length > 0) {
-                const latest = data[data.length - 1];
-                setDashData(prev => ({
-                    ...prev,
-                    flowRate: latest.sensorFlowRateMps !== null ? latest.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s',
-                    prediction: latest.predictedLevel !== null ? latest.predictedLevel.toFixed(2) + ' m' : '-- m',
-                }));
+            if (type === 'TELEMETRY') {
+                setRawSensorData(data);
+                if (data.length > 0) {
+                    const latest = data[data.length - 1];
+                    setDashData(prev => ({
+                        ...prev,
+                        flowRate: latest.sensorFlowRateMps !== null ? latest.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s',
+                        prediction: latest.predictedLevel !== null ? latest.predictedLevel.toFixed(2) + ' m' : '-- m',
+                    }));
+                }
+            } else if (type === 'CV') {
+                setCvSensorData(data);
             }
         } catch (e) { console.error("Failed to update chart:", e); }
     };
@@ -308,7 +318,7 @@ export default function Admin() {
     // -------------------------------------------------------------
     useEffect(() => {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
-        
+
         // Handle Offline State: If hardware is disconnected and demo mode is off, reset values to --
         if (!demoMode && !hardwareOnline) {
             setDashData(prev => ({
@@ -328,19 +338,19 @@ export default function Admin() {
                 setDemoMode(false); // Force demo off
             }
         }
-        
+
         if (demoMode) return;
-        
+
         if (mqttData) {
             setLastMqttAt(Date.now());
             const newDash = { ...dashData };
             // Apply noise filter (anything below 0.30m is ghost data)
             const floatWl = mqttData.waterLevelM;
             const isGhost = floatWl !== null && floatWl !== undefined && floatWl < 0.30;
-            
+
             newDash.waterLevel = (floatWl !== null && !isGhost) ? floatWl.toFixed(2) + ' m' : '-- m';
             newDash.flowRate = (mqttData.sensorFlowRateMps !== null) ? mqttData.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s';
-            
+
             const level = mqttData.currentAlertLevel || 'OFFLINE';
             newDash.status = isGhost ? 'NORMAL (GHOST FILTERED)' : level;
             if (isGhost) newDash.statusColor = 'text-green-600';
@@ -365,19 +375,20 @@ export default function Admin() {
             }
             // Trend Indicator calculations
             if (prevReadings.current.waterLevel !== null && mqttData.waterLevelM !== null) {
-                if (mqttData.waterLevelM > prevReadings.current.waterLevel + 0.05) setTrendIndicators(prev => ({...prev, waterLevel: '↑'}));
-                else if (mqttData.waterLevelM < prevReadings.current.waterLevel - 0.05) setTrendIndicators(prev => ({...prev, waterLevel: '↓'}));
-                else setTrendIndicators(prev => ({...prev, waterLevel: '-'}));
+                if (mqttData.waterLevelM > prevReadings.current.waterLevel + 0.05) setTrendIndicators(prev => ({ ...prev, waterLevel: '↑' }));
+                else if (mqttData.waterLevelM < prevReadings.current.waterLevel - 0.05) setTrendIndicators(prev => ({ ...prev, waterLevel: '↓' }));
+                else setTrendIndicators(prev => ({ ...prev, waterLevel: '-' }));
             }
             if (prevReadings.current.flowRate !== null && mqttData.sensorFlowRateMps !== null) {
-                if (mqttData.sensorFlowRateMps > prevReadings.current.flowRate + 0.05) setTrendIndicators(prev => ({...prev, flowRate: '↑'}));
-                else if (mqttData.sensorFlowRateMps < prevReadings.current.flowRate - 0.05) setTrendIndicators(prev => ({...prev, flowRate: '↓'}));
-                else setTrendIndicators(prev => ({...prev, flowRate: '-'}));
+                if (mqttData.sensorFlowRateMps > prevReadings.current.flowRate + 0.05) setTrendIndicators(prev => ({ ...prev, flowRate: '↑' }));
+                else if (mqttData.sensorFlowRateMps < prevReadings.current.flowRate - 0.05) setTrendIndicators(prev => ({ ...prev, flowRate: '↓' }));
+                else setTrendIndicators(prev => ({ ...prev, flowRate: '-' }));
             }
             prevReadings.current.waterLevel = mqttData.waterLevelM;
             prevReadings.current.flowRate = mqttData.sensorFlowRateMps;
 
-            loadChartData(telemetryTime);
+            loadChartData(telemetryTime, 'TELEMETRY');
+            loadChartData(cvTime, 'CV');
         }
     }, [mqttData, demoMode]); // Removed hardwareOnline from here for now to avoid initialization issues
 
@@ -387,7 +398,8 @@ export default function Admin() {
         loadDashboardData();
         loadCameraFeed();
         loadTideData();
-        loadChartData(telemetryTime);
+        loadChartData(telemetryTime, 'TELEMETRY');
+        loadChartData(cvTime, 'CV');
         loadResidents();
         loadTemplates();
         loadEvacuationSites();
@@ -412,11 +424,15 @@ export default function Admin() {
             clearInterval(canaryInterval);
         };
     }, []);
-    
+
     // Telemetry time changer
     useEffect(() => {
-        if (user && !demoMode) loadChartData(telemetryTime);
+        if (user) loadChartData(telemetryTime, 'TELEMETRY');
     }, [telemetryTime]);
+
+    useEffect(() => {
+        if (user) loadChartData(cvTime, 'CV');
+    }, [cvTime]);
 
     // Demo Mode logic
     useEffect(() => {
@@ -428,7 +444,7 @@ export default function Admin() {
                 const prevWl = prevReadings.current.waterLevel || 5.5;
                 const drift = (Math.random() - 0.35) * 0.08; // slightly biased upward for demos
                 const newWl = Math.max(4.0, Math.min(10.0, prevWl + (randomFlow * 0.08) + drift));
-                
+
                 setDashData(prev => ({
                     ...prev,
                     waterLevel: newWl.toFixed(2) + ' m',
@@ -453,19 +469,17 @@ export default function Admin() {
                 const ts = new Date().toISOString();
                 const imageFlow = Math.max(0, randomFlow - 0.15 + (Math.random() * 0.2));
                 const predicted = Math.min(25, newWl + (0.2 + Math.random() * 0.6));
-                setRawSensorData(prev => {
-                    const next = [
-                        ...(Array.isArray(prev) ? prev : []).slice(-89),
-                        {
-                            timestamp: ts,
-                            waterLevelM: newWl,
-                            sensorFlowRateMps: randomFlow,
-                            imageFlowRateMps: imageFlow,
-                            predictedLevel: predicted
-                        }
-                    ];
-                    return next;
-                });
+
+                const newData = {
+                    timestamp: ts,
+                    waterLevelM: newWl,
+                    sensorFlowRateMps: randomFlow,
+                    imageFlowRateMps: imageFlow,
+                    predictedLevel: predicted
+                };
+
+                setRawSensorData(prev => [...(Array.isArray(prev) ? prev : []).slice(-89), newData]);
+                setCvSensorData(prev => [...(Array.isArray(prev) ? prev : []).slice(-89), newData]);
             }, 3000);
         } else if (user) {
             // When Demo OFF: Immediately purge simulated data. Clear all graphs.
@@ -476,11 +490,12 @@ export default function Admin() {
                 prediction: '-- m', predColor: 'text-slate-400'
             }));
             setTrendIndicators({ waterLevel: '-', flowRate: '-' });
-            
+
             // If hardware is disconnected, it will stay blank.
             // If it is connected, loadDashboardData/loadChartData will fetch real data.
             loadDashboardData();
-            loadChartData(telemetryTime);
+            loadChartData(telemetryTime, 'TELEMETRY');
+            loadChartData(cvTime, 'CV');
         }
         return () => clearInterval(interval);
     }, [demoMode]);
@@ -501,7 +516,7 @@ export default function Admin() {
     // HANDLERS
     // -------------------------------------------------------------
     const handleOverride = async (level) => {
-        if(!isHeadAdmin) {
+        if (!isHeadAdmin) {
             alert('Only Head Admins can override the system alarm.');
             return;
         }
@@ -512,15 +527,15 @@ export default function Admin() {
             if (reason === null) return; // Cancelled
         }
 
-        if(!window.confirm(`Are you sure you want to broadcast a ${level} alert?`)) return;
+        if (!window.confirm(`Are you sure you want to broadcast a ${level} alert?`)) return;
 
         try {
             const safeReason = reason || 'Admin Manual Action';
             await overrideAlert(level, safeReason);
             alert(`Alert level forcefully overridden to ${level}`);
             loadDashboardData();
-            if(isHeadAdmin) loadAdminUsersData(); // Reload logs
-        } catch(e) {
+            if (isHeadAdmin) loadAdminUsersData(); // Reload logs
+        } catch (e) {
             alert('Error overriding alert.');
         }
     };
@@ -566,7 +581,7 @@ export default function Admin() {
             ws.addRow([]);
 
             ws.addRow(['Data Export']).font = { size: 14, bold: true };
-            
+
             const columns = [{ header: 'Timestamp', key: 'ts', width: 25 }];
             if (reportTelemetry) {
                 columns.push({ header: 'Water Level (m)', key: 'wl', width: 18 });
@@ -597,9 +612,9 @@ export default function Admin() {
 
             const buffer = await wb.xlsx.writeBuffer();
             const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            saveAs(blob, `SurgeAlert_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
+            saveAs(blob, `SurgeAlert_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
 
-            if(isHeadAdmin) loadAdminUsersData();
+            if (isHeadAdmin) loadAdminUsersData();
         } catch (e) {
             console.error(e);
             alert('Error generating report.');
@@ -618,8 +633,8 @@ export default function Admin() {
     const handleAddManualResident = async (e, phoneOverride = null) => {
         if (e && e.preventDefault) e.preventDefault();
         try {
-            await registerResident({ 
-                fullName: newResidentState.name, 
+            await registerResident({
+                fullName: newResidentState.name,
                 phoneNumber: phoneOverride || newResidentState.phone,
                 isPriority: newResidentState.isPriority
             });
@@ -628,7 +643,7 @@ export default function Admin() {
             loadResidents();
             loadDashboardData();
             alert('Resident manually added successfully.');
-        } catch(e) {
+        } catch (e) {
             alert('Error adding resident: ' + e.message);
         }
     };
@@ -662,17 +677,9 @@ export default function Admin() {
         const key = String(type || '').toUpperCase();
         const next = templateDrafts[key] ?? '';
         let normalized = uiToBackend(String(next));
-        
-        // Ensure no legacy placeholders are left
-        if (key === 'OTP') {
-            normalized = normalized.replaceAll('[%s]', '{otp}').replaceAll('%s', '{otp}');
-        } else if (key === 'MANUAL') {
-            normalized = normalized.replaceAll('[%s]', '{timestamp}');
-        } else {
-            normalized = normalized.replaceAll('[%s]', '{timestamp}').replaceAll('%s', '{timestamp}');
-        }
+
         normalized = normalized.replaceAll('{waterLevel}', '{level}');
-        
+
         await handleSaveTemplate(key, normalized);
         setEditingTemplateType(null);
     };
@@ -719,7 +726,7 @@ export default function Admin() {
     };
 
     const handleDeleteAdminUser = async (id, name) => {
-        if(!window.confirm(`Delete user ${name}?`)) return;
+        if (!window.confirm(`Delete user ${name}?`)) return;
         try {
             await deleteAdminUser(id);
             loadAdminUsersData();
@@ -805,53 +812,139 @@ export default function Admin() {
     // CHART CONFIGURATIONS
     // -------------------------------------------------------------
 
-    const getChartLabels = () => rawSensorData.map(d => new Date(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    
+    // Helper to visually stretch demo/mock data across the selected timeframe so it doesn't look squished
+    const stretchData = (data, timeFrame) => {
+        if (!data || data.length < 2) return data;
+        const now = new Date();
+        let minTime = now.getTime() - timeFrame * 60 * 60 * 1000;
+
+        if (timeFrame === 1) {
+            const alignedNow = new Date(now);
+            alignedNow.setMinutes(Math.floor(now.getMinutes() / 10) * 10, 0, 0);
+            minTime = alignedNow.getTime() - 60 * 60 * 1000;
+        }
+
+        const maxTime = now.getTime();
+        return data.map((d, index) => {
+            const ratio = index / (data.length - 1);
+            return { ...d, timestamp: new Date(minTime + ratio * (maxTime - minTime)).toISOString() };
+        });
+    };
+
+    const telemetryStretched = stretchData(rawSensorData, telemetryTime);
+    const cvStretched = stretchData(cvSensorData, cvTime);
+
     // Telemetry Chart (Multiple Lines)
     const telemetryChartData = {
-        labels: getChartLabels(),
         datasets: [
-            { label: 'Water Level (m)', data: rawSensorData.map(d => d.waterLevelM), borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', tension: 0.3, yAxisID: 'y' },
-            { label: 'Radar Flow (m/s)', data: rawSensorData.map(d => d.sensorFlowRateMps), borderColor: '#8b5cf6', backgroundColor: 'transparent', tension: 0.3, yAxisID: 'y1' }
+            { label: 'Water Level (m)', data: telemetryStretched.map(d => ({ x: d.timestamp, y: d.waterLevelM })), yAxisID: 'y', borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3 },
+            { label: 'Flow Rate (m/s)', data: telemetryStretched.map(d => ({ x: d.timestamp, y: d.sensorFlowRateMps })), yAxisID: 'y1', borderColor: '#f59e0b', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.3 }
         ]
     };
 
+    // CV Chart Data
     const cvChartData = {
-        labels: getChartLabels(),
         datasets: [
-            { label: 'Optical Flow (m/s)', data: rawSensorData.map(d => d.imageFlowRateMps), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.3 }
+            { label: 'Optical Flow (m/s)', data: cvStretched.map(d => ({ x: d.timestamp, y: d.imageFlowRateMps })), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.3 }
         ]
     };
-    
+
     // AI Chart (Historical + Future prediction plot logic)
+    const nextHour = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const aiStretched = stretchData(rawSensorData, 1);
+    const lastHistorical = aiStretched.length > 0 ? aiStretched[aiStretched.length - 1] : null;
+
     const aiChartData = {
-        labels: [...getChartLabels(), "Next Hour Prediction"],
         datasets: [
-            { 
-                label: 'Historical Level (m)', 
-                data: [...rawSensorData.map(d => d.waterLevelM), null], 
-                borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3 
+            {
+                label: 'Historical Level (m)',
+                data: aiStretched.map(d => ({ x: d.timestamp, y: d.waterLevelM })),
+                borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3
             },
             {
                 label: 'ML Prediction (m)',
-                data: [...rawSensorData.map(d => null).slice(0, -1), 
-                       rawSensorData.length > 0 ? rawSensorData[rawSensorData.length-1].waterLevelM : null, 
-                       rawSensorData.length > 0 ? rawSensorData[rawSensorData.length-1].predictedLevel : null],
+                data: lastHistorical && rawSensorData.length > 0 ? [
+                    { x: lastHistorical.timestamp, y: lastHistorical.waterLevelM },
+                    { x: nextHour, y: rawSensorData[rawSensorData.length - 1].predictedLevel }
+                ] : [],
                 borderColor: '#f59e0b', borderDash: [5, 5], backgroundColor: 'transparent', tension: 0.3
             }
         ]
     };
 
-    const commonChartOptions = {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'top' } },
-        scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 12 } } }
+    const getCommonChartOptions = (timeFrame) => {
+        let unit = 'hour';
+        let stepSize = 1;
+        let tooltipFormat = 'MMM d, p';
+
+        const now = new Date();
+        let min = new Date();
+        let max = new Date(now);
+
+        if (timeFrame === 1) {
+            unit = 'minute';
+            stepSize = 10;
+            const currentMin = now.getMinutes();
+            const roundedMin = Math.floor(currentMin / 10) * 10;
+            const alignedNow = new Date(now);
+            alignedNow.setMinutes(roundedMin, 0, 0);
+            min = new Date(alignedNow.getTime() - 60 * 60 * 1000);
+        } else if (timeFrame === 24) {
+            unit = 'hour';
+            stepSize = 2;
+            const currentHour = now.getHours();
+            const roundedHour = Math.floor(currentHour / 2) * 2;
+            const alignedNow = new Date(now);
+            alignedNow.setHours(roundedHour, 0, 0, 0);
+            min = new Date(alignedNow.getTime() - 24 * 60 * 60 * 1000);
+        } else if (timeFrame === 168) {
+            unit = 'day';
+            stepSize = 1;
+            const alignedNow = new Date(now);
+            alignedNow.setHours(0, 0, 0, 0);
+            min = new Date(alignedNow.getTime() - 7 * 24 * 60 * 60 * 1000);
+        } else if (timeFrame === 720) {
+            unit = 'day';
+            stepSize = 3;
+            const alignedNow = new Date(now);
+            alignedNow.setHours(0, 0, 0, 0);
+            min = new Date(alignedNow.getTime() - 30 * 24 * 60 * 60 * 1000);
+        } else {
+            min = new Date(now.getTime() - timeFrame * 60 * 60 * 1000);
+        }
+
+        return {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'top' } },
+            scales: {
+                x: {
+                    type: 'time',
+                    min: min.toISOString(),
+                    max: max.toISOString(),
+                    time: {
+                        unit: unit,
+                        stepSize: stepSize,
+                        tooltipFormat: tooltipFormat,
+                        displayFormats: {
+                            minute: 'h:mm a',
+                            hour: 'MMM d h:mm a',
+                            day: 'MMM d'
+                        }
+                    },
+                    grid: { display: false }
+                }
+            }
+        };
     };
 
+    const commonChartOptions = getCommonChartOptions(cvTime);
+    const aiChartOptions = getCommonChartOptions(telemetryTime);
+
+    const baseTelemetryOptions = getCommonChartOptions(telemetryTime);
     const telemetryChartOptions = {
-        ...commonChartOptions,
+        ...baseTelemetryOptions,
         plugins: {
-            ...commonChartOptions.plugins,
+            ...baseTelemetryOptions.plugins,
             annotation: {
                 annotations: {
                     box1: { type: 'box', yMin: 0, yMax: 15, backgroundColor: 'rgba(74, 222, 128, 0.1)', drawTime: 'beforeDraw', borderWidth: 0 },
@@ -862,9 +955,9 @@ export default function Admin() {
             }
         },
         scales: {
-            ...commonChartOptions.scales,
-            y: { type: 'linear', display: true, position: 'left', title: {display: true, text: 'Level (m)'} },
-            y1: { type: 'linear', display: true, position: 'right', title: {display: true, text: 'Flow (m/s)'}, grid: { drawOnChartArea: false } },
+            ...baseTelemetryOptions.scales,
+            y: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Level (m)' } },
+            y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: 'Flow (m/s)' }, grid: { drawOnChartArea: false } },
         }
     };
 
@@ -923,7 +1016,7 @@ export default function Admin() {
     const navItems = [
         { key: 'dashboard', label: 'System Dashboard', icon: 'fa-gauge' },
         { key: 'telemetry', label: 'Historical Data', icon: 'fa-chart-line' },
-        { key: 'ai', label: 'AI Forecast & Tides', icon: 'fa-brain' },
+        { key: 'ai', label: 'Prediction & Tides', icon: 'fa-brain' },
         { key: 'residents', label: 'Subscribers List', icon: 'fa-users' },
         { key: 'templates', label: 'Message Templates', icon: 'fa-comment-sms' },
         { key: 'datasets', label: 'Data Requests', icon: 'fa-database' },
@@ -963,9 +1056,9 @@ export default function Admin() {
                     </button>
                 </div>
 
-                <div className="p-6 flex items-center justify-center border-b border-gray-700 bg-black bg-opacity-30 h-20 overflow-hidden">
-                    <i className="fa-solid fa-water text-2xl mr-3 text-teal-400"></i>
-                    <span className={`text-xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-300 transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0'}`}>SurgeAdmin</span>
+                <div className={`p-6 flex items-center ${isSidebarOpen ? 'justify-start' : 'justify-center'} border-b border-gray-700 bg-black bg-opacity-30 h-20 overflow-hidden`}>
+                    <img src="/src/assets/logo.png" alt="Logo" className="w-12 h-12 object-contain mr-3" />
+                    {isSidebarOpen && <span className={`text-2xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-300 transition-opacity duration-200`}>SurgeAlert</span>}
                 </div>
 
                 <div className={`p-5 border-b border-gray-700 bg-opacity-50 bg-black flex items-center ${isSidebarOpen ? 'space-x-4' : 'justify-center'} overflow-hidden`}>
@@ -986,11 +1079,10 @@ export default function Admin() {
                             <li key={item.key}>
                                 <button
                                     onClick={() => switchView(item.key)}
-                                    className={`w-full flex items-center p-3 rounded-xl transition-all duration-200 ${
-                                        activeView === item.key 
-                                        ? 'bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-md transform scale-[1.02]' 
+                                    className={`w-full flex items-center p-3 rounded-xl transition-all duration-200 ${activeView === item.key
+                                        ? 'bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-md transform scale-[1.02]'
                                         : 'text-slate-100 hover:bg-gray-800 hover:text-white'
-                                    } ${!isSidebarOpen ? 'justify-center' : ''}`}
+                                        } ${!isSidebarOpen ? 'justify-center' : ''}`}
                                     title={!isSidebarOpen ? item.label : ""}
                                 >
                                     <i className={`fa-solid ${item.icon} w-6 text-center text-lg`}></i>
@@ -1010,33 +1102,36 @@ export default function Admin() {
 
             {/* MAIN CONTENT */}
             <main className="flex-1 overflow-y-auto relative w-full pt-6 pb-12 px-8">
-{(() => { const viewProps = { demoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, 
-    openCreateUserModal, openEditUserModal, saveUserModal, 
-    beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
-    handleDeleteAdminUser,
-    handleUpdateDatasetStatus, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert, canaryState, handleAdvanceCanaryPhase, handleRollbackCanaryPhase, handleUpdateCanaryConfig }; return (<>
+                {(() => {
+                    const viewProps = {
+                        demoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, editingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
+                        openCreateUserModal, openEditUserModal, saveUserModal,
+                        beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
+                        handleDeleteAdminUser,
+                        handleUpdateDatasetStatus, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert, canaryState, handleAdvanceCanaryPhase, handleRollbackCanaryPhase, handleUpdateCanaryConfig
+                    }; return (<>
 
-                
-                {/* 1. DASHBOARD */}
-{activeView === 'dashboard' && <DashboardView {...viewProps} />}
-{/* 2. TELEMETRY & ANALYTICS */}
-{activeView === 'telemetry' && <TelemetryView {...viewProps} />}
-{/* 3. AI PREDICTIONS & TIDES */}
-{activeView === 'ai' && <AIView {...viewProps} />}
-{/* 4. RESIDENTS */}
-{activeView === 'residents' && <ResidentsView {...viewProps} />}
-{/* 5. TEMPLATES */}
-{activeView === 'templates' && <TemplatesView {...viewProps} />}
-{/* DATASET REQUESTS */}
-{activeView === 'datasets' && <DatasetsView {...viewProps} />}
-{/* 6. REPORTS */}
-{activeView === 'reports' && <ReportsView {...viewProps} />}
-{/* 7. ADMIN USERS (HEAD ADMIN ONLY) */}
-{activeView === 'admin_users' && <AdminUsersView {...viewProps} />}
-{/* 8. MANUAL CANARY */}
-{activeView === 'canary' && <CanaryView {...viewProps} />}
-</>
-                );
+
+                        {/* 1. DASHBOARD */}
+                        {activeView === 'dashboard' && <DashboardView {...viewProps} />}
+                        {/* 2. TELEMETRY & ANALYTICS */}
+                        {activeView === 'telemetry' && <TelemetryView {...viewProps} />}
+                        {/* 3. AI PREDICTIONS & TIDES */}
+                        {activeView === 'ai' && <AIView {...viewProps} />}
+                        {/* 4. RESIDENTS */}
+                        {activeView === 'residents' && <ResidentsView {...viewProps} />}
+                        {/* 5. TEMPLATES */}
+                        {activeView === 'templates' && <TemplatesView {...viewProps} />}
+                        {/* DATASET REQUESTS */}
+                        {activeView === 'datasets' && <DatasetsView {...viewProps} />}
+                        {/* 6. REPORTS */}
+                        {activeView === 'reports' && <ReportsView {...viewProps} />}
+                        {/* 7. ADMIN USERS (HEAD ADMIN ONLY) */}
+                        {activeView === 'admin_users' && <AdminUsersView {...viewProps} />}
+                        {/* 8. MANUAL CANARY */}
+                        {activeView === 'canary' && <CanaryView {...viewProps} />}
+                    </>
+                    );
                 })()}
             </main>
         </div>

@@ -42,17 +42,25 @@ export default function Home() {
         if (!Array.isArray(events) || events.length === 0) return { status: 'Normal', nextHigh: null, nextLow: null };
         const now = new Date();
         const sorted = [...events].sort((a, b) => a.dt - b.dt);
-        const previous = [...sorted].reverse().find(t => new Date(t.dt * 1000) <= now);
         const upcoming = sorted.filter(t => new Date(t.dt * 1000) > now);
         const nextHigh = upcoming.find(t => String(t.type).toLowerCase() === 'high') || null;
         const nextLow = upcoming.find(t => String(t.type).toLowerCase() === 'low') || null;
 
+        const closest = sorted.reduce((a, b) => {
+            return Math.abs(a.dt * 1000 - now.getTime()) < Math.abs(b.dt * 1000 - now.getTime()) ? a : b;
+        }, sorted[0]);
+
         let status = 'Normal';
-        if (previous) {
-            const h = previous.height ?? 0;
-            if (String(previous.type).toLowerCase() === 'high' || h >= 1.8) status = 'High Tide';
-            else if (String(previous.type).toLowerCase() === 'low' || h <= 0.8) status = 'Low Tide';
+        const diffMins = Math.abs(closest.dt * 1000 - now.getTime()) / (1000 * 60);
+
+        if (diffMins <= 15) {
+            status = String(closest.type).toLowerCase() === 'high' ? 'High Tide' : 'Low Tide';
+        } else {
+            if (upcoming.length > 0) {
+                status = String(upcoming[0].type).toLowerCase() === 'high' ? 'Rising' : 'Falling';
+            }
         }
+
         return { status, nextHigh, nextLow };
     };
 
@@ -76,13 +84,13 @@ export default function Home() {
 
         setIsOffline(false);
         const floatVal = parseFloat(currentLevel);
-        
+
         // NOISE FILTER: Anything below 0.30m is considered "Offline" ghost data in river mode
         if (floatVal < 0.30 && !isOverride) {
             setIsOffline(true);
             return;
         }
-        
+
         // Priority 1: Admin Override. Priority 2: Fetch-driven threshold classification.
         const levelKey = isOverride
             ? rawLevel.toLowerCase()
@@ -96,7 +104,7 @@ export default function Home() {
             setAlertLevelText(guide.title);
 
             let html = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-gray-200 mt-4">`;
-            
+
             if (guide.actions && guide.actions.length > 0) {
                 guide.actions.forEach((act, index) => {
                     const stepNumber = String(index + 1).padStart(2, '0');
@@ -133,7 +141,7 @@ export default function Home() {
                     </div>`;
                 });
             } else {
-                 html += `<div class="col-span-3 text-center text-gray-400 py-8"><i class="fa-solid fa-thumbs-up text-4xl mb-3 text-green-500 block"></i> No specific actions required at this time.</div>`;
+                html += `<div class="col-span-3 text-center text-gray-400 py-8"><i class="fa-solid fa-thumbs-up text-4xl mb-3 text-green-500 block"></i> No specific actions required at this time.</div>`;
             }
             html += `</div>`;
             setAlertHtml(html);
@@ -228,10 +236,10 @@ export default function Home() {
         let isSimulating = false;
 
         const checkSimulation = () => {
-             const level = mqttData ? mqttData.waterLevelM : parseFloat(waterLevel);
-             if (isOffline || isNaN(level)) {
-                 isSimulating = true;
-             }
+            const level = mqttData ? mqttData.waterLevelM : parseFloat(waterLevel);
+            if (isOffline || isNaN(level)) {
+                isSimulating = true;
+            }
         };
         checkSimulation();
 
@@ -243,14 +251,14 @@ export default function Home() {
                 const levelKey = classifyAlertLevel(fakeLevel, sensorConfig.thresholds);
                 setWaterLevel(fakeLevel.toFixed(2) + ' m');
                 setAlertLevelKey(levelKey);
-                
+
                 // Add fake camera timestamp so "Last updated: [Time]" is always visible in demo
                 setCameraLastUpdated(new Date().toLocaleTimeString());
-                
+
                 if (CACHED_GUIDE && (CACHED_GUIDE[levelKey] || CACHED_GUIDE['green'])) {
                     const guide = CACHED_GUIDE[levelKey] || CACHED_GUIDE['green'];
                     setAlertLevelText(guide.title);
-                    
+
                     let html = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-gray-200 mt-4">`;
                     if (guide.actions && guide.actions.length > 0) {
                         guide.actions.forEach((act, index) => {
@@ -287,7 +295,7 @@ export default function Home() {
                             </div>`;
                         });
                     } else {
-                         html += `<div class="col-span-3 text-center text-gray-400 py-8"><i class="fa-solid fa-thumbs-up text-4xl mb-3 text-green-500 block"></i> No specific actions required at this time.</div>`;
+                        html += `<div class="col-span-3 text-center text-gray-400 py-8"><i class="fa-solid fa-thumbs-up text-4xl mb-3 text-green-500 block"></i> No specific actions required at this time.</div>`;
                     }
                     html += `</div>`;
                     setAlertHtml(html);
@@ -317,10 +325,10 @@ export default function Home() {
 
     return (
         <div id="home-view" className="min-h-screen bg-[#0f172a] text-gray-200 lg:p-6 pb-24">
-            
+
             {/* TOP ROW: Gauges and Camera */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
-                
+
                 {/* RIVER LEVEL GAUGE */}
                 <div className={`lg:col-span-5 xl:col-span-6 rounded-2xl p-6 border ${colors.border} ${colors.bg} ${colors.glow} flex flex-col justify-between overflow-hidden`}>
                     <div className="flex justify-between items-center mb-4">
@@ -328,33 +336,33 @@ export default function Home() {
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-center sm:items-stretch gap-4 sm:gap-6 h-full w-full">
-                         {/* Visual Thermometer */}
+                        {/* Visual Thermometer */}
                         <div className="relative h-64 sm:h-80 w-48 flex-shrink-0 pb-4 sm:pb-0">
-                             {/* The actual gauge */}
-                             <div className="absolute bottom-0 left-0 h-full w-16 bg-gray-900 rounded-full border-2 border-gray-700 overflow-hidden flex items-end shadow-inner">
-                                 {/* Gradient inner fill that moves up. Highly distinct colors. */}
-                                 <div className="w-full relative transition-all duration-1000 overflow-hidden" style={{ height: waterLevel !== '--.-- m' ? `${gaugeFillPercent(parseFloat(waterLevel), sensorConfig.sensorDepthM)}%` : '0%' }}>
+                            {/* The actual gauge */}
+                            <div className="absolute bottom-0 left-0 h-full w-16 bg-gray-900 rounded-full border-2 border-gray-700 overflow-hidden flex items-end shadow-inner">
+                                {/* Gradient inner fill that moves up. Highly distinct colors. */}
+                                <div className="w-full relative transition-all duration-1000 overflow-hidden" style={{ height: waterLevel !== '--.-- m' ? `${gaugeFillPercent(parseFloat(waterLevel), sensorConfig.sensorDepthM)}%` : '0%' }}>
                                     <div className="absolute bottom-0 w-full h-[320px]" style={{ background: `linear-gradient(to top, #22c55e 0%, #22c55e ${GAUGE_MARKS.yellow}%, #eab308 ${GAUGE_MARKS.yellow}%, #eab308 ${GAUGE_MARKS.orange}%, #ff8800 ${GAUGE_MARKS.orange}%, #ff8800 ${GAUGE_MARKS.red}%, #ff0000 ${GAUGE_MARKS.red}%, #ff0000 100%)` }}></div>
-                                 </div>
-                             </div>
+                                </div>
+                            </div>
 
-                             {/* Threshold Markers — positions driven by fetched config */}
-                             <div className="absolute left-0 w-full h-[2px] bg-yellow-400 z-10 flex items-center" style={{ bottom: `${GAUGE_MARKS.yellow}%` }}>
+                            {/* Threshold Markers — positions driven by fetched config */}
+                            <div className="absolute left-0 w-full h-[2px] bg-yellow-400 z-10 flex items-center" style={{ bottom: `${GAUGE_MARKS.yellow}%` }}>
                                 <span className="absolute left-[70px] text-xs font-bold text-yellow-400 whitespace-nowrap bg-[#0f172a] px-2 py-1 rounded shadow-sm border border-yellow-400/30">Yellow: Monitor</span>
-                             </div>
-                             <div className="absolute left-0 w-full h-[2px] bg-orange-500 z-10 flex items-center" style={{ bottom: `${GAUGE_MARKS.orange}%` }}>
+                            </div>
+                            <div className="absolute left-0 w-full h-[2px] bg-orange-500 z-10 flex items-center" style={{ bottom: `${GAUGE_MARKS.orange}%` }}>
                                 <span className="absolute left-[70px] text-xs font-bold text-[#ff8800] whitespace-nowrap bg-[#0f172a] px-2 py-1 rounded shadow-sm border border-orange-500/30">Orange: Prepare</span>
-                             </div>
-                             <div className="absolute left-0 w-full h-[2px] bg-red-600 z-10 flex items-center" style={{ bottom: `${GAUGE_MARKS.red}%` }}>
+                            </div>
+                            <div className="absolute left-0 w-full h-[2px] bg-red-600 z-10 flex items-center" style={{ bottom: `${GAUGE_MARKS.red}%` }}>
                                 <span className="absolute left-[70px] text-xs font-bold text-red-500 whitespace-nowrap bg-[#0f172a] px-2 py-1 rounded shadow-sm border border-red-600/30">Red: Evacuate</span>
-                             </div>
-                             
-                             {/* Current Water Level Pointer */}
-                             {waterLevel !== '--.-- m' && (
+                            </div>
+
+                            {/* Current Water Level Pointer */}
+                            {waterLevel !== '--.-- m' && (
                                 <div className="absolute left-0 w-16 h-1.5 bg-white shadow-[0_0_15px_white] z-20 transition-all duration-1000" style={{ bottom: `${gaugeFillPercent(parseFloat(waterLevel), sensorConfig.sensorDepthM)}%` }}></div>
-                             )}
+                            )}
                         </div>
-                        
+
                         <div className="flex-1 w-full min-w-0 flex flex-col justify-center">
                             <div className="text-center truncate w-full">
                                 {waterLevel === '--.-- m' ? (
@@ -366,7 +374,7 @@ export default function Home() {
                                     {alertLevelText}
                                 </div>
                             </div>
-                            
+
                             {/* Baseline Legend Table */}
                             <div className="mt-8 bg-[#0f172a] rounded-lg border border-gray-700 overflow-x-auto w-full">
                                 <table className="w-full text-xs sm:text-sm text-left border-collapse">
@@ -448,7 +456,7 @@ export default function Home() {
 
             {/* BOTTOM ROW: TIDES & WEATHER */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
+
                 {/* TIDE SUMMARY */}
                 <div className="rounded-2xl p-6 bg-[#1e293b] border border-gray-800 flex flex-col">
                     <h2 className="text-sm font-bold text-slate-100 tracking-widest mb-4 uppercase">Tide Status</h2>
@@ -469,8 +477,8 @@ export default function Home() {
                                 <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50 flex flex-col items-center justify-center">
                                     <span className="text-xs text-gray-400 uppercase tracking-wider mb-1">Current Tide</span>
                                     <div className="flex items-center gap-2">
-                                        <i className={`fa-solid ${tideSummary.status === 'High Tide' ? 'fa-arrow-up text-red-500' : tideSummary.status === 'Low Tide' ? 'fa-arrow-down text-blue-400' : 'fa-wave-square text-cyan-300'}`}></i>
-                                        <span className={`text-2xl font-black ${tideSummary.status === 'High Tide' ? 'text-red-500' : tideSummary.status === 'Low Tide' ? 'text-blue-400' : 'text-cyan-300'}`}>{tideSummary.status}</span>
+                                        <i className={`fa-solid ${tideSummary.status === 'High Tide' || tideSummary.status === 'Rising' ? 'fa-arrow-up text-red-500' : tideSummary.status === 'Low Tide' || tideSummary.status === 'Falling' ? 'fa-arrow-down text-blue-400' : 'fa-wave-square text-cyan-300'}`}></i>
+                                        <span className={`text-2xl font-black ${tideSummary.status === 'High Tide' || tideSummary.status === 'Rising' ? 'text-red-500' : tideSummary.status === 'Low Tide' || tideSummary.status === 'Falling' ? 'text-blue-400' : 'text-cyan-300'}`}>{tideSummary.status}</span>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
@@ -513,21 +521,21 @@ export default function Home() {
                     <div>
                         <h2 className="text-sm font-bold text-gray-400 tracking-widest mb-4 uppercase">Weather Forecast</h2>
                         <div className="grid grid-cols-5 gap-2 text-center items-center">
-                        {weatherCards.length === 0 ? (
-                            <p className="col-span-full text-gray-500">Loading Weather Data...</p>
-                        ) : (
-                            weatherCards.map((card, i) => (
-                                <div key={i} className="flex flex-col items-center justify-center p-2 rounded-xl hover:bg-gray-800 transition-colors">
-                                    <p className="font-bold text-cyan-400 text-sm mb-2">{card.dayName}</p>
-                                    <div className="text-3xl mb-2 drop-shadow-lg">{card.icon}</div>
-                                    <p className="text-xs text-gray-400 leading-tight mb-2 h-8 flex items-center justify-center">{card.description}</p>
-                                    <div className="flex flex-col items-center gap-0.5 text-xs font-mono text-gray-300">
-                                        <span><span className="text-red-400">H:</span> {card.tempMax}°C</span>
-                                        <span><span className="text-blue-400">L:</span> {card.tempMin}°C</span>
+                            {weatherCards.length === 0 ? (
+                                <p className="col-span-full text-gray-500">Loading Weather Data...</p>
+                            ) : (
+                                weatherCards.map((card, i) => (
+                                    <div key={i} className="flex flex-col items-center justify-center p-2 rounded-xl hover:bg-gray-800 transition-colors">
+                                        <p className="font-bold text-cyan-400 text-sm mb-2">{card.dayName}</p>
+                                        <div className="text-3xl mb-2 drop-shadow-lg">{card.icon}</div>
+                                        <p className="text-xs text-gray-400 leading-tight mb-2 h-8 flex items-center justify-center">{card.description}</p>
+                                        <div className="flex flex-col items-center gap-0.5 text-xs font-mono text-gray-300">
+                                            <span><span className="text-red-400">H:</span> {card.tempMax}°C</span>
+                                            <span><span className="text-blue-400">L:</span> {card.tempMin}°C</span>
+                                        </div>
                                     </div>
-                                </div>
-                            ))
-                        )}
+                                ))
+                            )}
                         </div>
                     </div>
                     <div className="mt-4 text-[10px] sm:text-xs font-bold text-gray-300 text-center border-t border-gray-700 pt-3 pb-1">
@@ -548,8 +556,8 @@ export default function Home() {
                         Subscribe to SMS Alert
                     </button>
                 </div>
-                <button 
-                    onClick={() => setIsFabOpen(!isFabOpen)} 
+                <button
+                    onClick={() => setIsFabOpen(!isFabOpen)}
                     className="bg-cyan-600 hover:bg-cyan-500 text-white w-14 h-14 rounded-full shadow-[0_0_20px_rgba(8,145,178,0.5)] flex items-center justify-center transform transition active:scale-95 border-2 border-cyan-400 flex-shrink-0 z-50 self-end"
                 >
                     <i className={`fa-solid ${isFabOpen ? 'fa-chevron-right text-xl' : 'fa-chevron-left text-xl'} drop-shadow-md`}></i>
