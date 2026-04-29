@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend, TimeScale } from 'chart.js';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend, TimeScale, TimeSeriesScale } from 'chart.js';
 import { getUser, clearUser } from '../../services/auth.js';
 import {
     fetchAlertStatus, fetchCameraFeed as fetchCameraAPI, fetchTidesData,
@@ -21,7 +21,7 @@ import Papa from 'papaparse';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend, TimeScale, annotationPlugin);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend, TimeScale, TimeSeriesScale, annotationPlugin);
 
 import DashboardCard from './components/DashboardCard';
 import HealthRow from './components/HealthRow';
@@ -72,6 +72,7 @@ export default function Admin() {
     // Telemetry State
     const [telemetryTime, setTelemetryTime] = useState(24);
     const [cvTime, setCvTime] = useState(24);
+    const [aiTime, setAiTime] = useState(24);
     const [rawSensorData, setRawSensorData] = useState([]);
     const [cvSensorData, setCvSensorData] = useState([]);
 
@@ -146,7 +147,7 @@ export default function Admin() {
     // Derived State for Hardware Health (Must be before useEffects that use it)
     const hardwareOnline = demoMode ? true : (secondsSinceUpdate !== null ? secondsSinceUpdate <= 12 : false);
 
-    const displayName = user ? (user.fullName || user.username) : 'Admin';
+    const displayName = (user && (user.fullName || user.username)) || 'Admin';
 
     // -------------------------------------------------------------
     // DATA LOADING
@@ -202,6 +203,7 @@ export default function Admin() {
         try {
             const data = await fetchSensorData(hours);
             data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
             if (type === 'TELEMETRY') {
                 setRawSensorData(data);
                 if (data.length > 0) {
@@ -398,7 +400,7 @@ export default function Admin() {
         loadDashboardData();
         loadCameraFeed();
         loadTideData();
-        loadChartData(telemetryTime, 'TELEMETRY');
+        loadChartData(Math.max(telemetryTime, aiTime), 'TELEMETRY');
         loadChartData(cvTime, 'CV');
         loadResidents();
         loadTemplates();
@@ -427,8 +429,8 @@ export default function Admin() {
 
     // Telemetry time changer
     useEffect(() => {
-        if (user) loadChartData(telemetryTime, 'TELEMETRY');
-    }, [telemetryTime]);
+        if (user) loadChartData(Math.max(telemetryTime, aiTime), 'TELEMETRY');
+    }, [telemetryTime, aiTime]);
 
     useEffect(() => {
         if (user) loadChartData(cvTime, 'CV');
@@ -812,60 +814,40 @@ export default function Admin() {
     // CHART CONFIGURATIONS
     // -------------------------------------------------------------
 
-    // Helper to visually stretch demo/mock data across the selected timeframe so it doesn't look squished
-    const stretchData = (data, timeFrame) => {
-        if (!data || data.length < 2) return data;
-        const now = new Date();
-        let minTime = now.getTime() - timeFrame * 60 * 60 * 1000;
-
-        if (timeFrame === 1) {
-            const alignedNow = new Date(now);
-            alignedNow.setMinutes(Math.floor(now.getMinutes() / 10) * 10, 0, 0);
-            minTime = alignedNow.getTime() - 60 * 60 * 1000;
-        }
-
-        const maxTime = now.getTime();
-        return data.map((d, index) => {
-            const ratio = index / (data.length - 1);
-            return { ...d, timestamp: new Date(minTime + ratio * (maxTime - minTime)).toISOString() };
-        });
-    };
-
-    const telemetryStretched = stretchData(rawSensorData, telemetryTime);
-    const cvStretched = stretchData(cvSensorData, cvTime);
+    const telemetryFiltered = rawSensorData.filter(d => new Date(d.timestamp).getTime() >= new Date().getTime() - telemetryTime * 60 * 60 * 1000);
+    const aiFiltered = rawSensorData.filter(d => new Date(d.timestamp).getTime() >= new Date().getTime() - aiTime * 60 * 60 * 1000);
 
     // Telemetry Chart (Multiple Lines)
     const telemetryChartData = {
         datasets: [
-            { label: 'Water Level (m)', data: telemetryStretched.map(d => ({ x: d.timestamp, y: d.waterLevelM })), yAxisID: 'y', borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3 },
-            { label: 'Flow Rate (m/s)', data: telemetryStretched.map(d => ({ x: d.timestamp, y: d.sensorFlowRateMps })), yAxisID: 'y1', borderColor: '#f59e0b', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.3 }
+            { label: 'Water Level (m)', data: telemetryFiltered.map(d => ({ x: d.timestamp, y: d.waterLevelM })), yAxisID: 'y', borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3 },
+            { label: 'Flow Rate (m/s)', data: telemetryFiltered.map(d => ({ x: d.timestamp, y: d.sensorFlowRateMps })), yAxisID: 'y1', borderColor: '#f59e0b', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.3 }
         ]
     };
 
     // CV Chart Data
     const cvChartData = {
         datasets: [
-            { label: 'Optical Flow (m/s)', data: cvStretched.map(d => ({ x: d.timestamp, y: d.imageFlowRateMps })), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.3 }
+            { label: 'Optical Flow (m/s)', data: cvSensorData.map(d => ({ x: d.timestamp, y: d.imageFlowRateMps })), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.3 }
         ]
     };
 
     // AI Chart (Historical + Future prediction plot logic)
     const nextHour = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-    const aiStretched = stretchData(rawSensorData, 1);
-    const lastHistorical = aiStretched.length > 0 ? aiStretched[aiStretched.length - 1] : null;
+    const lastHistorical = aiFiltered.length > 0 ? aiFiltered[aiFiltered.length - 1] : null;
 
     const aiChartData = {
         datasets: [
             {
                 label: 'Historical Level (m)',
-                data: aiStretched.map(d => ({ x: d.timestamp, y: d.waterLevelM })),
+                data: aiFiltered.map(d => ({ x: d.timestamp, y: d.waterLevelM })),
                 borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3
             },
             {
                 label: 'ML Prediction (m)',
-                data: lastHistorical && rawSensorData.length > 0 ? [
+                data: lastHistorical ? [
                     { x: lastHistorical.timestamp, y: lastHistorical.waterLevelM },
-                    { x: nextHour, y: rawSensorData[rawSensorData.length - 1].predictedLevel }
+                    { x: nextHour, y: lastHistorical.predictedLevel }
                 ] : [],
                 borderColor: '#f59e0b', borderDash: [5, 5], backgroundColor: 'transparent', tension: 0.3
             }
@@ -938,7 +920,7 @@ export default function Admin() {
     };
 
     const commonChartOptions = getCommonChartOptions(cvTime);
-    const aiChartOptions = getCommonChartOptions(telemetryTime);
+    const aiChartOptions = getCommonChartOptions(aiTime);
 
     const baseTelemetryOptions = getCommonChartOptions(telemetryTime);
     const telemetryChartOptions = {

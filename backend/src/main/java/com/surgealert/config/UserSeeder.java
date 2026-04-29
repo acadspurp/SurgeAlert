@@ -19,14 +19,16 @@ public class UserSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        if (!userRepository.existsByUsername("head_admin")) {
-            User headAdmin = new User();
+        User headAdmin = userRepository.findByUsername("head_admin").orElse(new User());
+        if (headAdmin.getId() == null) {
             headAdmin.setUsername("head_admin");
-            headAdmin.setPassword(passwordEncoder.encode("headadmin"));
             headAdmin.setRole("HEAD_ADMIN");
             headAdmin.setFullName("Head Administrator");
-            userRepository.save(headAdmin);
-            System.out.println("SUCCESS: head_admin User seeded into Database.");
         }
+        
+        // Always reset password in demo/seeding mode to ensure accessibility
+        headAdmin.setPassword(passwordEncoder.encode("headadmin"));
+        userRepository.save(headAdmin);
+        System.out.println("SUCCESS: head_admin User (re)seeded into Database with password 'headadmin'.");
     }
 }

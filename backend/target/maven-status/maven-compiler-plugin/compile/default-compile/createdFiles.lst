@@ -1,10 +1,12 @@
 com\surgealert\config\ActionPlanSeeder.class
 com\surgealert\service\NotificationService.class
+com\surgealert\controller\ConfigController.class
 com\surgealert\dto\WeatherResponse.class
 com\surgealert\dto\TideResponse$TideExtreme.class
 com\surgealert\SurgeAlertApplication.class
 com\surgealert\controller\SensorDataController$Stats.class
 com\surgealert\service\CanaryRolloutService.class
+com\surgealert\controller\SystemStatusController.class
 com\surgealert\config\TemplateSeeder.class
 com\surgealert\service\EmailService.class
 com\surgealert\entity\Resident.class
@@ -73,6 +75,7 @@ com\surgealert\repository\TideCacheRepository.class
 com\surgealert\service\UserService.class
 com\surgealert\entity\ActionPlan.class
 com\surgealert\repository\SystemConfigRepository.class
+com\surgealert\component\DataSeeder.class
 com\surgealert\controller\ResidentController.class
 com\surgealert\security\AuthTokenFilter.class
 com\surgealert\controller\SensorDataController.class

@@ -5,7 +5,7 @@ import HealthRow from '../components/HealthRow';
 import TelemetryCard from '../components/TelemetryCard';
 
 export default function AIView(props) {
-    const { demoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
+    const { demoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiTime, setAiTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
         openCreateUserModal, openEditUserModal, saveUserModal,
         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
         handleDeleteAdminUser,
@@ -176,9 +176,26 @@ export default function AIView(props) {
 
                     {/* AI Forecast Graph */}
                     <div className="lg:col-span-2 bg-[#1e293b] rounded-2xl shadow-lg border border-slate-700 p-6 flex flex-col">
-                        <h3 className="text-xl font-bold text-sky-100 mb-2">Prediction Trajectory</h3>
-                        <p className="text-sm text-slate-400 mb-6">Comparing historical sensor data against the AI's projected path for the next hour.</p>
-                        <div className="flex-1 w-full relative min-h-[400px]">
+                        <div className="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 className="text-xl font-bold text-sky-100">Prediction Trajectory</h3>
+                                <p className="text-sm text-slate-400">Comparing historical sensor data against the AI's projected path for the next hour.</p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <i className="fa-regular fa-clock text-slate-400"></i>
+                                <select 
+                                    className="bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500"
+                                    value={aiTime}
+                                    onChange={(e) => setAiTime(Number(e.target.value))}
+                                >
+                                    <option value={1}>Last 1 Hour</option>
+                                    <option value={24}>Last 24 Hours</option>
+                                    <option value={168}>Last 7 Days</option>
+                                    <option value={720}>Last 30 Days</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="flex-1 w-full relative min-h-[400px] mt-4">
                             <Line data={aiChartData} options={aiChartOptions} />
                         </div>
                         <div className="bg-blue-900/60 border border-blue-400/50 text-blue-100 text-xs px-5 py-4 rounded-xl mt-4 flex items-center shadow-lg backdrop-blur-sm">
