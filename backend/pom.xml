@@ -48,10 +48,17 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- MySQL Driver (for production) -->
+        <!-- MySQL Driver (optional for local/dev compatibility) -->
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- PostgreSQL Driver (Render production database) -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
 
