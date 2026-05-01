@@ -262,7 +262,7 @@ export async function loginUser(username, password) {
         return await response.json();
     } catch (error) {
         if (error.message.includes('Failed to fetch') || error.name === 'TypeError') {
-            throw new Error('Could not connect to the Backend server. Please ensure the Backend is running on port 8080 and your Database is connected.');
+            throw new Error(`Could not connect to the backend API at ${API_BASE_URL}. Please verify your deployed backend URL and CORS settings.`);
         }
         throw error;
     }
