@@ -3,7 +3,6 @@ package com.surgealert.controller;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseToken;
 import com.surgealert.dto.RegisterRequest;
-import com.surgealert.entity.User;
 import com.surgealert.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
