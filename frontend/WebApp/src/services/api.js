@@ -69,8 +69,13 @@ export function getWeatherInfo(code) {
 }
 
 export async function fetchWeatherData() {
-    const response = await fetch(`${API_BASE_URL}/external/weather`);
-    if (!response.ok) throw new Error('Backend API Error');
+    const response = await fetch(`${API_BASE_URL}/external/weather`, { mode: 'cors' });
+    if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        throw new Error(
+            `Weather API HTTP ${response.status}${detail ? `: ${detail.slice(0, 160)}` : ''}`
+        );
+    }
     return await response.json();
 }
 
@@ -161,8 +166,13 @@ export async function fetchAlertGuide() {
 
 // --- TIDES ---
 export async function fetchTidesData() {
-    const response = await fetch(`${API_BASE_URL}/external/tides`);
-    if (!response.ok) throw new Error(`Backend API Error: ${response.statusText}`);
+    const response = await fetch(`${API_BASE_URL}/external/tides`, { mode: 'cors' });
+    if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        throw new Error(
+            `Tides API HTTP ${response.status}${detail ? `: ${detail.slice(0, 160)}` : ''}`
+        );
+    }
     return await response.json();
 }
 
