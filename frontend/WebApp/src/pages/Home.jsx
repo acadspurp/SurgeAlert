@@ -1,13 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchAlertStatus, fetchAlertGuide, fetchCameraFeed, fetchWeatherData, fetchTidesData, getWeatherInfo, fetchSystemThresholds } from '../services/api.js';
 import { useSensorMqtt } from '../hooks/useSensorMqtt.js';
 import { classifyAlertLevel, gaugeFillPercent, gaugeMarkers } from '../config/alertConfig.js';
 
 let CACHED_GUIDE = null;
-
-/** How often to poll GET /public/alerts/status (includes manual override). Keeps all browsers in sync without refresh. */
-const ALERT_STATUS_POLL_MS = 10000;
 
 function getAlertColors(levelKey) {
     if (levelKey === 'green') return { bg: 'bg-[#1e293b]', border: 'border-green-500', text: 'text-green-400', glow: 'shadow-[0_0_15px_rgba(34,197,94,0.3)]' };
@@ -40,11 +37,6 @@ export default function Home() {
         sensorDepthM: 6.1,
         thresholds: { yellow: 3.48, orange: 4.51, red: 5.49 }
     });
-
-    const sensorConfigRef = useRef(sensorConfig);
-    useEffect(() => {
-        sensorConfigRef.current = sensorConfig;
-    }, [sensorConfig]);
 
     const getCurrentTideSummary = (events) => {
         if (!Array.isArray(events) || events.length === 0) return { status: 'Normal', nextHigh: null, nextLow: null };
@@ -102,7 +94,7 @@ export default function Home() {
         // Priority 1: Admin Override. Priority 2: Fetch-driven threshold classification.
         const levelKey = isOverride
             ? rawLevel.toLowerCase()
-            : classifyAlertLevel(floatVal, sensorConfigRef.current.thresholds);
+            : classifyAlertLevel(floatVal, sensorConfig.thresholds);
 
         setWaterLevel(floatVal.toFixed(2) + ' m');
         setAlertLevelKey(levelKey);
@@ -223,8 +215,7 @@ export default function Home() {
 
     useEffect(() => {
         if (mqttData) {
-            // Alert level + override come from GET /public/alerts/status (same source as manual overrides).
-            loadAlertStatus();
+            processAlertData(mqttData.currentAlertLevel || 'green', mqttData.waterLevelM);
             if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${mqttData.snapshotBase64}`);
                 setCameraLastUpdated(new Date().toLocaleTimeString());
@@ -245,22 +236,7 @@ export default function Home() {
             loadTides();
         }, 3600000);
 
-        const statusInterval = setInterval(() => {
-            loadAlertStatus();
-        }, ALERT_STATUS_POLL_MS);
-
-        const onVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                loadAlertStatus();
-            }
-        };
-        document.addEventListener('visibilitychange', onVisibilityChange);
-
-        return () => {
-            clearInterval(weatherInterval);
-            clearInterval(statusInterval);
-            document.removeEventListener('visibilitychange', onVisibilityChange);
-        };
+        return () => clearInterval(weatherInterval);
     }, []);
 
     // Auto-Simulate for local testing if API is offline or data is corrupt
