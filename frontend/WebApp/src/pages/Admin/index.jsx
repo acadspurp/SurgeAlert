@@ -336,12 +336,9 @@ export default function Admin() {
             return;
         }
 
-        // Live Priority
-        if (mqttData && mqttData.waterLevelM !== null && mqttData.waterLevelM !== undefined) {
-            if (demoMode) {
-                setDemoMode(false); // Force demo off
-            }
-        }
+        // Demo mode: ignore live MQTT/API telemetry until the user turns demo off.
+        // (We intentionally do NOT auto-disable demo when live data exists — that caused UI
+        // toggle glitching and prevented presentations while the backend still returned readings.)
 
         if (demoMode) return;
 
