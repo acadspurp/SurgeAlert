@@ -1,6 +1,15 @@
 // Frontend should only expose non-sensitive config.
 // Vite reads VITE_* keys from environment.
-const envApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim();
+
+/** If VITE_API_BASE_URL is the backend origin without /api, Spring routes 403 (wrong chain). */
+function ensureApiPathSuffix(url) {
+  const u = url.trim().replace(/\/+$/, "");
+  if (!u) return "";
+  if (/\/api(\/|$)/.test(u)) return u;
+  return `${u}/api`;
+}
+
+const envApiBaseUrl = ensureApiPathSuffix(import.meta.env.VITE_API_BASE_URL || "");
 
 function defaultApiBaseUrl() {
   // Prefer explicit build-time env (Cloudflare Pages → Variables). Must match Render's
