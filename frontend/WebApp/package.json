@@ -82,7 +82,10 @@
     "leaflet": "^1.9.4",
     "levn": "^0.4.1",
     "lightningcss": "^1.32.0",
+<<<<<<< HEAD
     "lightningcss-win32-x64-msvc": "^1.32.0",
+=======
+>>>>>>> parent of a91183ec (remove direct lightningcss dependency)
     "locate-path": "^6.0.0",
     "lodash.merge": "^4.6.2",
     "lru-cache": "^5.1.1",
