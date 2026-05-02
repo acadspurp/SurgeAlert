@@ -91,6 +91,11 @@ header {
     outline: none !important;
 }
 
+/* Room for show/hide password control (Login) */
+.custom-input--with-trailing-btn {
+    padding-right: 2.75rem !important;
+}
+
 /* TYPOGRAPHY */
 .main-title {
     background: linear-gradient(135deg, #0C324A 0%, #6BA1B9 100%);

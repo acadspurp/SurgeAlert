@@ -48,6 +48,26 @@ export default function Home() {
         sensorConfigRef.current = sensorConfig;
     }, [sensorConfig]);
 
+    /** River gauge tap-to-scroll is intended for phone/tablet (matches max-lg breakpoint). */
+    const [isCompactLayout, setIsCompactLayout] = useState(false);
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const mq = window.matchMedia('(max-width: 1023px)');
+        const apply = () => setIsCompactLayout(mq.matches);
+        apply();
+        mq.addEventListener('change', apply);
+        return () => mq.removeEventListener('change', apply);
+    }, []);
+
+    const scrollToSafetyGuide = () => {
+        document.getElementById('safety-action-guide')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    const handleGaugeCardNavigate = () => {
+        if (!isCompactLayout) return;
+        scrollToSafetyGuide();
+    };
+
     const getCurrentTideSummary = (events) => {
         if (!Array.isArray(events) || events.length === 0) return { status: 'Normal', nextHigh: null, nextLow: null };
         const now = new Date();
@@ -374,11 +394,25 @@ export default function Home() {
 
                 {/* RIVER LEVEL GAUGE */}
                 <div className={`lg:col-span-5 xl:col-span-6 rounded-2xl p-4 sm:p-6 border ${colors.border} ${colors.bg} ${colors.glow} flex flex-col justify-between overflow-hidden`}>
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-sm font-bold text-gray-400 tracking-widest uppercase">River Level Gauge</h2>
+                    <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <h2 className="text-sm font-bold uppercase tracking-widest text-gray-400">River Level Gauge</h2>
+                        <p className="text-[11px] font-medium text-gray-500 lg:hidden">Tap the gauge area below to jump to the Safety Action Guide.</p>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-center sm:items-stretch gap-4 sm:gap-6 h-full w-full">
+                    <div
+                        className={`flex h-full w-full flex-col items-center gap-4 sm:flex-row sm:items-stretch sm:gap-6 ${isCompactLayout ? 'cursor-pointer rounded-xl ring-0 transition active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400' : ''}`}
+                        role={isCompactLayout ? 'button' : undefined}
+                        tabIndex={isCompactLayout ? 0 : undefined}
+                        aria-label={isCompactLayout ? 'Go to safety action guide' : undefined}
+                        onClick={handleGaugeCardNavigate}
+                        onKeyDown={(e) => {
+                            if (!isCompactLayout) return;
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                scrollToSafetyGuide();
+                            }
+                        }}
+                    >
                         {/* Visual Thermometer */}
                         <div className="relative h-64 sm:h-80 w-48 flex-shrink-0 pb-4 sm:pb-0">
                             {/* The actual gauge */}
@@ -418,8 +452,8 @@ export default function Home() {
                                 </div>
                             </div>
 
-                            {/* Baseline Legend Table */}
-                            <div className="mt-8 bg-[#0f172a] rounded-lg border border-gray-700 overflow-x-auto w-full">
+                            {/* Baseline Legend Table — stop tap from jumping to safety guide */}
+                            <div className="mt-8 w-full cursor-default overflow-x-auto rounded-lg border border-gray-700 bg-[#0f172a]" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                                 <table className="w-full text-xs sm:text-sm text-left border-collapse">
                                     <thead>
                                         <tr className="bg-[#1e293b] border-b border-gray-700 text-gray-300">
@@ -489,8 +523,8 @@ export default function Home() {
             </div>
 
             {/* MIDDLE ROW: ACTIONS CHECKLIST */}
-            <div className={`rounded-2xl p-4 sm:p-6 mb-6 border-2 bg-gradient-to-br from-[#1e293b] to-[#0f172a] ${colors.border} ${colors.glow} min-w-0`}>
-                <h2 className="text-xs sm:text-sm font-bold text-slate-100 tracking-widest mb-3 sm:mb-4 uppercase">Safety Action Guide</h2>
+            <div id="safety-action-guide" className={`scroll-mt-24 rounded-2xl border-2 bg-gradient-to-br from-[#1e293b] to-[#0f172a] p-4 sm:p-6 mb-6 min-w-0 ${colors.border} ${colors.glow}`}>
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-100 sm:mb-4 sm:text-sm">Safety Action Guide</h2>
                 <div className={`w-full py-2.5 sm:py-3 px-2 text-center rounded-lg font-black text-base sm:text-xl tracking-wide sm:tracking-wider uppercase mb-4 sm:mb-6 shadow-md break-words ${alertLevelKey === 'red' ? 'bg-red-600 text-white' : alertLevelKey === 'orange' ? 'bg-orange-500 text-white' : alertLevelKey === 'yellow' ? 'bg-yellow-400 text-gray-900' : 'bg-green-500 text-white'}`}>
                     {alertLevelText}
                 </div>

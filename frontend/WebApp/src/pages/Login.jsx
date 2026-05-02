@@ -7,6 +7,7 @@ export default function Login() {
     const navigate = useNavigate();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e) => {
@@ -70,15 +71,27 @@ export default function Login() {
                         />
                     </div>
                     <div className="mb-6">
-                        <label className="block text-gray-700 text-sm font-medium mb-2">Password</label>
-                        <input
-                            type="password"
-                            id="login-password"
-                            className="custom-input"
-                            required
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                        />
+                        <label className="block text-gray-700 text-sm font-medium mb-2" htmlFor="login-password">Password</label>
+                        <div className="relative">
+                            <input
+                                type={showPassword ? 'text' : 'password'}
+                                id="login-password"
+                                name="password"
+                                autoComplete="current-password"
+                                className="custom-input custom-input--with-trailing-btn"
+                                required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
+                            <button
+                                type="button"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#6BA1B9]"
+                                onClick={() => setShowPassword((v) => !v)}
+                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            >
+                                <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'} text-lg`} aria-hidden></i>
+                            </button>
+                        </div>
                     </div>
                     <button type="submit" className="custom-btn btn-blue w-full" disabled={loading}>
                         {loading ? 'Logging in...' : 'Login'}
