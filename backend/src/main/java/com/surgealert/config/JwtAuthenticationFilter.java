@@ -1,7 +1,5 @@
 package com.surgealert.config;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseToken;
 import com.surgealert.entity.User;
 import com.surgealert.repository.UserRepository;
 import jakarta.servlet.FilterChain;
@@ -24,9 +22,11 @@ import java.util.Optional;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final UserRepository userRepository;
+    private final JwtService jwtService;
 
-    public JwtAuthenticationFilter(UserRepository userRepository) {
+    public JwtAuthenticationFilter(UserRepository userRepository, JwtService jwtService) {
         this.userRepository = userRepository;
+        this.jwtService = jwtService;
     }
 
     @Override
@@ -46,33 +46,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
 
         try {
-            // 1. Verify Token with Firebase
-            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
-            String uid = decodedToken.getUid();
-            String email = decodedToken.getEmail();
+            // 1. Verify Token with custom JwtService
+            String username = jwtService.extractUsername(token);
 
-            // 2. Check if user exists in our MySQL DB
-            Optional<User> userOptional = userRepository.findByFirebaseUid(uid);
-            
-            // Default role is USER, but if found in DB use that role
-            String role = "USER";
-            if (userOptional.isPresent()) {
-                role = userOptional.get().getRole();
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                // 2. Check if user exists in our DB
+                Optional<User> userOptional = userRepository.findByUsername(username);
+                
+                if (userOptional.isPresent() && jwtService.isTokenValid(token, username)) {
+                    User user = userOptional.get();
+                    String role = user.getRole();
+
+                    // 3. Set Spring Security Context
+                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                            user,
+                            null,
+                            Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
+                    );
+
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
             }
 
-            // 3. Set Spring Security Context
-            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                    userOptional.orElse(null), // Principal (User object or null)
-                    null,
-                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
-            );
-
-            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-
         } catch (Exception e) {
-            // Token is invalid or expired
-            System.err.println("Firebase Token Verification Failed: " + e.getMessage());
+            System.err.println("JWT Token Verification Failed: " + e.getMessage());
         }
 
         filterChain.doFilter(request, response);

@@ -3,26 +3,31 @@ package com.surgealert.service;
 import com.surgealert.dto.RegisterRequest;
 import com.surgealert.entity.User;
 import com.surgealert.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
-    // This is the new method AuthController is looking for
-    public User registerUser(RegisterRequest request, String firebaseUid) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-             // Return existing user if they log in again
-             return userRepository.findByEmail(request.getEmail()).orElseThrow();
+    public User registerUser(RegisterRequest request) {
+        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+            throw new RuntimeException("Username already exists");
+        }
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+             throw new RuntimeException("Email already exists");
         }
 
         User user = new User();
-        user.setFirebaseUid(firebaseUid); // Saves the ID from Firebase
+        user.setUsername(request.getUsername());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setEmail(request.getEmail());
         user.setFullName(request.getFullName());
         // Default to ADMIN if role is missing
@@ -31,7 +36,7 @@ public class UserService {
         return userRepository.save(user);
     }
     
-    public User findByEmail(String email) {
-        return userRepository.findByEmail(email).orElse(null);
+    public User findByUsername(String username) {
+        return userRepository.findByUsername(username).orElse(null);
     }
 }

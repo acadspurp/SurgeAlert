@@ -10,9 +10,11 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // This links the MySQL user to the Firebase User
     @Column(nullable = false, unique = true)
-    private String firebaseUid; 
+    private String username;
+
+    @Column(nullable = false)
+    private String password;
 
     @Column(nullable = false, unique = true)
     private String email;
@@ -44,8 +46,11 @@ public class User {
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     
-    public String getFirebaseUid() { return firebaseUid; }
-    public void setFirebaseUid(String firebaseUid) { this.firebaseUid = firebaseUid; }
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
