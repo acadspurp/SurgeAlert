@@ -217,7 +217,7 @@ export default function Home() {
             }
         } catch (error) {
             console.error('Failed to fetch tide data:', error);
-            setTidesError(error?.message || 'Could not load tide data.');
+            setTidesError('Could not load tide data.');
             setTides([]);
         } finally {
             setIsTidesLoading(false);
