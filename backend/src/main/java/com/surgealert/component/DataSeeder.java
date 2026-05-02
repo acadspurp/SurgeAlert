@@ -18,7 +18,7 @@ public class DataSeeder implements CommandLineRunner {
     @Autowired
     private SensorDataRepository sensorDataRepository;
 
-    @Value("${surgealert.demo.seed-historical-data:true}")
+    @Value("${surgealert.demo.seed-historical-data:false}")
     private boolean seedHistoricalData;
 
     @Override
