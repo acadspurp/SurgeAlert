@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
@@ -58,56 +60,62 @@ public class ExternalApiService {
 
     public TideResponse fetchTideData() {
         LocalDate today = LocalDate.now();
-        Optional<TideCache> cacheOpt = tideCacheRepository.findByFetchDate(today);
 
-        if (cacheOpt.isPresent()) {
-            try {
-                return objectMapper.readValue(cacheOpt.get().getJsonResponse(), TideResponse.class);
-            } catch (Exception e) {
-                e.printStackTrace();
-                // If parsing fails, fall through to fetch again
-            }
-        }
+        // Cache reads must not take down the endpoint if the DB is unavailable or the schema mismatches.
+        try {
+            Optional<TideCache> cacheOpt = tideCacheRepository.findByFetchDate(today);
 
-        // Reuse the latest cache when still fresh (API typically returns multi-day tide windows).
-        Optional<TideCache> latestOpt = tideCacheRepository.findTopByOrderByFetchDateDesc();
-        if (latestOpt.isPresent()) {
-            TideCache latest = latestOpt.get();
-            long age = Math.abs(ChronoUnit.DAYS.between(latest.getFetchDate(), today));
-            if (age <= Math.max(0, tideCacheMaxAgeDays)) {
+            if (cacheOpt.isPresent()) {
                 try {
-                    return objectMapper.readValue(latest.getJsonResponse(), TideResponse.class);
-                } catch (Exception ignored) {
-                    // fall through to network refresh
+                    return objectMapper.readValue(cacheOpt.get().getJsonResponse(), TideResponse.class);
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
+
+            Optional<TideCache> latestOpt = tideCacheRepository.findTopByOrderByFetchDateDesc();
+            if (latestOpt.isPresent()) {
+                TideCache latest = latestOpt.get();
+                long age = Math.abs(ChronoUnit.DAYS.between(latest.getFetchDate(), today));
+                if (age <= Math.max(0, tideCacheMaxAgeDays)) {
+                    try {
+                        return objectMapper.readValue(latest.getJsonResponse(), TideResponse.class);
+                    } catch (Exception ignored) {
+                        // fall through to network refresh
+                    }
+                }
+            }
+        } catch (Exception db) {
+            System.err.println("Tide cache DB unavailable, skipping cache: " + db.getMessage());
         }
 
-        if (tideApiKey == null || tideApiKey.trim().isEmpty()) {
+        String key = tideApiKey != null ? tideApiKey.trim() : "";
+        if (key.isEmpty()) {
             System.err.println("WARNING: WORLDTIDES_API_KEY is missing in .env! Tide data will not be fetched.");
             TideResponse errorResponse = new TideResponse();
             errorResponse.setError("Tide API Key is missing. Check your .env file.");
             return errorResponse;
         }
 
-        // WorldTides requires an API key
+        String keyEncoded = URLEncoder.encode(key, StandardCharsets.UTF_8);
         String url = String.format(
             "https://www.worldtides.info/api/v3?extremes&lat=%s&lon=%s&key=%s",
-            TIDE_LAT, TIDE_LON, tideApiKey
+            TIDE_LAT, TIDE_LON, keyEncoded
         );
 
         try {
             TideResponse response = restTemplate.getForObject(url, TideResponse.class);
             if (response != null && response.getError() == null) {
-                // Save to cache
-                String json = objectMapper.writeValueAsString(response);
-                TideCache newCache = new TideCache(today, json);
-                tideCacheRepository.save(newCache);
+                try {
+                    String json = objectMapper.writeValueAsString(response);
+                    tideCacheRepository.save(new TideCache(today, json));
+                } catch (Exception saveEx) {
+                    System.err.println("Tide cache save failed (returning live data anyway): " + saveEx.getMessage());
+                }
             }
             return response;
         } catch (Exception e) {
             e.printStackTrace();
-            // Return an object with error message so frontend knows exactly what happened
             TideResponse errorResponse = new TideResponse();
             errorResponse.setError("Backend failed to fetch tides: " + e.getMessage());
             return errorResponse;
