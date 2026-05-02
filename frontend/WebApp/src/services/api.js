@@ -69,8 +69,13 @@ export function getWeatherInfo(code) {
 }
 
 export async function fetchWeatherData() {
-    const response = await fetch(`${API_BASE_URL}/external/weather`);
-    if (!response.ok) throw new Error('Backend API Error');
+    const response = await fetch(`${API_BASE_URL}/external/weather`, { mode: 'cors' });
+    if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        throw new Error(
+            `Weather API HTTP ${response.status}${detail ? `: ${detail.slice(0, 160)}` : ''}`
+        );
+    }
     return await response.json();
 }
 
@@ -161,8 +166,13 @@ export async function fetchAlertGuide() {
 
 // --- TIDES ---
 export async function fetchTidesData() {
-    const response = await fetch(`${API_BASE_URL}/external/tides`);
-    if (!response.ok) throw new Error(`Backend API Error: ${response.statusText}`);
+    const response = await fetch(`${API_BASE_URL}/external/tides`, { mode: 'cors' });
+    if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        throw new Error(
+            `Tides API HTTP ${response.status}${detail ? `: ${detail.slice(0, 160)}` : ''}`
+        );
+    }
     return await response.json();
 }
 
@@ -262,7 +272,7 @@ export async function loginUser(username, password) {
         return await response.json();
     } catch (error) {
         if (error.message.includes('Failed to fetch') || error.name === 'TypeError') {
-            throw new Error('Could not connect to the Backend server. Please ensure the Backend is running on port 8080 and your Database is connected.');
+            throw new Error(`Could not connect to the backend API at ${API_BASE_URL}. Please verify your deployed backend URL and CORS settings.`);
         }
         throw error;
     }

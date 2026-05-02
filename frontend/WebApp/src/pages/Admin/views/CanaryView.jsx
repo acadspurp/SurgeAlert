@@ -39,7 +39,7 @@ export default function CanaryView(props) {
 
   return (
     <div className="animate-fade-in max-w-4xl">
-      <h1 className="text-3xl font-black text-sky-100 tracking-tight mb-8 pl-10">System Update Testing</h1>
+      <h1 className="mb-6 pl-0 text-2xl font-black tracking-tight text-sky-100 sm:mb-8 sm:text-3xl md:pl-10">System Update Testing</h1>
 
       <div className="bg-[#1e293b] p-6 rounded-2xl border border-slate-700 shadow-lg mb-6">
         <h3 className="text-lg font-bold text-sky-100 mb-4">Current Testing Phase</h3>

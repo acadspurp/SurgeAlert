@@ -12,40 +12,40 @@ export default function DatasetsView(props) {
 {/* DATASET REQUESTS */}
         <div className="animate-fade-in">
             <h1 className="mb-6 pl-0 text-2xl font-black tracking-tight text-sky-100 sm:mb-8 sm:text-3xl md:pl-10">Data Requests</h1>
-            <div className="text-xs text-sky-300 italic mb-2 md:hidden">Scroll horizontally to view more <i className="fa-solid fa-arrow-right-long"></i></div>
-            <div className="bg-[#1e293b] rounded-2xl shadow-lg overflow-x-auto overscroll-x-contain border border-slate-700">
-                <table className="min-w-full divide-y divide-gray-200">
+            <div className="rounded-2xl border border-slate-700 bg-[#1e293b] shadow-lg">
+                <div className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+                    <table className="w-max min-w-full divide-y divide-slate-600/60">
                     <thead className="bg-[#0f172a]">
                         <tr>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Name / Affiliation</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Contact Info</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Date</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Action</th>
+                            <th className="min-w-[10rem] px-3 py-3 text-left text-xs font-bold uppercase tracking-widest text-slate-400 sm:min-w-[12rem] sm:px-6 sm:py-4">Name / Affiliation</th>
+                            <th className="min-w-[12rem] px-3 py-3 text-left text-xs font-bold uppercase tracking-widest text-slate-400 sm:px-6 sm:py-4">Contact Info</th>
+                            <th className="min-w-[6.5rem] px-3 py-3 text-left text-xs font-bold uppercase tracking-widest text-slate-400 sm:px-6 sm:py-4">Date</th>
+                            <th className="min-w-[8.5rem] px-3 py-3 text-left text-xs font-bold uppercase tracking-widest text-slate-400 sm:px-6 sm:py-4">Status</th>
+                            <th className="min-w-[11rem] px-3 py-3 text-left text-xs font-bold uppercase tracking-widest text-slate-400 sm:px-6 sm:py-4">Action</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100 bg-[#1e293b]">
-                        {datasetRequests.map((req, i) => (
-                            <tr key={i} className="hover:bg-[#0f172a] transition">
-                                <td className="px-6 py-4 text-sm">
-                                    <p className="font-bold text-sky-100">{req.name}</p>
-                                    <button onClick={() => alert("Abstract / Purpose:\n\n" + req.abstractPurpose)} className="text-blue-500 text-xs font-bold mt-1 hover:underline">View Purpose</button>
+                    <tbody className="divide-y divide-slate-600/40 bg-[#1e293b]">
+                        {(datasetRequests || []).map((req, i) => (
+                            <tr key={i} className="transition hover:bg-[#0f172a]">
+                                <td className="px-3 py-3 align-top text-sm sm:px-6 sm:py-4">
+                                    <p className="break-words font-bold text-sky-100">{req.name}</p>
+                                    <button type="button" onClick={() => alert("Abstract / Purpose:\n\n" + req.abstractPurpose)} className="mt-1 text-xs font-bold text-blue-500 hover:underline">View Purpose</button>
                                 </td>
-                                <td className="px-6 py-4 text-sm font-mono text-slate-300">
-                                    <div>{req.email}</div>
+                                <td className="px-3 py-3 align-top text-sm font-mono text-slate-300 sm:px-6 sm:py-4">
+                                    <div className="break-all">{req.email}</div>
                                     <div className="text-xs text-slate-500">{req.contactNumber}</div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-400">
+                                <td className="whitespace-nowrap px-3 py-3 align-top text-sm font-semibold text-slate-400 sm:px-6 sm:py-4">
                                     {new Date(req.requestDate).toLocaleDateString()}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <td className="whitespace-nowrap px-3 py-3 align-top text-sm sm:px-6 sm:py-4">
                                     <select 
                                         value={req.status || 'PENDING'} 
                                         onChange={(e) => handleUpdateDatasetStatus(req.id, e.target.value)}
-                                        className={`px-3 py-1 rounded-lg text-xs font-bold uppercase cursor-pointer border outline-none ${
-                                            req.status === 'APPROVED' ? 'bg-green-900/30 text-green-400 border-green-800' : 
-                                            req.status === 'REJECTED' ? 'bg-red-900/30 text-red-500 border-red-800' : 
-                                            'bg-yellow-900/30 text-yellow-500 border-yellow-800'
+                                        className={`max-w-full cursor-pointer rounded-lg border px-2 py-1 text-xs font-bold uppercase outline-none sm:px-3 ${
+                                            req.status === 'APPROVED' ? 'border-green-800 bg-green-900/30 text-green-400' : 
+                                            req.status === 'REJECTED' ? 'border-red-800 bg-red-900/30 text-red-500' : 
+                                            'border-yellow-800 bg-yellow-900/30 text-yellow-500'
                                         }`}
                                     >
                                         <option value="PENDING" className="bg-[#0f172a] text-yellow-500">PENDING</option>
@@ -53,29 +53,31 @@ export default function DatasetsView(props) {
                                         <option value="REJECTED" className="bg-[#0f172a] text-red-500">REJECTED</option>
                                     </select>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <td className="px-3 py-3 align-top text-sm font-medium sm:px-6 sm:py-4">
+                                    <div className="flex min-w-[10rem] flex-wrap gap-2">
                                     {req.status === 'PENDING' && (
-                                        <button onClick={() => {
+                                        <button type="button" onClick={() => {
                                             if(window.confirm('Approve this request? This will mark it as APPROVED.')) {
                                                 handleUpdateDatasetStatus(req.id, 'APPROVED');
                                             }
-                                        }} className="bg-green-500/20 text-green-400 border border-green-600 hover:bg-green-500 hover:text-white px-3 py-1 rounded-lg transition mr-2">
+                                        }} className="rounded-lg border border-green-600 bg-green-500/20 px-3 py-1 text-green-400 transition hover:bg-green-500 hover:text-white">
                                             Approve
                                         </button>
                                     )}
                                     {req.status === 'PENDING' && (
-                                        <button onClick={() => {
+                                        <button type="button" onClick={() => {
                                             if(window.confirm('Reject this request?')) {
                                                 handleUpdateDatasetStatus(req.id, 'REJECTED');
                                             }
-                                        }} className="bg-red-500/20 text-red-400 border border-red-600 hover:bg-red-500 hover:text-white px-3 py-1 rounded-lg transition">
+                                        }} className="rounded-lg border border-red-600 bg-red-500/20 px-3 py-1 text-red-400 transition hover:bg-red-500 hover:text-white">
                                             Reject
                                         </button>
                                     )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}
-                        {datasetRequests.length === 0 && (
+                        {(datasetRequests || []).length === 0 && (
                             <tr>
                                 <td colSpan="5" className="px-6 py-10">
                                     <div className="text-center text-slate-400">
@@ -87,6 +89,10 @@ export default function DatasetsView(props) {
                         )}
                     </tbody>
                 </table>
+                </div>
+                <p className="border-t border-slate-600/50 px-3 py-2 text-center text-[11px] text-slate-500 md:hidden sm:text-xs">
+                    Swipe or scroll horizontally to see all columns.
+                </p>
             </div>
         </div>
     </>

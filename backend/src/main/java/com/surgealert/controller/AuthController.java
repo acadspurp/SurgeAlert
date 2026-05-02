@@ -1,55 +1,71 @@
 package com.surgealert.controller;
 
-import com.surgealert.config.JwtService;
-import com.surgealert.dto.LoginRequest;
-import com.surgealert.dto.RegisterRequest;
 import com.surgealert.entity.User;
+import com.surgealert.security.SessionTokenService;
 import com.surgealert.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*") // Critical for frontend connection
 public class AuthController {
 
     private final UserService userService;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
+    private final SessionTokenService sessionTokenService;
 
-    public AuthController(UserService userService, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public AuthController(UserService userService, SessionTokenService sessionTokenService) {
         this.userService = userService;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtService = jwtService;
+        this.sessionTokenService = sessionTokenService;
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-        User user = userService.findByUsername(request.getUsername());
-        if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+    public ResponseEntity<?> login(@RequestBody Map<String, String> payload) {
+        String username = payload.get("username");
+        String password = payload.get("password");
+
+        User user = userService.login(username, password);
+
+        if (user != null) {
+            SessionTokenService.TokenPair tokenPair = sessionTokenService.issueTokens(user.getId(), user.getUsername(), user.getRole());
+            return ResponseEntity.ok(Map.of(
+                    "id", user.getId(),
+                    "username", user.getUsername(),
+                    "fullName", user.getFullName(),
+                    "role", user.getRole(),
+                    "accessToken", tokenPair.accessToken(),
+                    "refreshToken", tokenPair.refreshToken(),
+                    "accessExpiresAt", tokenPair.accessExpiresAt(),
+                    "refreshesRemaining", tokenPair.refreshesRemaining()
+            ));
+        } else {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password");
         }
+    }
 
-        String token = jwtService.generateToken(user.getUsername(), user.getRole());
-        Map<String, Object> response = new HashMap<>();
-        response.put("accessToken", token);
-        response.put("user", user);
-
-        return ResponseEntity.ok(response);
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(@RequestBody Map<String, String> payload) {
+        String refreshToken = payload.get("refreshToken");
+        return sessionTokenService.refresh(refreshToken)
+                .<ResponseEntity<?>>map(tokenPair -> ResponseEntity.ok(Map.of(
+                        "accessToken", tokenPair.accessToken(),
+                        "refreshToken", tokenPair.refreshToken(),
+                        "accessExpiresAt", tokenPair.accessExpiresAt(),
+                        "refreshesRemaining", tokenPair.refreshesRemaining()
+                )))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Refresh denied")));
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<?> register(@RequestBody Map<String, String> payload) {
         try {
-            User savedUser = userService.registerUser(request);
-            return ResponseEntity.ok(savedUser);
+            User user = userService.registerUser(payload);
+            return ResponseEntity.ok(user);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 }

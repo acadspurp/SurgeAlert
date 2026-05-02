@@ -55,8 +55,8 @@ export default function Login() {
     };
 
     return (
-        <div id="login-view">
-            <div className="max-w-sm mx-auto custom-card mt-10">
+        <div id="login-view" className="px-2 sm:px-0">
+            <div className="mx-auto mt-6 max-w-sm custom-card sm:mt-10">
                 <h2 className="text-2xl font-semibold mb-6 text-center section-title">Login</h2>
                 <form id="login-form" onSubmit={handleSubmit}>
                     <div className="mb-4">
@@ -70,25 +70,26 @@ export default function Login() {
                             onChange={(e) => setUsername(e.target.value)}
                         />
                     </div>
-                    <div className="mb-6 relative">
-                        <label htmlFor="login-password" className="block text-gray-700 text-sm font-medium mb-2">Password</label>
+                    <div className="mb-6">
+                        <label className="block text-gray-700 text-sm font-medium mb-2" htmlFor="login-password">Password</label>
                         <div className="relative">
                             <input
-                                type={showPassword ? "text" : "password"}
+                                type={showPassword ? 'text' : 'password'}
                                 id="login-password"
+                                name="password"
                                 autoComplete="current-password"
-                                className="custom-input pr-12"
+                                className="custom-input custom-input--with-trailing-btn"
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                             />
                             <button
                                 type="button"
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 p-2"
-                                onClick={() => setShowPassword(!showPassword)}
-                                aria-label={showPassword ? "Hide password" : "Show password"}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#6BA1B9]"
+                                onClick={() => setShowPassword((v) => !v)}
+                                aria-label={showPassword ? 'Hide password' : 'Show password'}
                             >
-                                <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                                <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'} text-lg`} aria-hidden></i>
                             </button>
                         </div>
                     </div>

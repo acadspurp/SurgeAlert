@@ -20,6 +20,7 @@ import annotationPlugin from 'chartjs-plugin-annotation';
 import Papa from 'papaparse';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { logoUrl } from '../../branding/logo.js';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend, TimeScale, TimeSeriesScale, annotationPlugin);
 
@@ -135,6 +136,7 @@ export default function Admin() {
     // New Features State
     const [demoMode, setDemoMode] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [mobileNavOpen, setMobileNavOpen] = useState(false);
     const [trendIndicators, setTrendIndicators] = useState({ waterLevel: '-', flowRate: '-' });
     const prevReadings = useRef({ waterLevel: null, flowRate: null });
     const [lastMqttAt, setLastMqttAt] = useState(null);
@@ -155,23 +157,27 @@ export default function Admin() {
     const loadDashboardData = async () => {
         try {
             const data = await fetchAlertStatus();
-            const newDash = { ...dashData };
-            newDash.waterLevel = (data.waterLevelM !== null && data.waterLevelM !== undefined) ? data.waterLevelM.toFixed(2) + ' m' : '--';
-
-            const level = data.alertLevel || 'OFFLINE';
-            newDash.status = level;
-            if (level === 'RED') newDash.statusColor = 'text-red-600';
-            else if (level === 'ORANGE') newDash.statusColor = 'text-orange-500';
-            else if (level === 'YELLOW') newDash.statusColor = 'text-yellow-500';
-            else if (level === 'GREEN') newDash.statusColor = 'text-green-600';
-            else newDash.statusColor = 'text-slate-400';
-
+            let subCount;
             try {
                 const res = await fetchActiveResidents();
-                newDash.subscriberCount = res.length;
-            } catch (e) { }
+                subCount = res.length;
+            } catch (e) { /* keep previous count */ }
 
-            setDashData(newDash);
+            setDashData((prev) => {
+                const newDash = { ...prev };
+                newDash.waterLevel = (data.waterLevelM !== null && data.waterLevelM !== undefined) ? data.waterLevelM.toFixed(2) + ' m' : '--';
+
+                const level = data.alertLevel || 'OFFLINE';
+                newDash.status = level;
+                if (level === 'RED') newDash.statusColor = 'text-red-600';
+                else if (level === 'ORANGE') newDash.statusColor = 'text-orange-500';
+                else if (level === 'YELLOW') newDash.statusColor = 'text-yellow-500';
+                else if (level === 'GREEN') newDash.statusColor = 'text-green-600';
+                else newDash.statusColor = 'text-slate-400';
+
+                if (subCount !== undefined) newDash.subscriberCount = subCount;
+                return newDash;
+            });
         } catch (e) {
             console.error("Dashboard Load Error:", e);
         }
@@ -334,7 +340,9 @@ export default function Admin() {
             return;
         }
 
-        // Demo Mode is fully decoupled from live sensor updates.
+        // Demo mode: ignore live MQTT/API telemetry until the user turns demo off.
+        // (We intentionally do NOT auto-disable demo when live data exists — that caused UI
+        // toggle glitching and prevented presentations while the backend still returned readings.)
 
         if (demoMode) return;
 
@@ -414,18 +422,26 @@ export default function Admin() {
         const criticalInterval = setInterval(loadPendingCriticalAlerts, 15000);
         const canaryInterval = setInterval(loadCanaryHealth, 20000);
 
-        const dashboardInterval = setInterval(() => {
-            if (!demoMode) loadDashboardData();
-        }, 10000);
-
         return () => {
             clearInterval(tideInterval);
             clearInterval(logsInterval);
             clearInterval(criticalInterval);
             clearInterval(canaryInterval);
-            clearInterval(dashboardInterval);
         };
-    }, [demoMode]);
+    }, []);
+
+    // Poll alert status so overrides / shared state show up on every admin device without refresh (demo stream uses simulated dash).
+    useEffect(() => {
+        if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
+        if (demoMode) return;
+
+        const pollMs = 10000;
+        const id = setInterval(() => {
+            loadDashboardData();
+        }, pollMs);
+
+        return () => clearInterval(id);
+    }, [user, role, demoMode]);
 
     // Telemetry time changer
     useEffect(() => {
@@ -736,7 +752,12 @@ export default function Admin() {
         } catch (e) { alert("Failed to delete user."); }
     };
 
-    const switchView = (viewName) => setActiveView(viewName);
+    const switchView = (viewName) => {
+        setActiveView(viewName);
+        setMobileNavOpen(false);
+    };
+
+    const showNavLabels = mobileNavOpen || isSidebarOpen;
 
     const handleApproveCriticalAlert = async (id) => {
         if (!isHeadAdmin) {
@@ -1025,75 +1046,126 @@ export default function Admin() {
 
     return (
         <div className="flex h-screen overflow-hidden bg-[#0f172a]">
-            {/* SIDEBAR */}
-            {/* Mobile Overlay */}
-            {isSidebarOpen && (
-                <div 
-                    className="md:hidden fixed inset-0 bg-black/50 z-40"
-                    onClick={() => setIsSidebarOpen(false)}
-                ></div>
+            {mobileNavOpen && (
+                <div
+                    className="fixed inset-0 z-30 cursor-pointer bg-black/60 md:hidden"
+                    aria-hidden
+                    onClick={() => setMobileNavOpen(false)}
+                    role="presentation"
+                />
             )}
-            <aside className={`${isSidebarOpen ? 'w-64 max-md:fixed max-md:h-full max-md:z-50 pointer-events-auto' : 'w-20 max-md:w-0 max-md:pointer-events-none'} bg-[#0f172a] text-white flex flex-col shadow-xl transition-all duration-300 relative`} id="sidebar">
-                {/* Demo Mode Toggle */}
-                <div className="absolute top-2 right-[-40px] z-50">
-                    <button onClick={() => setDemoMode(!demoMode)} className={`p-2 rounded-r-lg shadow-md ${demoMode ? 'bg-orange-500 hover:bg-orange-600' : 'bg-slate-600 hover:bg-gray-400'} transition tooltip-parent`}>
+
+            {/* SIDEBAR */}
+            <aside
+                id="sidebar"
+                className={`
+                    fixed md:static inset-y-0 left-0 z-40 flex h-full shrink-0 flex-col bg-[#0f172a] text-white shadow-xl transition-transform duration-300 ease-out
+                    w-[min(19rem,90vw)] ${isSidebarOpen ? 'md:w-64' : 'md:w-20'}
+                    ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
+                    ${mobileNavOpen ? 'pointer-events-auto' : 'pointer-events-none md:pointer-events-auto'}
+                `}
+            >
+                {/* Desktop: demo + collapse toggles */}
+                <div className="absolute top-2 right-[-40px] z-50 hidden md:flex flex-col">
+                    <button type="button" onClick={() => setDemoMode((v) => !v)} className={`p-2 rounded-r-lg shadow-md ${demoMode ? 'bg-orange-500 hover:bg-orange-600' : 'bg-slate-600 hover:bg-gray-400'} transition tooltip-parent`}>
                         <i className={`fa-solid ${demoMode ? 'fa-vial-circle-check text-white' : 'fa-vial text-white'}`}></i>
                         <span className="tooltip-text whitespace-nowrap bg-black text-white text-xs px-2 py-1 rounded absolute top-full left-0 mt-1 pointer-events-none">Demo Mode</span>
                     </button>
-                    <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 rounded-r-lg shadow-md bg-blue-600 hover:bg-blue-700 text-white mt-1 transition">
+                    <button type="button" onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 rounded-r-lg shadow-md bg-blue-600 hover:bg-blue-700 text-white mt-1 transition" aria-expanded={isSidebarOpen} aria-label="Toggle sidebar width">
                         <i className={`fa-solid ${isSidebarOpen ? 'fa-chevron-left' : 'fa-bars'}`}></i>
                     </button>
                 </div>
 
-                <div className={`p-6 flex items-center ${isSidebarOpen ? 'justify-start' : 'justify-center'} border-b border-gray-700 bg-black bg-opacity-30 h-20 overflow-hidden`}>
-                    <img src="/src/assets/logo.png" alt="Logo" className="w-12 h-12 object-contain mr-3" />
-                    {isSidebarOpen && <span className={`text-2xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-300 transition-opacity duration-200`}>SurgeAlert</span>}
+                <div className={`flex h-16 sm:h-20 items-center border-b border-gray-700 bg-black bg-opacity-30 px-4 md:px-6 ${showNavLabels ? 'justify-between' : 'justify-center'} overflow-hidden min-w-0`}>
+                    <div className={`flex min-w-0 items-center ${showNavLabels ? '' : 'justify-center'}`}>
+                        <img src={logoUrl} alt="" className="mr-2 h-10 w-10 shrink-0 object-contain sm:h-12 sm:w-12 md:mr-3" aria-hidden />
+                        {showNavLabels && (
+                            <span className="truncate text-lg font-black tracking-wide text-transparent bg-gradient-to-r from-teal-400 to-blue-300 bg-clip-text sm:text-2xl sm:tracking-wider">
+                                SurgeAlert
+                            </span>
+                        )}
+                    </div>
+                    <button
+                        type="button"
+                        className="rounded-lg bg-slate-800 p-2 text-white md:hidden"
+                        onClick={() => setMobileNavOpen(false)}
+                        aria-label="Close navigation menu"
+                    >
+                        <i className="fa-solid fa-xmark text-lg"></i>
+                    </button>
                 </div>
 
-                <div className={`p-5 border-b border-gray-700 bg-opacity-50 bg-black flex items-center ${isSidebarOpen ? 'space-x-4' : 'justify-center'} overflow-hidden`}>
-                    <div className="w-12 h-12 flex-shrink-0 rounded-full bg-gradient-to-r from-teal-500 to-blue-500 flex items-center justify-center text-xl font-bold shadow-lg">
+                <div className={`flex items-center overflow-hidden border-b border-gray-700 bg-black bg-opacity-50 px-4 py-4 md:p-5 ${showNavLabels ? 'gap-3 md:space-x-4' : 'justify-center'}`}>
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-teal-500 to-blue-500 text-lg font-bold shadow-lg sm:h-12 sm:w-12 sm:text-xl">
                         {displayName.charAt(0).toUpperCase()}
                     </div>
-                    {isSidebarOpen && (
-                        <div className="transition-opacity duration-200 min-w-[120px]">
-                            <p className="text-sm font-bold text-white tracking-wide truncate">{displayName}</p>
-                            <p className="text-xs text-teal-300 font-semibold tracking-wider truncate">{role}</p>
+                    {showNavLabels && (
+                        <div className="min-w-0 flex-1 transition-opacity duration-200">
+                            <p className="truncate text-sm font-bold tracking-wide text-white">{displayName}</p>
+                            <p className="truncate text-xs font-semibold tracking-wider text-teal-300">{role}</p>
                         </div>
                     )}
                 </div>
 
-                <nav className="flex-1 overflow-y-auto py-6">
-                    <ul className="space-y-2 px-4">
+                <nav className="flex-1 overflow-y-auto overscroll-contain py-4 md:py-6">
+                    <ul className="space-y-2 px-3 md:px-4">
                         {navItems.map(item => (
                             <li key={item.key}>
                                 <button
+                                    type="button"
                                     onClick={() => switchView(item.key)}
-                                    className={`w-full flex items-center p-3 rounded-xl transition-all duration-200 ${activeView === item.key
-                                        ? 'bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-md transform scale-[1.02]'
+                                    className={`flex w-full items-center rounded-xl p-3 transition-all duration-200 ${activeView === item.key
+                                        ? 'scale-[1.01] transform bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-md md:scale-[1.02]'
                                         : 'text-slate-100 hover:bg-gray-800 hover:text-white'
-                                        } ${!isSidebarOpen ? 'justify-center' : ''}`}
-                                    title={!isSidebarOpen ? item.label : ""}
+                                        } ${!showNavLabels ? 'justify-center' : ''}`}
+                                    title={!showNavLabels ? item.label : ''}
                                 >
                                     <i className={`fa-solid ${item.icon} w-6 text-center text-lg`}></i>
-                                    {isSidebarOpen && <span className="ml-3 font-semibold whitespace-nowrap">{item.label}</span>}
+                                    {showNavLabels && <span className="ml-2 min-w-0 flex-1 text-left text-sm font-semibold md:ml-3 md:whitespace-nowrap">{item.label}</span>}
                                 </button>
                             </li>
                         ))}
                     </ul>
                 </nav>
 
-                <div className="p-5 border-t border-gray-700">
-                    <button onClick={handleLogout} className={`w-full flex items-center justify-center bg-red-500 hover:bg-red-600 text-white p-3 rounded-xl transition font-bold shadow hover:shadow-lg ${!isSidebarOpen ? 'px-0' : ''}`} title="Sign Out">
-                        <i className={`fa-solid fa-right-from-bracket ${isSidebarOpen ? 'mr-2' : ''}`}></i> {isSidebarOpen && "Sign Out"}
+                <div className="border-t border-gray-700 p-4 md:p-5">
+                    <button
+                        type="button"
+                        onClick={handleLogout}
+                        className={`flex w-full items-center justify-center rounded-xl bg-red-500 p-3 font-bold text-white shadow transition hover:bg-red-600 hover:shadow-lg ${!showNavLabels ? 'px-0' : ''}`}
+                        title="Sign Out"
+                    >
+                        <i className={`fa-solid fa-right-from-bracket ${showNavLabels ? 'mr-2' : ''}`}></i>
+                        {showNavLabels && 'Sign Out'}
                     </button>
                 </div>
             </aside>
 
             {/* MAIN CONTENT */}
-            <main className="flex-1 overflow-y-auto relative w-full pt-6 pb-12 px-8">
+            <main className="relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto px-3 pb-10 pt-4 sm:px-6 md:px-8 md:pb-12 md:pt-6">
+                <div className="relative z-20 mb-4 flex shrink-0 items-center gap-3 md:hidden">
+                    <button
+                        type="button"
+                        onClick={() => setMobileNavOpen(true)}
+                        className="rounded-lg bg-slate-800 px-3 py-2 text-white shadow"
+                        aria-label="Open navigation menu"
+                    >
+                        <i className="fa-solid fa-bars text-lg"></i>
+                    </button>
+                    <span className="min-w-0 flex-1 truncate text-sm font-bold text-sky-100">Admin</span>
+                    <button
+                        type="button"
+                        onClick={() => setDemoMode((v) => !v)}
+                        className={`shrink-0 rounded-lg px-3 py-2 text-white shadow ${demoMode ? 'bg-orange-500' : 'bg-slate-600'}`}
+                        aria-label="Toggle demo mode"
+                        title="Demo mode"
+                    >
+                        <i className={`fa-solid ${demoMode ? 'fa-vial-circle-check' : 'fa-vial'}`}></i>
+                    </button>
+                </div>
                 {(() => {
                     const viewProps = {
-                        demoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, editingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
+                        demoMode, setDemoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, editingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
                         openCreateUserModal, openEditUserModal, saveUserModal,
                         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
                         handleDeleteAdminUser,

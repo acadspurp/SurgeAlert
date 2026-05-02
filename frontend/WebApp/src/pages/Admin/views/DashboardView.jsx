@@ -5,7 +5,7 @@ import HealthRow from '../components/HealthRow';
 import TelemetryCard from '../components/TelemetryCard';
 
 export default function DashboardView(props) {
-    const { demoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
+    const { demoMode, setDemoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
         openCreateUserModal, openEditUserModal, saveUserModal,
         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
         handleDeleteAdminUser,
@@ -19,10 +19,16 @@ export default function DashboardView(props) {
                 <div className="mb-6 flex flex-col gap-3 sm:mb-8 md:flex-row md:items-center md:justify-between">
                     <h1 className="pl-0 text-2xl font-black tracking-tight text-sky-100 sm:text-3xl md:pl-10">Dashboard</h1>
                     <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-200">
-                        <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${hardwareOnline ? 'bg-green-900/40 border-green-200 text-green-700' : 'bg-[#0f172a] border-slate-700 text-slate-300'}`}>
-                            <span className={`inline-block w-2.5 h-2.5 rounded-full ${hardwareOnline ? 'bg-green-500' : 'bg-gray-400'} ${hardwareOnline ? 'animate-pulse' : ''}`}></span>
-                            {demoMode ? 'Demo stream' : 'Hardware stream'}
-                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setDemoMode((v) => !v)}
+                            className={`inline-flex max-w-full touch-manipulation items-center gap-2 rounded-full border px-3 py-2 text-left transition active:scale-[0.98] ${demoMode ? 'border-orange-400/60 bg-orange-900/30 text-orange-200' : hardwareOnline ? 'border-green-200 bg-green-900/40 text-green-100' : 'border-slate-700 bg-[#0f172a] text-slate-200'}`}
+                            aria-pressed={demoMode}
+                            title={demoMode ? 'Switch to live hardware stream' : 'Switch to demo stream (simulated data)'}
+                        >
+                            <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${demoMode ? 'bg-orange-400' : hardwareOnline ? 'bg-green-500' : 'bg-gray-400'} ${hardwareOnline && !demoMode ? 'animate-pulse' : ''}`}></span>
+                            <span className="min-w-0">{demoMode ? 'Demo stream' : 'Hardware stream'}</span>
+                        </button>
                         <span className="hidden sm:inline">
                             Last updated: {secondsSinceUpdate === null ? '—' : `${secondsSinceUpdate}s ago`}
                         </span>
@@ -31,32 +37,32 @@ export default function DashboardView(props) {
 
                 {/* HEAD ADMIN OVERRIDE BANNER */}
                 {isHeadAdmin && (
-                    <div className="bg-[#1e293b] rounded-2xl shadow-lg border border-red-900 bg-gradient-to-r from-red-900/60 to-[#1e293b] overflow-hidden mb-8">
-                        <div className="bg-red-950 border-b border-red-900 text-red-400 px-6 py-3 font-bold flex items-center">
-                            <i className="fa-solid fa-triangle-exclamation mr-3 animate-pulse text-red-500"></i>
-                            OFFICIAL ALERT OVERRIDE PANEL
+                    <div className="relative z-10 mb-8 overflow-hidden rounded-2xl border border-red-900 bg-[#1e293b] bg-gradient-to-r from-red-900/60 to-[#1e293b] shadow-lg">
+                        <div className="flex items-center border-b border-red-900 bg-red-950 px-4 py-3 font-bold text-red-400 sm:px-6">
+                            <i className="fa-solid fa-triangle-exclamation mr-3 shrink-0 animate-pulse text-red-500"></i>
+                            <span className="min-w-0 leading-tight">OFFICIAL ALERT OVERRIDE PANEL</span>
                         </div>
-                        <div className="p-6 flex flex-col md:flex-row items-center justify-between">
-                            <div className="mb-4 md:mb-0">
+                        <div className="flex flex-col items-stretch justify-between gap-4 p-4 sm:p-6 md:flex-row md:items-center">
+                            <div className="min-w-0 md:mb-0">
                                 <p className="text-sm text-slate-300">Current Logic Status: <span className="font-bold">{dashData.status}</span></p>
-                                <p className="text-sm text-slate-300 flex items-center">
-                                    AI Recommended Status:
-                                    <span className={`font-bold ml-1 ${aiRecommendedStatus === 'RED' ? 'text-red-600' : aiRecommendedStatus === 'ORANGE' ? 'text-orange-500' : aiRecommendedStatus === 'YELLOW' ? 'text-yellow-600' : 'text-green-600'}`}>
+                                <p className="mt-1 flex flex-wrap items-center text-sm text-slate-300">
+                                    <span className="mr-1">AI Recommended Status:</span>
+                                    <span className={`font-bold ${aiRecommendedStatus === 'RED' ? 'text-red-600' : aiRecommendedStatus === 'ORANGE' ? 'text-orange-500' : aiRecommendedStatus === 'YELLOW' ? 'text-yellow-600' : 'text-green-600'}`}>
                                         {aiRecommendedStatus}
                                     </span>
-                                    {isDivergent && <i className="fa-solid fa-triangle-exclamation text-yellow-500 ml-2 animate-pulse" title="Divergence Detected!"></i>}
+                                    {isDivergent && <i className="fa-solid fa-triangle-exclamation ml-2 shrink-0 animate-pulse text-yellow-500" title="Divergence Detected!"></i>}
                                 </p>
-                                <p className="text-xs text-slate-200 mt-1">Force the system to broadcast a specific alert level to residents.</p>
+                                <p className="mt-1 text-xs text-slate-200">Force the system to broadcast a specific alert level to residents.</p>
                             </div>
-                            <div className="flex flex-col items-end space-y-2">
-                                <div className="flex w-full flex-wrap justify-end gap-2">
-                                    <button onClick={() => handleOverride('NORMAL')} className="min-h-[44px] flex-1 bg-slate-700 px-3 py-2 font-bold text-slate-100 shadow transition hover:bg-slate-600 sm:flex-none sm:rounded-lg sm:px-4">Normal/Auto</button>
-                                    <button onClick={() => handleOverride('YELLOW')} className="min-h-[44px] flex-1 bg-yellow-400 px-3 py-2 font-bold text-yellow-900 shadow transition hover:bg-yellow-500 sm:flex-none sm:rounded-lg sm:px-4">Yellow</button>
-                                    <button onClick={() => handleOverride('ORANGE')} className="min-h-[44px] flex-1 bg-orange-500 px-3 py-2 font-bold text-white shadow transition hover:bg-orange-600 sm:flex-none sm:rounded-lg sm:px-4">Orange</button>
-                                    <button onClick={() => handleOverride('RED')} className="min-h-[44px] flex-1 bg-red-600 px-3 py-2 font-bold text-white shadow transition hover:bg-red-700 sm:flex-none sm:rounded-lg sm:px-4">Red</button>
+                            <div className="flex w-full min-w-0 flex-col gap-2 sm:max-w-none md:w-auto md:items-end">
+                                <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+                                    <button type="button" onClick={() => handleOverride('NORMAL')} className="touch-manipulation min-h-[48px] rounded-lg bg-slate-700 px-2 py-2 text-center text-sm font-bold text-slate-100 shadow transition hover:bg-slate-600 active:scale-[0.98] sm:min-h-0 sm:px-4 sm:py-2">Normal/Auto</button>
+                                    <button type="button" onClick={() => handleOverride('YELLOW')} className="touch-manipulation min-h-[48px] rounded-lg bg-yellow-400 px-2 py-2 text-center text-sm font-bold text-yellow-900 shadow transition hover:bg-yellow-500 active:scale-[0.98] sm:min-h-0 sm:px-4 sm:py-2">Yellow</button>
+                                    <button type="button" onClick={() => handleOverride('ORANGE')} className="touch-manipulation min-h-[48px] rounded-lg bg-orange-500 px-2 py-2 text-center text-sm font-bold text-white shadow transition hover:bg-orange-600 active:scale-[0.98] sm:min-h-0 sm:px-4 sm:py-2">Orange</button>
+                                    <button type="button" onClick={() => handleOverride('RED')} className="touch-manipulation min-h-[48px] rounded-lg bg-red-600 px-2 py-2 text-center text-sm font-bold text-white shadow transition hover:bg-red-700 active:scale-[0.98] sm:min-h-0 sm:px-4 sm:py-2">Red</button>
                                 </div>
                                 {aiRecommendedStatus !== 'NORMAL' && (
-                                    <button onClick={() => handleOverride(aiRecommendedStatus)} className="text-xs flex items-center bg-blue-900/40 hover:bg-blue-900/60 text-blue-400 border border-blue-800 py-1 px-3 rounded-full font-bold transition">
+                                    <button type="button" onClick={() => handleOverride(aiRecommendedStatus)} className="touch-manipulation flex w-full items-center justify-center rounded-full border border-blue-800 bg-blue-900/40 px-3 py-2 text-xs font-bold text-blue-400 transition hover:bg-blue-900/60 active:scale-[0.98] sm:w-auto">
                                         <i className="fa-solid fa-rotate mr-1"></i> Sync to AI
                                     </button>
                                 )}
@@ -144,13 +150,14 @@ export default function DashboardView(props) {
                 {/* MEDIA CENTER & QUICK TIDES */}
                 <div className="grid grid-cols-1 gap-6">
                     <div className="bg-[#1e293b] p-6 rounded-2xl shadow-lg border border-slate-700 flex flex-col">
-                        <h3 className="text-xl font-bold text-sky-100 mb-4 flex items-center justify-between">
-                            <div className="flex items-center">
-                                <i className="fa-solid fa-camera mr-2 text-blue-500"></i> Media Center (Camera Feed)
+                        <h3 className="mb-4 flex flex-col gap-2 text-lg font-bold text-sky-100 sm:flex-row sm:items-center sm:justify-between sm:text-xl">
+                            <div className="flex min-w-0 items-center">
+                                <i className="fa-solid fa-camera mr-2 shrink-0 text-blue-500"></i>
+                                <span className="min-w-0">Media Center (Camera Feed)</span>
                             </div>
-                            {cameraLastUpdated && <span className="text-sm font-bold text-cyan-400">Last updated: {cameraLastUpdated}</span>}
+                            {cameraLastUpdated && <span className="shrink-0 text-xs font-bold text-cyan-400 sm:text-sm">Last updated: {cameraLastUpdated}</span>}
                         </h3>
-                        <div className="bg-black rounded-xl overflow-hidden flex-1 relative min-h-[400px]">
+                        <div className="relative flex-1 overflow-hidden rounded-xl bg-black min-h-[220px] sm:min-h-[320px] md:min-h-[400px]">
                             {cameraImg ? (
                                 <img src={cameraImg} alt="Camera Feed" className="absolute inset-0 w-full h-full object-cover" />
                             ) : (

@@ -84,7 +84,7 @@ export default function ResidentsView(props) {
 
   return (
     <div className="animate-fade-in pb-10">
-      <h1 className="text-3xl font-black text-sky-100 tracking-tight mb-8 pl-4 uppercase">Subscribers Management</h1>
+      <h1 className="mb-6 pl-0 text-2xl font-black uppercase tracking-tight text-sky-100 sm:mb-8 sm:text-3xl md:pl-4">Subscribers Management</h1>
       
       {/* TOOLBAR */}
       <div className="bg-[#1e293b] rounded-2xl p-6 mb-6 border border-slate-700 shadow-xl">

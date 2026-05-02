@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { submitDatasetRequest } from '../services/api';
+import { logoUrl } from '../branding/logo.js';
 
 export default function About() {
     const [showModal, setShowModal] = useState(false);
@@ -73,35 +74,35 @@ ${formData.abstractPurpose}
     };
 
     return (
-        <div id="about-view" className="py-10 bg-[#0f172a] min-h-screen -mt-8 pt-16 -mx-8 px-8">
-            <div className="max-w-4xl mx-auto space-y-8">
+        <div id="about-view" className="py-6 sm:py-10 bg-[#0f172a] min-h-screen -mt-8 pt-12 sm:pt-16 -mx-3 px-3 sm:-mx-8 sm:px-8">
+            <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
 
                 {/* I. Hero Section */}
-                <div className="text-center py-8 text-white border-0">
+                <div className="text-center py-6 sm:py-8 text-white border-0">
                     <div className="inline-block p-2 rounded-2xl bg-[#1e293b] mb-4 shadow-xl border border-gray-700">
-                        <img src="/src/assets/logo.png" alt="SurgeAlert" className="w-48 h-48 object-contain" />
+                        <img src={logoUrl} alt="" className="w-32 h-32 sm:w-48 sm:h-48 object-contain" aria-hidden />
                     </div>
-                    <h1 className="text-4xl font-black tracking-tight mb-4 text-[#38bdf8]">SurgeAlert - Flood Monitoring System</h1>
-                    <p className="text-lg font-medium text-gray-400">A Thesis Project by 4th-Year Computer Engineering students of Polytechnic University of the Philippines - Manila.</p>
+                    <h1 className="text-2xl sm:text-4xl font-black tracking-tight mb-3 sm:mb-4 text-[#38bdf8] px-1">SurgeAlert - Flood Monitoring System</h1>
+                    <p className="text-base sm:text-lg font-medium text-gray-400 max-w-prose mx-auto">A Thesis Project by 4th-Year Computer Engineering students of Polytechnic University of the Philippines - Manila.</p>
                 </div>
 
                 {/* II. Research Abstract & System Purpose */}
-                <div className="bg-[#1e293b] rounded-2xl p-8 border-l-4 border-[#38bdf8] shadow-lg border border-gray-800">
-                    <h2 className="text-2xl font-bold mb-4 text-white flex items-center"><i className="fa-solid fa-book-open mr-3 text-gray-400"></i> Research Abstract & System Purpose</h2>
-                    <p className="text-gray-300 leading-relaxed mb-4 text-lg">
+                <div className="bg-[#1e293b] rounded-2xl p-4 sm:p-8 border-l-4 border-[#38bdf8] shadow-lg border border-gray-800">
+                    <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-white flex flex-wrap items-center gap-2"><i className="fa-solid fa-book-open text-gray-400 shrink-0"></i> Research Abstract & System Purpose</h2>
+                    <p className="text-gray-300 leading-relaxed mb-4 text-base sm:text-lg">
                         SurgeAlert is a high-resilience flood monitoring solution designed specifically for the Tullahan River basin.
                         By leveraging Edge Computing via Raspberry Pi and a robust Waveshare SIM7600G-H cellular interface, the system ensures
                         that critical flood alerts reach the community even during total internet outages.
                     </p>
-                    <p className="text-gray-300 leading-relaxed text-lg">
+                    <p className="text-gray-300 leading-relaxed text-base sm:text-lg">
                         The system integrates advanced regression models to analyze historical and real-time sensor data, providing
                         residents and local authorities with a predictive window to act before water levels reach a critical stage.
                     </p>
                 </div>
 
                 {/* III. Data & Methodology — Full Width */}
-                <div className="bg-[#1e293b] rounded-2xl p-8 shadow-lg border border-gray-800">
-                    <h2 className="text-xl font-bold mb-2 text-white flex items-center">
+                <div className="bg-[#1e293b] rounded-2xl p-4 sm:p-8 shadow-lg border border-gray-800">
+                    <h2 className="text-lg sm:text-xl font-bold mb-2 text-white flex flex-wrap items-center gap-2">
                         <i className="fa-solid fa-flask-vial mr-3 text-cyan-400"></i> How It Works
                     </h2>
                     <p className="text-gray-400 text-sm mb-7 leading-relaxed">
@@ -155,11 +156,11 @@ ${formData.abstractPurpose}
                 </div>
 
                 {/* IV. The Research Team — Full Width */}
-                <div className="bg-[#1e293b] rounded-2xl p-8 shadow-lg border border-gray-800">
-                    <h2 className="text-xl font-bold mb-6 text-white flex items-center">
+                <div className="bg-[#1e293b] rounded-2xl p-4 sm:p-8 shadow-lg border border-gray-800">
+                    <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 text-white flex flex-wrap items-center gap-2">
                         <i className="fa-solid fa-users mr-3 text-teal-400"></i> The Research Team
                     </h2>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
                         {['Angela Nicole P. Sison', 'Angelica Jane P. Tapar', 'Hannah Florence Bardon', 'Jayson Justin Cabus'].map((name) => (
                             <div key={name} className="bg-[#0f172a] border border-gray-700 rounded-xl p-4 text-center">
                                 <div className="w-10 h-10 rounded-full bg-[#1e293b] border border-gray-600 flex items-center justify-center mx-auto mb-3">
@@ -182,8 +183,8 @@ ${formData.abstractPurpose}
                 </div>
 
                 {/* V. Academic Collaboration */}
-                <div className="bg-gradient-to-r from-[#1e293b] to-[#0f172a] rounded-2xl p-8 border border-cyan-800 shadow-xl text-center">
-                    <h2 className="text-2xl font-black mb-2 text-white">Academic Collaboration</h2>
+                <div className="bg-gradient-to-r from-[#1e293b] to-[#0f172a] rounded-2xl p-4 sm:p-8 border border-cyan-800 shadow-xl text-center">
+                    <h2 className="text-xl sm:text-2xl font-black mb-2 text-white">Academic Collaboration</h2>
                     <p className="text-gray-400 leading-relaxed mb-6 max-w-2xl mx-auto">
                         Are you a researcher or a student looking to access localized flood data for a case study or predictive modeling? We support academic collaboration to improve disaster resilience. Please submit a request below.
                     </p>
@@ -197,7 +198,7 @@ ${formData.abstractPurpose}
             {/* OVERLAY MODAL */}
             {showModal && (
                 <div className="fixed inset-0 bg-[#0f172a] bg-opacity-90 flex items-start justify-center z-[2000] p-4 backdrop-blur-sm overflow-y-auto">
-                    <div className="bg-[#1e293b] rounded-2xl border border-gray-700 max-w-2xl w-full p-8 shadow-2xl relative my-8 sm:my-16">
+                    <div className="bg-[#1e293b] rounded-2xl border border-gray-700 max-w-2xl w-full p-4 sm:p-8 shadow-2xl relative my-6 sm:my-16">
                         <div className="flex justify-between items-center mb-2">
                             <h2 className="text-2xl font-black text-white">Data Request Form</h2>
                             <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-white transition">
@@ -235,10 +236,10 @@ ${formData.abstractPurpose}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-bold text-slate-100 mb-1">Requested Date Range</label>
-                                    <div className="flex gap-2">
-                                        <input type="date" name="dateFrom" required min="2026-01-01" max={new Date().toISOString().split('T')[0]} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-cyan-500 focus:outline-none cursor-pointer" onClick={(e) => e.target.showPicker()} value={formData.dateFrom} onChange={handleChange} />
-                                        <span className="flex items-center text-gray-500 text-sm">to</span>
-                                        <input type="date" name="dateTo" required min="2026-01-01" max={new Date().toISOString().split('T')[0]} className="w-full bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-cyan-500 focus:outline-none cursor-pointer" onClick={(e) => e.target.showPicker()} value={formData.dateTo} onChange={handleChange} />
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                                        <input type="date" name="dateFrom" required min="2026-01-01" max={new Date().toISOString().split('T')[0]} className="w-full min-w-0 bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-cyan-500 focus:outline-none cursor-pointer" onClick={(e) => e.target.showPicker()} value={formData.dateFrom} onChange={handleChange} />
+                                        <span className="text-center sm:self-center text-gray-500 text-sm shrink-0 py-0.5 sm:px-1">to</span>
+                                        <input type="date" name="dateTo" required min="2026-01-01" max={new Date().toISOString().split('T')[0]} className="w-full min-w-0 bg-[#0f172a] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-cyan-500 focus:outline-none cursor-pointer" onClick={(e) => e.target.showPicker()} value={formData.dateTo} onChange={handleChange} />
                                     </div>
                                 </div>
                                 <div>

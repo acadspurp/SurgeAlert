@@ -21,7 +21,7 @@ function AppLayout() {
     return (
         <div id="app" className="flex flex-col min-h-screen">
             <Header />
-            <main id="main-content" className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <main id="main-content" className="flex-grow container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 max-w-[100vw] overflow-x-hidden">
                 <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/maps" element={<Maps />} />

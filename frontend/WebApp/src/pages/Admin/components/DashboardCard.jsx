@@ -34,7 +34,7 @@ function DashboardCard({ title, value, icon, color, subtitle, trend }) {
                         <span className="text-sm font-bold text-slate-500" title="No significant change">—</span>
                     )}
                 </div>
-                {subtitle && <p className="text-sm text-gray-300 mt-4 font-semibold bg-black/30 p-2 rounded border-l-2 border-slate-600">{subtitle}</p>}
+                {subtitle && <p className="mt-4 break-words rounded border-l-2 border-slate-600 bg-black/30 p-2 text-sm font-semibold text-gray-300">{subtitle}</p>}
             </div>
         </div>
     );
