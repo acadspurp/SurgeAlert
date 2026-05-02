@@ -1026,10 +1026,24 @@ export default function Admin() {
     return (
         <div className="flex h-screen overflow-hidden bg-[#0f172a]">
             {/* SIDEBAR */}
+<<<<<<< HEAD
             <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-[#0f172a] text-white flex flex-col shadow-xl transition-all duration-300 relative`} id="sidebar">
                 {/* Demo Mode Toggle */}
                 <div className="absolute top-2 right-[-40px] z-50">
                     <button onClick={() => setDemoMode(!demoMode)} className={`p-2 rounded-r-lg shadow-md ${demoMode ? 'bg-orange-500 hover:bg-orange-600' : 'bg-slate-600 hover:bg-gray-400'} transition tooltip-parent`}>
+=======
+            <aside
+                id="sidebar"
+                className={`
+                    fixed md:static inset-y-0 left-0 z-40 flex h-full shrink-0 flex-col bg-[#0f172a] text-white shadow-xl transition-transform duration-300 ease-out
+                    w-[min(19rem,90vw)] ${isSidebarOpen ? 'md:w-64' : 'md:w-20'}
+                    ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
+                `}
+            >
+                {/* Desktop: demo + collapse toggles */}
+                <div className="absolute top-2 right-[-40px] z-50 hidden md:flex flex-col">
+                    <button type="button" onClick={() => setDemoMode(!demoMode)} className={`p-2 rounded-r-lg shadow-md ${demoMode ? 'bg-orange-500 hover:bg-orange-600' : 'bg-slate-600 hover:bg-gray-400'} transition tooltip-parent`}>
+>>>>>>> parent of 2f2c9a5c (.)
                         <i className={`fa-solid ${demoMode ? 'fa-vial-circle-check text-white' : 'fa-vial text-white'}`}></i>
                         <span className="tooltip-text whitespace-nowrap bg-black text-white text-xs px-2 py-1 rounded absolute top-full left-0 mt-1 pointer-events-none">Demo Mode</span>
                     </button>
@@ -1087,7 +1101,31 @@ export default function Admin() {
             </aside>
 
             {/* MAIN CONTENT */}
+<<<<<<< HEAD
             <main className="flex-1 overflow-y-auto relative w-full pt-6 pb-12 px-8">
+=======
+            <main className="relative min-h-0 min-w-0 flex-1 overflow-y-auto px-3 pb-10 pt-4 sm:px-6 md:px-8 md:pb-12 md:pt-6">
+                <div className="mb-4 flex items-center gap-3 md:hidden">
+                    <button
+                        type="button"
+                        onClick={() => setMobileNavOpen(true)}
+                        className="rounded-lg bg-slate-800 px-3 py-2 text-white shadow"
+                        aria-label="Open navigation menu"
+                    >
+                        <i className="fa-solid fa-bars text-lg"></i>
+                    </button>
+                    <span className="min-w-0 flex-1 truncate text-sm font-bold text-sky-100">Admin</span>
+                    <button
+                        type="button"
+                        onClick={() => setDemoMode(!demoMode)}
+                        className={`shrink-0 rounded-lg px-3 py-2 text-white shadow ${demoMode ? 'bg-orange-500' : 'bg-slate-600'}`}
+                        aria-label="Toggle demo mode"
+                        title="Demo mode"
+                    >
+                        <i className={`fa-solid ${demoMode ? 'fa-vial-circle-check' : 'fa-vial'}`}></i>
+                    </button>
+                </div>
+>>>>>>> parent of 2f2c9a5c (.)
                 {(() => {
                     const viewProps = {
                         demoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, editingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
