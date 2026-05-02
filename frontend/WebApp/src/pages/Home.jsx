@@ -29,8 +29,6 @@ export default function Home() {
     const [cameraImg, setCameraImg] = useState(null);
     const [cameraLastUpdated, setCameraLastUpdated] = useState(null);
     const [weatherCards, setWeatherCards] = useState([]);
-    const [weatherError, setWeatherError] = useState(null);
-    const [isWeatherLoading, setIsWeatherLoading] = useState(true);
     const [tides, setTides] = useState([]);
     const [tidesError, setTidesError] = useState(null);
     const [isTidesLoading, setIsTidesLoading] = useState(true);
@@ -172,11 +170,7 @@ export default function Home() {
         }
     };
 
-    const loadWeather = async (silent = false) => {
-        if (!silent) {
-            setIsWeatherLoading(true);
-            setWeatherError(null);
-        }
+    const loadWeather = async () => {
         try {
             const data = await fetchWeatherData();
             const dayData = data.daily;
@@ -192,13 +186,9 @@ export default function Home() {
                 cards.push({ dayName, tempMax, tempMin, icon: info.icon, description: info.description });
             }
             setWeatherCards(cards);
-            if (cards.length === 0) {
-                setWeatherError('No forecast data returned from the weather service.');
-            } else {
-                setWeatherError(null);
-            }
         } catch (error) {
             console.error('Failed to fetch weather:', error);
+<<<<<<< HEAD
             if (!silent) {
                 setWeatherCards([]);
                 setWeatherError(
@@ -208,6 +198,9 @@ export default function Home() {
             }
         } finally {
             if (!silent) setIsWeatherLoading(false);
+=======
+            setWeatherCards([]);
+>>>>>>> parent of bd2d2268 (fix production logo and weather UI on static hosting)
         }
     };
 
@@ -251,7 +244,7 @@ export default function Home() {
         fetchSystemThresholds().then(config => setSensorConfig(config));
 
         const weatherInterval = setInterval(() => {
-            loadWeather(true);
+            loadWeather();
             loadTides();
         }, 3600000);
 
@@ -560,16 +553,20 @@ export default function Home() {
                 </div>
 
                 {/* WEATHER FORECAST */}
+<<<<<<< HEAD
                 <div className="rounded-2xl p-4 sm:p-6 bg-[#1e293b] border border-gray-800 flex flex-col justify-between min-w-0">
                     <div className="min-w-0">
                         <h2 className="text-xs sm:text-sm font-bold text-gray-400 tracking-widest mb-4 uppercase">Weather Forecast</h2>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 text-center items-stretch">
                             {isWeatherLoading ? (
+=======
+                <div className="rounded-2xl p-6 bg-[#1e293b] border border-gray-800 flex flex-col justify-between">
+                    <div>
+                        <h2 className="text-sm font-bold text-gray-400 tracking-widest mb-4 uppercase">Weather Forecast</h2>
+                        <div className="grid grid-cols-5 gap-2 text-center items-center">
+                            {weatherCards.length === 0 ? (
+>>>>>>> parent of bd2d2268 (fix production logo and weather UI on static hosting)
                                 <p className="col-span-full text-gray-500">Loading Weather Data...</p>
-                            ) : weatherError ? (
-                                <p className="col-span-full text-amber-200/90 text-sm">{weatherError}</p>
-                            ) : weatherCards.length === 0 ? (
-                                <p className="col-span-full text-gray-500">No weather data available.</p>
                             ) : (
                                 weatherCards.map((card, i) => (
                                     <div key={i} className="flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-xl hover:bg-gray-800 transition-colors min-w-0">
