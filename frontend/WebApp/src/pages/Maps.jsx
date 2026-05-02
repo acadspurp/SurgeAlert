@@ -40,8 +40,8 @@ export default function Maps() {
     return (
         <div id="maps-view">
             <div className="custom-card">
-                <h2 className="text-2xl font-semibold mb-4 text-gray-700 section-title">Evacuation Centers Map</h2>
-                <div id="map-container" style={{ height: '600px', width: '100%', zIndex: 1 }}>
+                <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 text-gray-700 section-title">Evacuation Centers Map</h2>
+                <div id="map-container" className="w-full rounded-lg overflow-hidden border border-gray-200" style={{ height: 'min(70vh, 600px)', minHeight: '280px', zIndex: 1 }}>
                     <MapContainer
                         center={[14.6773, 120.9842]}
                         zoom={15}

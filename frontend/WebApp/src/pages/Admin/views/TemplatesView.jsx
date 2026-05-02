@@ -32,7 +32,7 @@ export default function TemplatesView(props) {
 
   return (
     <div className="animate-fade-in">
-      <h1 className="text-3xl font-black text-sky-100 tracking-tight mb-8 pl-10">Message Templates</h1>
+      <h1 className="mb-6 pl-0 text-2xl font-black tracking-tight text-sky-100 sm:mb-8 sm:text-3xl md:pl-10">Message Templates</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {templates.map((tpl, i) => {
           const typeKey = String(tpl.alertType).toUpperCase();

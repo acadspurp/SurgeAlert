@@ -18,7 +18,7 @@ export default function TelemetryView(props) {
 {/* 2. TELEMETRY & ANALYTICS */}
                 
                     <div className="animate-fade-in">
-                        <h1 className="text-3xl font-black text-sky-100 tracking-tight mb-8 pl-10">Historical Data</h1>
+                        <h1 className="mb-6 pl-0 text-2xl font-black tracking-tight text-sky-100 sm:mb-8 sm:text-3xl md:pl-10">Historical Data</h1>
                         
                         {/* Current Readings */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -29,9 +29,9 @@ export default function TelemetryView(props) {
                         </div>
 
                         {/* Calculated Rates */}
-                        <div className="bg-[#1e293b] rounded-2xl shadow-lg border border-slate-700 p-8 mb-8 text-center bg-gradient-to-r from-[#0f172a] to-[#1e293b]">
-                            <p className="text-sm font-bold text-slate-300 uppercase tracking-widest mb-2">Calculated Rate of Change</p>
-                            <h2 className="text-3xl font-black text-sky-100">
+                        <div className="mb-6 rounded-2xl border border-slate-700 bg-[#1e293b] bg-gradient-to-r from-[#0f172a] to-[#1e293b] p-4 text-center shadow-lg sm:mb-8 sm:p-8">
+                            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-300 sm:text-sm">Calculated Rate of Change</p>
+                            <h2 className="text-xl font-black text-sky-100 sm:text-3xl">
                                 Water is <span className="text-cyan-300">Stable</span>
                             </h2>
                             <p className="text-xs mt-2 text-slate-300">Calculated over the last 15 minutes</p>
@@ -39,13 +39,13 @@ export default function TelemetryView(props) {
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Hardware Telemetry Graph */}
-                            <div className="bg-[#1e293b] rounded-2xl shadow-lg border border-slate-700 p-6 flex flex-col">
-                                <div className="flex justify-between items-center mb-6">
-                                    <div className="flex items-center gap-3">
-                                        <h3 className="text-xl font-bold text-sky-100">Water Level &amp; Sensor Flow History</h3>
+                            <div className="flex flex-col rounded-2xl border border-slate-700 bg-[#1e293b] p-4 shadow-lg sm:p-6">
+                                <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="text-base font-bold text-sky-100 sm:text-xl">Water Level &amp; Sensor Flow History</h3>
                                     </div>
                                     <select 
-                                        className="bg-slate-800 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 font-semibold"
+                                        className="block w-full shrink-0 rounded-lg border border-slate-600 bg-slate-800 p-2.5 text-sm font-semibold text-slate-200 focus:border-blue-500 focus:ring-blue-500 sm:w-auto"
                                         value={telemetryTime} onChange={(e) => setTelemetryTime(Number(e.target.value))}
                                     >
                                         <option value={1}>Last 1 Hour</option>
@@ -54,25 +54,25 @@ export default function TelemetryView(props) {
                                         <option value={720}>Last 30 Days</option>
                                     </select>
                                 </div>
-                                <div className="h-80 w-full relative">
+                                <div className="relative h-64 w-full min-w-0 sm:h-80">
                                     <Line data={telemetryChartData} options={telemetryChartOptions} />
                                 </div>
                             </div>
 
                             {/* Computer Vision Graph */}
-                            <div className="bg-[#1e293b] rounded-2xl shadow-lg border border-slate-700 p-6 flex flex-col">
-                                <div className="flex justify-between items-center mb-6">
-                                    <div className="flex items-center gap-3">
-                                        <h3 className="text-xl font-bold text-sky-100">Visual Water Movement Trends</h3>
-                                        <div className="relative tooltip-parent">
+                            <div className="flex flex-col rounded-2xl border border-slate-700 bg-[#1e293b] p-4 shadow-lg sm:p-6">
+                                <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+                                        <h3 className="min-w-0 text-base font-bold text-sky-100 sm:text-xl">Visual Water Movement Trends</h3>
+                                        <div className="relative shrink-0 tooltip-parent">
                                             <i className="fa-solid fa-circle-info text-slate-500"></i>
-                                            <span className="tooltip-text whitespace-nowrap bg-black text-white text-xs px-2 py-1 rounded absolute top-full left-0 mt-1 pointer-events-none">
+                                            <span className="tooltip-text z-50 max-w-[12rem] whitespace-normal rounded bg-black px-2 py-1 text-xs text-white sm:whitespace-nowrap absolute left-0 top-full mt-1 pointer-events-none">
                                                 Optical Flow (Derived)
                                             </span>
                                         </div>
                                     </div>
                                     <select 
-                                        className="bg-slate-800 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 font-semibold"
+                                        className="block w-full shrink-0 rounded-lg border border-slate-600 bg-slate-800 p-2.5 text-sm font-semibold text-slate-200 focus:border-blue-500 focus:ring-blue-500 sm:w-auto"
                                         value={cvTime} onChange={(e) => setCvTime(Number(e.target.value))}
                                     >
                                         <option value={1}>Last 1 Hour</option>
@@ -81,7 +81,7 @@ export default function TelemetryView(props) {
                                         <option value={720}>Last 30 Days</option>
                                     </select>
                                 </div>
-                                <div className="h-80 w-full relative">
+                                <div className="relative h-64 w-full min-w-0 sm:h-80">
                                     <Line data={cvChartData} options={{ ...commonChartOptions, scales: { ...commonChartOptions.scales, y: { type: 'linear', display: true, position: 'left', title: {display: true, text: 'Flow (m/s)'} } } }} />
                                 </div>
                             </div>

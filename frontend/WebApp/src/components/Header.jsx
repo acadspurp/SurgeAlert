@@ -27,10 +27,10 @@ export default function Header() {
     return (
         <header className="bg-[#0f172a] shadow-md sticky top-0 z-[9999] border-b border-gray-800">
             <nav className="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex items-center justify-between h-20">
-                    <div className="flex items-center gap-3 cursor-pointer header-logo" onClick={() => handleNavClick('/')}>
-                        <img src={logoUrl} alt="" className="w-16 h-16 object-contain" aria-hidden />
-                        <span className="text-2xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-300 transition-opacity duration-200">SurgeAlert</span>
+                <div className="flex items-center justify-between h-16 sm:h-20 gap-2 min-w-0">
+                    <div className="flex items-center gap-2 sm:gap-3 cursor-pointer header-logo min-w-0" onClick={() => handleNavClick('/')}>
+                        <img src={logoUrl} alt="" className="w-11 h-11 sm:w-16 sm:h-16 object-contain shrink-0" aria-hidden />
+                        <span className="text-lg sm:text-2xl font-black tracking-wide sm:tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-300 transition-opacity duration-200 truncate">SurgeAlert</span>
                     </div>
                     {/* Desktop Menu */}
                     <div className="hidden md:block">
