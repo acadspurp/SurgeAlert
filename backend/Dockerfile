@@ -10,4 +10,5 @@ WORKDIR /app
 
 COPY --from=build /app/target/surgealert-backend-1.0.0.jar app.jar
 
+# Render provides PORT at runtime; default to 10000 for local container runs.
 ENTRYPOINT ["sh", "-c", "java -Dserver.port=${PORT:-10000} -jar app.jar"]
