@@ -1,5 +1,6 @@
 package com.surgealert.entity;
 
+import com.surgealert.util.AttributeEncryptor;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -11,18 +12,17 @@ public class Resident {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // --- ENCRYPTED COLUMN ---
+    @Convert(converter = AttributeEncryptor.class)
     @Column(nullable = false, unique = true)
     private String phoneNumber;
 
-    @Column
-    private String email;
+    @Column(nullable = false)
+    private Boolean isPriority = false;
 
     // --- ADDED COLUMNS ---
     @Column(nullable = false)
     private String fullName;
-
-    @Column(nullable = false)
-    private String address;
 
     @Column(nullable = false)
     private LocalDateTime registrationDate;
@@ -42,15 +42,11 @@ public class Resident {
     public String getPhoneNumber() { return phoneNumber; }
     public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+    public Boolean getIsPriority() { return isPriority; }
+    public void setIsPriority(Boolean isPriority) { this.isPriority = isPriority; }
 
-    // --- ADDED GETTERS/SETTERS ---
     public String getFullName() { return fullName; }
     public void setFullName(String fullName) { this.fullName = fullName; }
-
-    public String getAddress() { return address; }
-    public void setAddress(String address) { this.address = address; }
 
     public LocalDateTime getRegistrationDate() { return registrationDate; }
     public void setRegistrationDate(LocalDateTime registrationDate) { this.registrationDate = registrationDate; }
