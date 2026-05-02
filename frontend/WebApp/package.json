@@ -113,7 +113,6 @@
     "react-router": "^7.13.1",
     "react-router-dom": "^7.13.1",
     "resolve-from": "^4.0.0",
-    "rolldown": "^1.0.0-rc.10",
     "scheduler": "^0.27.0",
     "semver": "^6.3.1",
     "set-cookie-parser": "^2.7.2",
@@ -146,11 +145,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@tailwindcss/vite": "^4.2.2",
-    "@vitejs/plugin-react": "^6.0.1",
-    "autoprefixer": "^10.4.27",
-    "postcss": "^8.5.8",
-    "tailwindcss": "^4.2.2",
-    "vite": "^8.0.1"
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.19"
   }
 }
