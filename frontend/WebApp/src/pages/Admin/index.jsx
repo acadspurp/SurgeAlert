@@ -1048,11 +1048,12 @@ export default function Admin() {
                     fixed md:static inset-y-0 left-0 z-40 flex h-full shrink-0 flex-col bg-[#0f172a] text-white shadow-xl transition-transform duration-300 ease-out
                     w-[min(19rem,90vw)] ${isSidebarOpen ? 'md:w-64' : 'md:w-20'}
                     ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
+                    ${mobileNavOpen ? 'pointer-events-auto' : 'pointer-events-none md:pointer-events-auto'}
                 `}
             >
                 {/* Desktop: demo + collapse toggles */}
                 <div className="absolute top-2 right-[-40px] z-50 hidden md:flex flex-col">
-                    <button type="button" onClick={() => setDemoMode(!demoMode)} className={`p-2 rounded-r-lg shadow-md ${demoMode ? 'bg-orange-500 hover:bg-orange-600' : 'bg-slate-600 hover:bg-gray-400'} transition tooltip-parent`}>
+                    <button type="button" onClick={() => setDemoMode((v) => !v)} className={`p-2 rounded-r-lg shadow-md ${demoMode ? 'bg-orange-500 hover:bg-orange-600' : 'bg-slate-600 hover:bg-gray-400'} transition tooltip-parent`}>
                         <i className={`fa-solid ${demoMode ? 'fa-vial-circle-check text-white' : 'fa-vial text-white'}`}></i>
                         <span className="tooltip-text whitespace-nowrap bg-black text-white text-xs px-2 py-1 rounded absolute top-full left-0 mt-1 pointer-events-none">Demo Mode</span>
                     </button>
@@ -1127,8 +1128,8 @@ export default function Admin() {
             </aside>
 
             {/* MAIN CONTENT */}
-            <main className="relative min-h-0 min-w-0 flex-1 overflow-y-auto px-3 pb-10 pt-4 sm:px-6 md:px-8 md:pb-12 md:pt-6">
-                <div className="mb-4 flex items-center gap-3 md:hidden">
+            <main className="relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto px-3 pb-10 pt-4 sm:px-6 md:px-8 md:pb-12 md:pt-6">
+                <div className="relative z-20 mb-4 flex shrink-0 items-center gap-3 md:hidden">
                     <button
                         type="button"
                         onClick={() => setMobileNavOpen(true)}
@@ -1140,7 +1141,7 @@ export default function Admin() {
                     <span className="min-w-0 flex-1 truncate text-sm font-bold text-sky-100">Admin</span>
                     <button
                         type="button"
-                        onClick={() => setDemoMode(!demoMode)}
+                        onClick={() => setDemoMode((v) => !v)}
                         className={`shrink-0 rounded-lg px-3 py-2 text-white shadow ${demoMode ? 'bg-orange-500' : 'bg-slate-600'}`}
                         aria-label="Toggle demo mode"
                         title="Demo mode"
@@ -1150,7 +1151,7 @@ export default function Admin() {
                 </div>
                 {(() => {
                     const viewProps = {
-                        demoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, editingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
+                        demoMode, setDemoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, editingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
                         openCreateUserModal, openEditUserModal, saveUserModal,
                         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
                         handleDeleteAdminUser,
