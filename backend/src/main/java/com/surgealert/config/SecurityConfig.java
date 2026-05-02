@@ -50,9 +50,16 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:8080", "http://localhost:5173", "http://127.0.0.1:5500")); // Added 5500 for Live Server
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+<<<<<<< HEAD
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "*"));
         configuration.setAllowCredentials(true);
         
+=======
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setExposedHeaders(Arrays.asList("Authorization"));
+        configuration.setAllowCredentials(true);
+
+>>>>>>> parent of f04a8668 (fix cross-origin API from Cloudflare to Render)
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
