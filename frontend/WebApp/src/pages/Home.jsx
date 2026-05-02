@@ -191,10 +191,7 @@ export default function Home() {
 <<<<<<< HEAD
             if (!silent) {
                 setWeatherCards([]);
-                setWeatherError(
-                    error?.message
-                    || 'Could not load weather forecast. Check that the backend is reachable and can reach Open-Meteo.'
-                );
+                setWeatherError('Could not load weather forecast. Check that the backend is reachable and can reach Open-Meteo.');
             }
         } finally {
             if (!silent) setIsWeatherLoading(false);

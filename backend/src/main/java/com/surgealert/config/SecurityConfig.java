@@ -30,6 +30,7 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+<<<<<<< HEAD
                 .requestMatchers("/api/public/**").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
                 // --- ADDED THIS LINE BELOW: Allow registration without login ---
@@ -37,6 +38,18 @@ public class SecurityConfig {
                 .requestMatchers("/api/sensor-data/**").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()
                 .requestMatchers("/error").permitAll()
+=======
+                .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/register").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/public/alerts/override").hasAnyRole("ADMIN", "HEAD_ADMIN")
+                .requestMatchers("/api/public/alerts/critical/pending/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
+                .requestMatchers("/api/public/**", "/api/public/system/**", "/api/external/**", "/api/residents/send-otp", "/api/residents/verify-otp", "/api/residents/register", "/api/residents/unsubscribe-otp").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/sensor-data").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/sensor-data/latest").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/external/sms/receive").permitAll()
+                .requestMatchers("/api/admin/**", "/api/admin/templates/**", "/api/admin/datasets", "/api/admin/datasets/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
+                .requestMatchers("/api/sensor-data/recent", "/api/sensor-data/audit", "/api/sensor-data/reports/export").hasAnyRole("ADMIN", "HEAD_ADMIN")
+                .requestMatchers("/api/residents/active", "/api/residents/id/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
+>>>>>>> parent of 464abb32 (tide weather resilience: marine fallback and clearer errors)
                 .anyRequest().authenticated()
             )
             .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()))
