@@ -1,11 +1,5 @@
 // Frontend should only expose non-sensitive config.
 // Vite reads VITE_* keys from environment.
-<<<<<<< HEAD
-<<<<<<< HEAD
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
-=======
-=======
->>>>>>> parent of b6ead82a (.)
 const envApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim();
 
 function defaultApiBaseUrl() {
@@ -19,4 +13,3 @@ function defaultApiBaseUrl() {
 
 // Normalize trailing slash so endpoint joins stay consistent.
 export const API_BASE_URL = (envApiBaseUrl || defaultApiBaseUrl()).replace(/\/+$/, "");
->>>>>>> parent of 349d82c1 (.)

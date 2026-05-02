@@ -16,15 +16,9 @@ export default function DashboardView(props) {
             {/* 1. DASHBOARD */}
 
             <div className="animate-fade-in">
-<<<<<<< HEAD
-                <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-black text-sky-100 tracking-tight pl-10">Dashboard</h1>
-                    <div className="text-xs font-bold text-slate-200 flex items-center gap-2">
-=======
                 <div className="mb-6 flex flex-col gap-3 sm:mb-8 md:flex-row md:items-center md:justify-between">
                     <h1 className="pl-0 text-2xl font-black tracking-tight text-sky-100 sm:text-3xl md:pl-10">Dashboard</h1>
                     <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-200">
->>>>>>> parent of 2f2c9a5c (.)
                         <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${hardwareOnline ? 'bg-green-900/40 border-green-200 text-green-700' : 'bg-[#0f172a] border-slate-700 text-slate-300'}`}>
                             <span className={`inline-block w-2.5 h-2.5 rounded-full ${hardwareOnline ? 'bg-green-500' : 'bg-gray-400'} ${hardwareOnline ? 'animate-pulse' : ''}`}></span>
                             {demoMode ? 'Demo stream' : 'Hardware stream'}
@@ -55,19 +49,11 @@ export default function DashboardView(props) {
                                 <p className="text-xs text-slate-200 mt-1">Force the system to broadcast a specific alert level to residents.</p>
                             </div>
                             <div className="flex flex-col items-end space-y-2">
-<<<<<<< HEAD
-                                <div className="flex space-x-2">
-                                    <button onClick={() => handleOverride('NORMAL')} className="bg-slate-700 hover:bg-slate-600 text-slate-100 font-bold py-2 px-4 rounded-lg shadow transition">Normal/Auto</button>
-                                    <button onClick={() => handleOverride('YELLOW')} className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-4 rounded-lg shadow transition">Yellow</button>
-                                    <button onClick={() => handleOverride('ORANGE')} className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg shadow transition">Orange</button>
-                                    <button onClick={() => handleOverride('RED')} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow transition">Red</button>
-=======
                                 <div className="flex w-full flex-wrap justify-end gap-2">
                                     <button onClick={() => handleOverride('NORMAL')} className="min-h-[44px] flex-1 bg-slate-700 px-3 py-2 font-bold text-slate-100 shadow transition hover:bg-slate-600 sm:flex-none sm:rounded-lg sm:px-4">Normal/Auto</button>
                                     <button onClick={() => handleOverride('YELLOW')} className="min-h-[44px] flex-1 bg-yellow-400 px-3 py-2 font-bold text-yellow-900 shadow transition hover:bg-yellow-500 sm:flex-none sm:rounded-lg sm:px-4">Yellow</button>
                                     <button onClick={() => handleOverride('ORANGE')} className="min-h-[44px] flex-1 bg-orange-500 px-3 py-2 font-bold text-white shadow transition hover:bg-orange-600 sm:flex-none sm:rounded-lg sm:px-4">Orange</button>
                                     <button onClick={() => handleOverride('RED')} className="min-h-[44px] flex-1 bg-red-600 px-3 py-2 font-bold text-white shadow transition hover:bg-red-700 sm:flex-none sm:rounded-lg sm:px-4">Red</button>
->>>>>>> parent of 2f2c9a5c (.)
                                 </div>
                                 {aiRecommendedStatus !== 'NORMAL' && (
                                     <button onClick={() => handleOverride(aiRecommendedStatus)} className="text-xs flex items-center bg-blue-900/40 hover:bg-blue-900/60 text-blue-400 border border-blue-800 py-1 px-3 rounded-full font-bold transition">

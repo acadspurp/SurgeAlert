@@ -13,15 +13,9 @@ export default function ReportsView(props) {
     <>
 {/* 6. REPORTS */}
         <div className="animate-fade-in max-w-4xl">
-<<<<<<< HEAD
-            <h1 className="text-3xl font-black text-sky-100 tracking-tight mb-8 pl-10">Download Reports</h1>
-            
-            <div className="bg-[#1e293b] p-8 rounded-2xl shadow-lg border border-slate-700 flex flex-col md:flex-row gap-8">
-=======
             <h1 className="mb-6 pl-0 text-2xl font-black tracking-tight text-sky-100 sm:mb-8 sm:text-3xl md:pl-10">Download Reports</h1>
             
             <div className="flex flex-col gap-6 rounded-2xl border border-slate-700 bg-[#1e293b] p-4 shadow-lg sm:gap-8 sm:p-8 md:flex-row">
->>>>>>> parent of 06f1660b (.)
                 {/* Form */}
                 <div className="flex-1 space-y-6">
                     <h3 className="text-lg font-bold text-slate-100 border-b pb-2">Filter Parameters</h3>
