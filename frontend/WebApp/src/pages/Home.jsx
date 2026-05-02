@@ -135,15 +135,15 @@ export default function Home() {
                     let iconHtml = icons[index % icons.length];
 
                     html += `
-                    <div class="flex flex-col border-l-2 border-gray-700 pl-3 sm:pl-4 bg-gray-800/20 p-3 rounded-lg min-w-0 break-words">
-                        <div class="flex items-start gap-2 sm:space-x-3 mb-2 min-w-0">
-                            <span class="text-2xl sm:text-3xl drop-shadow-lg shrink-0">${iconHtml}</span>
-                            <div class="min-w-0">
-                                <h3 class="text-base sm:text-lg font-bold tracking-wide sm:tracking-wider">${titleEn.toUpperCase()}</h3>
-                                <p class="text-xs sm:text-sm font-semibold opacity-90">${descEn.toUpperCase()}</p>
+                    <div class="flex flex-col border-l-2 border-gray-700 pl-4 bg-gray-800/20 p-3 rounded-lg">
+                        <div class="flex items-center space-x-3 mb-2">
+                            <span class="text-3xl drop-shadow-lg">${iconHtml}</span>
+                            <div>
+                                <h3 class="text-lg font-bold tracking-wider">${titleEn.toUpperCase()}</h3>
+                                <p class="text-sm font-semibold opacity-90">${descEn.toUpperCase()}</p>
                             </div>
                         </div>
-                        <div class="mt-2 text-xs sm:text-sm text-gray-400 bg-black/20 p-2 rounded break-words">
+                        <div class="mt-2 text-sm text-gray-400 bg-black/20 p-2 rounded">
                             <strong>${titleTl}</strong> ${descTl}
                         </div>
                     </div>`;
@@ -314,15 +314,15 @@ export default function Home() {
                             let iconHtml = icons[index % icons.length];
 
                             html += `
-                            <div class="flex flex-col border-l-2 border-gray-700 pl-3 sm:pl-4 bg-gray-800/20 p-3 rounded-lg min-w-0 break-words">
-                                <div class="flex items-start gap-2 sm:space-x-3 mb-2 min-w-0">
-                                    <span class="text-2xl sm:text-3xl drop-shadow-lg shrink-0">${iconHtml}</span>
-                                    <div class="min-w-0">
-                                        <h3 class="text-base sm:text-lg font-bold tracking-wide sm:tracking-wider">${titleEn.toUpperCase()}</h3>
-                                        <p class="text-xs sm:text-sm font-semibold opacity-90">${descEn.toUpperCase()}</p>
+                            <div class="flex flex-col border-l-2 border-gray-700 pl-4 bg-gray-800/20 p-3 rounded-lg">
+                                <div class="flex items-center space-x-3 mb-2">
+                                    <span class="text-3xl drop-shadow-lg">${iconHtml}</span>
+                                    <div>
+                                        <h3 class="text-lg font-bold tracking-wider">${titleEn.toUpperCase()}</h3>
+                                        <p class="text-sm font-semibold opacity-90">${descEn.toUpperCase()}</p>
                                     </div>
                                 </div>
-                                <div class="mt-2 text-xs sm:text-sm text-slate-100 bg-black/20 p-2 rounded break-words">
+                                <div class="mt-2 text-sm text-slate-100 bg-black/20 p-2 rounded">
                                     <strong>${titleTl}</strong> ${descTl}
                                 </div>
                             </div>`;
@@ -357,13 +357,13 @@ export default function Home() {
         value ? new Date(value * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : 'N/A';
 
     return (
-        <div id="home-view" className="min-h-screen bg-[#0f172a] text-gray-200 px-1 sm:px-0 lg:p-6 pb-28 sm:pb-24 max-w-[100vw] overflow-x-hidden">
+        <div id="home-view" className="min-h-screen bg-[#0f172a] text-gray-200 lg:p-6 pb-24">
 
             {/* TOP ROW: Gauges and Camera */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
 
                 {/* RIVER LEVEL GAUGE */}
-                <div className={`lg:col-span-5 xl:col-span-6 rounded-2xl p-4 sm:p-6 border ${colors.border} ${colors.bg} ${colors.glow} flex flex-col justify-between overflow-hidden`}>
+                <div className={`lg:col-span-5 xl:col-span-6 rounded-2xl p-6 border ${colors.border} ${colors.bg} ${colors.glow} flex flex-col justify-between overflow-hidden`}>
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-sm font-bold text-gray-400 tracking-widest uppercase">River Level Gauge</h2>
                     </div>
@@ -381,13 +381,13 @@ export default function Home() {
 
                             {/* Threshold Markers — positions driven by fetched config */}
                             <div className="absolute left-0 w-full h-[2px] bg-yellow-400 z-10 flex items-center" style={{ bottom: `${GAUGE_MARKS.yellow}%` }}>
-                                <span className="absolute left-[4.25rem] sm:left-[70px] max-w-[calc(100%-4.5rem)] sm:max-w-none text-[10px] sm:text-xs font-bold text-yellow-400 sm:whitespace-nowrap bg-[#0f172a] px-1.5 sm:px-2 py-0.5 sm:py-1 rounded shadow-sm border border-yellow-400/30 leading-tight">Yellow: Monitor</span>
+                                <span className="absolute left-[70px] text-xs font-bold text-yellow-400 whitespace-nowrap bg-[#0f172a] px-2 py-1 rounded shadow-sm border border-yellow-400/30">Yellow: Monitor</span>
                             </div>
                             <div className="absolute left-0 w-full h-[2px] bg-orange-500 z-10 flex items-center" style={{ bottom: `${GAUGE_MARKS.orange}%` }}>
-                                <span className="absolute left-[4.25rem] sm:left-[70px] max-w-[calc(100%-4.5rem)] sm:max-w-none text-[10px] sm:text-xs font-bold text-[#ff8800] sm:whitespace-nowrap bg-[#0f172a] px-1.5 sm:px-2 py-0.5 sm:py-1 rounded shadow-sm border border-orange-500/30 leading-tight">Orange: Prepare</span>
+                                <span className="absolute left-[70px] text-xs font-bold text-[#ff8800] whitespace-nowrap bg-[#0f172a] px-2 py-1 rounded shadow-sm border border-orange-500/30">Orange: Prepare</span>
                             </div>
                             <div className="absolute left-0 w-full h-[2px] bg-red-600 z-10 flex items-center" style={{ bottom: `${GAUGE_MARKS.red}%` }}>
-                                <span className="absolute left-[4.25rem] sm:left-[70px] max-w-[calc(100%-4.5rem)] sm:max-w-none text-[10px] sm:text-xs font-bold text-red-500 sm:whitespace-nowrap bg-[#0f172a] px-1.5 sm:px-2 py-0.5 sm:py-1 rounded shadow-sm border border-red-600/30 leading-tight">Red: Evacuate</span>
+                                <span className="absolute left-[70px] text-xs font-bold text-red-500 whitespace-nowrap bg-[#0f172a] px-2 py-1 rounded shadow-sm border border-red-600/30">Red: Evacuate</span>
                             </div>
 
                             {/* Current Water Level Pointer */}
@@ -447,10 +447,10 @@ export default function Home() {
                 </div>
 
                 {/* CAMERA FEED */}
-                <div className="lg:col-span-7 xl:col-span-6 rounded-2xl p-4 sm:p-6 bg-[#1e293b] border border-gray-800 flex flex-col min-w-0">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center mb-4 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 min-w-0">
-                            <h2 className="text-xs sm:text-sm font-bold text-slate-100 tracking-widest uppercase">Camera Feed</h2>
+                <div className="lg:col-span-7 xl:col-span-6 rounded-2xl p-6 bg-[#1e293b] border border-gray-800 flex flex-col">
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-sm font-bold text-slate-100 tracking-widest uppercase">Camera Feed</h2>
                             {cameraLastUpdated && <span className="text-xs font-bold text-cyan-400 hidden sm:inline ml-2">(Last updated: {cameraLastUpdated})</span>}
                         </div>
                         <span className="text-xs text-slate-300 flex items-center gap-2">
@@ -479,9 +479,9 @@ export default function Home() {
             </div>
 
             {/* MIDDLE ROW: ACTIONS CHECKLIST */}
-            <div className={`rounded-2xl p-4 sm:p-6 mb-6 border-2 bg-gradient-to-br from-[#1e293b] to-[#0f172a] ${colors.border} ${colors.glow} min-w-0`}>
-                <h2 className="text-xs sm:text-sm font-bold text-slate-100 tracking-widest mb-3 sm:mb-4 uppercase">Safety Action Guide</h2>
-                <div className={`w-full py-2.5 sm:py-3 px-2 text-center rounded-lg font-black text-base sm:text-xl tracking-wide sm:tracking-wider uppercase mb-4 sm:mb-6 shadow-md break-words ${alertLevelKey === 'red' ? 'bg-red-600 text-white' : alertLevelKey === 'orange' ? 'bg-orange-500 text-white' : alertLevelKey === 'yellow' ? 'bg-yellow-400 text-gray-900' : 'bg-green-500 text-white'}`}>
+            <div className={`rounded-2xl p-6 mb-6 border-2 bg-gradient-to-br from-[#1e293b] to-[#0f172a] ${colors.border} ${colors.glow}`}>
+                <h2 className="text-sm font-bold text-slate-100 tracking-widest mb-4 uppercase">Safety Action Guide</h2>
+                <div className={`w-full py-3 text-center rounded-lg font-black text-xl tracking-wider uppercase mb-6 shadow-md ${alertLevelKey === 'red' ? 'bg-red-600 text-white' : alertLevelKey === 'orange' ? 'bg-orange-500 text-white' : alertLevelKey === 'yellow' ? 'bg-yellow-400 text-gray-900' : 'bg-green-500 text-white'}`}>
                     {alertLevelText}
                 </div>
                 <div dangerouslySetInnerHTML={{ __html: alertHtml }}></div>
@@ -491,8 +491,8 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                 {/* TIDE SUMMARY */}
-                <div className="rounded-2xl p-4 sm:p-6 bg-[#1e293b] border border-gray-800 flex flex-col min-w-0">
-                    <h2 className="text-xs sm:text-sm font-bold text-slate-100 tracking-widest mb-4 uppercase">Tide Status</h2>
+                <div className="rounded-2xl p-6 bg-[#1e293b] border border-gray-800 flex flex-col">
+                    <h2 className="text-sm font-bold text-slate-100 tracking-widest mb-4 uppercase">Tide Status</h2>
                     <div className="flex-1 flex flex-col justify-center">
                         {tidesError ? (
                             <div className="bg-gray-800 text-slate-200 p-4 rounded-xl text-center border border-gray-700">
@@ -511,11 +511,11 @@ export default function Home() {
                                     <span className="text-xs text-gray-400 uppercase tracking-wider mb-1">Current Tide</span>
                                     <div className="flex items-center gap-2">
                                         <i className={`fa-solid ${tideSummary.status === 'High Tide' || tideSummary.status === 'Rising' ? 'fa-arrow-up text-red-500' : tideSummary.status === 'Low Tide' || tideSummary.status === 'Falling' ? 'fa-arrow-down text-blue-400' : 'fa-wave-square text-cyan-300'}`}></i>
-                                        <span className={`text-lg sm:text-2xl font-black text-center break-words ${tideSummary.status === 'High Tide' || tideSummary.status === 'Rising' ? 'text-red-500' : tideSummary.status === 'Low Tide' || tideSummary.status === 'Falling' ? 'text-blue-400' : 'text-cyan-300'}`}>{tideSummary.status}</span>
+                                        <span className={`text-2xl font-black ${tideSummary.status === 'High Tide' || tideSummary.status === 'Rising' ? 'text-red-500' : tideSummary.status === 'Low Tide' || tideSummary.status === 'Falling' ? 'text-blue-400' : 'text-cyan-300'}`}>{tideSummary.status}</span>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <div className="bg-gray-800/50 p-3 sm:p-4 rounded-xl border border-gray-700/50 flex flex-col justify-between min-w-0">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50 flex flex-col justify-between">
                                         <div>
                                             <span className="text-xs text-gray-400 uppercase tracking-wider">Next High Tide</span>
                                             <div className="text-[10px] text-gray-500 mt-0.5">{formatTideDate(tideSummary.nextHigh?.dt)}</div>
@@ -529,7 +529,7 @@ export default function Home() {
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="bg-gray-800/50 p-3 sm:p-4 rounded-xl border border-gray-700/50 flex flex-col justify-between min-w-0">
+                                    <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50 flex flex-col justify-between">
                                         <div>
                                             <span className="text-xs text-gray-400 uppercase tracking-wider">Next Low Tide</span>
                                             <div className="text-[10px] text-gray-500 mt-0.5">{formatTideDate(tideSummary.nextLow?.dt)}</div>
@@ -551,10 +551,17 @@ export default function Home() {
 
                 {/* WEATHER FORECAST */}
 <<<<<<< HEAD
+<<<<<<< HEAD
                 <div className="rounded-2xl p-4 sm:p-6 bg-[#1e293b] border border-gray-800 flex flex-col justify-between min-w-0">
                     <div className="min-w-0">
                         <h2 className="text-xs sm:text-sm font-bold text-gray-400 tracking-widest mb-4 uppercase">Weather Forecast</h2>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 text-center items-stretch">
+=======
+                <div className="rounded-2xl p-6 bg-[#1e293b] border border-gray-800 flex flex-col justify-between">
+                    <div>
+                        <h2 className="text-sm font-bold text-gray-400 tracking-widest mb-4 uppercase">Weather Forecast</h2>
+                        <div className="grid grid-cols-5 gap-2 text-center items-center">
+>>>>>>> parent of b53e4881 (.)
                             {isWeatherLoading ? (
 =======
                 <div className="rounded-2xl p-6 bg-[#1e293b] border border-gray-800 flex flex-col justify-between">
@@ -566,10 +573,10 @@ export default function Home() {
                                 <p className="col-span-full text-gray-500">Loading Weather Data...</p>
                             ) : (
                                 weatherCards.map((card, i) => (
-                                    <div key={i} className="flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-xl hover:bg-gray-800 transition-colors min-w-0">
-                                        <p className="font-bold text-cyan-400 text-xs sm:text-sm mb-1 sm:mb-2">{card.dayName}</p>
-                                        <div className="text-2xl sm:text-3xl mb-1 sm:mb-2 drop-shadow-lg">{card.icon}</div>
-                                        <p className="text-[10px] sm:text-xs text-gray-400 leading-tight mb-2 min-h-[2.5rem] sm:min-h-[2rem] flex items-center justify-center px-0.5">{card.description}</p>
+                                    <div key={i} className="flex flex-col items-center justify-center p-2 rounded-xl hover:bg-gray-800 transition-colors">
+                                        <p className="font-bold text-cyan-400 text-sm mb-2">{card.dayName}</p>
+                                        <div className="text-3xl mb-2 drop-shadow-lg">{card.icon}</div>
+                                        <p className="text-xs text-gray-400 leading-tight mb-2 h-8 flex items-center justify-center">{card.description}</p>
                                         <div className="flex flex-col items-center gap-0.5 text-xs font-mono text-gray-300">
                                             <span><span className="text-red-400">H:</span> {card.tempMax}°C</span>
                                             <span><span className="text-blue-400">L:</span> {card.tempMin}°C</span>
@@ -586,20 +593,20 @@ export default function Home() {
             </div>
 
             {/* COLLAPSIBLE SIDEWAYS FLOATING ACTION BUTTONS */}
-            <div className="fixed bottom-4 right-3 sm:bottom-6 sm:right-6 z-50 flex items-end justify-end max-w-[calc(100vw-1rem)]">
-                <div className={`flex flex-col items-end gap-2 sm:gap-3 transition-all duration-500 ease-in-out overflow-hidden ${isFabOpen ? 'max-w-[min(20rem,calc(100vw-4rem))] sm:max-w-[28rem] opacity-100 mr-2 sm:mr-3' : 'max-w-0 opacity-0 mr-0'}`}>
-                    <button onClick={() => navigate('/maps')} className="bg-[#22d3ee] hover:bg-[#06b6d4] text-[#083344] font-bold text-xs sm:text-sm tracking-wide py-2.5 sm:py-3 px-4 sm:px-5 rounded-full shadow-[0_4px_10px_rgba(34,211,238,0.3)] transform transition hover:-translate-y-1 flex items-center justify-center gap-2 border border-[#67e8f9] flex-shrink-0 w-full text-center whitespace-normal sm:whitespace-nowrap">
+            <div className="fixed bottom-6 right-6 z-50 flex items-center justify-end">
+                <div className={`flex flex-col items-end gap-3 transition-all duration-500 ease-in-out whitespace-nowrap overflow-hidden ${isFabOpen ? 'max-w-[800px] opacity-100 mr-3' : 'max-w-0 opacity-0 mr-0'}`}>
+                    <button onClick={() => navigate('/maps')} className="bg-[#22d3ee] hover:bg-[#06b6d4] text-[#083344] font-bold text-xs sm:text-sm tracking-wide py-3 px-5 rounded-full shadow-[0_4px_10px_rgba(34,211,238,0.3)] transform transition hover:-translate-y-1 flex items-center justify-center gap-2 border border-[#67e8f9] flex-shrink-0 w-full sm:w-auto">
                         <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                         Evacuation Site
                     </button>
-                    <button onClick={() => navigate('/register')} className="bg-[#a3e635] hover:bg-[#84cc16] text-[#1a2e05] font-bold text-xs sm:text-sm tracking-wide py-2.5 sm:py-3 px-4 sm:px-5 rounded-full shadow-[0_4px_10px_rgba(163,230,53,0.3)] transform transition hover:-translate-y-1 flex items-center justify-center gap-2 border border-[#bef264] flex-shrink-0 w-full text-center whitespace-normal sm:whitespace-nowrap">
+                    <button onClick={() => navigate('/register')} className="bg-[#a3e635] hover:bg-[#84cc16] text-[#1a2e05] font-bold text-xs sm:text-sm tracking-wide py-3 px-5 rounded-full shadow-[0_4px_10px_rgba(163,230,53,0.3)] transform transition hover:-translate-y-1 flex items-center justify-center gap-2 border border-[#bef264] flex-shrink-0 w-full sm:w-auto">
                         <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
                         Subscribe to SMS Alert
                     </button>
                 </div>
                 <button
                     onClick={() => setIsFabOpen(!isFabOpen)}
-                    className="bg-cyan-600 hover:bg-cyan-500 text-white w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-[0_0_20px_rgba(8,145,178,0.5)] flex items-center justify-center transform transition active:scale-95 border-2 border-cyan-400 flex-shrink-0 z-50 self-end"
+                    className="bg-cyan-600 hover:bg-cyan-500 text-white w-14 h-14 rounded-full shadow-[0_0_20px_rgba(8,145,178,0.5)] flex items-center justify-center transform transition active:scale-95 border-2 border-cyan-400 flex-shrink-0 z-50 self-end"
                 >
                     <i className={`fa-solid ${isFabOpen ? 'fa-chevron-right text-xl' : 'fa-chevron-left text-xl'} drop-shadow-md`}></i>
                 </button>

@@ -54,8 +54,8 @@ export default function Login() {
     };
 
     return (
-        <div id="login-view" className="px-2 sm:px-0">
-            <div className="mx-auto mt-6 max-w-sm custom-card sm:mt-10">
+        <div id="login-view">
+            <div className="max-w-sm mx-auto custom-card mt-10">
                 <h2 className="text-2xl font-semibold mb-6 text-center section-title">Login</h2>
                 <form id="login-form" onSubmit={handleSubmit}>
                     <div className="mb-4">

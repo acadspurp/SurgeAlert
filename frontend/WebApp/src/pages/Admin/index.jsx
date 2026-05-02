@@ -1039,7 +1039,11 @@ export default function Admin() {
                 </div>
 
                 <div className={`p-6 flex items-center ${isSidebarOpen ? 'justify-start' : 'justify-center'} border-b border-gray-700 bg-black bg-opacity-30 h-20 overflow-hidden`}>
+<<<<<<< HEAD
                     <img src="/src/assets/logo.png" alt="Logo" className="w-12 h-12 object-contain mr-3" />
+=======
+                    <img src={logoUrl} alt="" className="w-12 h-12 object-contain mr-3" aria-hidden />
+>>>>>>> parent of b53e4881 (.)
                     {isSidebarOpen && <span className={`text-2xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-300 transition-opacity duration-200`}>SurgeAlert</span>}
                 </div>
 
