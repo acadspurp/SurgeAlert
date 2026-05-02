@@ -157,23 +157,27 @@ export default function Admin() {
     const loadDashboardData = async () => {
         try {
             const data = await fetchAlertStatus();
-            const newDash = { ...dashData };
-            newDash.waterLevel = (data.waterLevelM !== null && data.waterLevelM !== undefined) ? data.waterLevelM.toFixed(2) + ' m' : '--';
-
-            const level = data.alertLevel || 'OFFLINE';
-            newDash.status = level;
-            if (level === 'RED') newDash.statusColor = 'text-red-600';
-            else if (level === 'ORANGE') newDash.statusColor = 'text-orange-500';
-            else if (level === 'YELLOW') newDash.statusColor = 'text-yellow-500';
-            else if (level === 'GREEN') newDash.statusColor = 'text-green-600';
-            else newDash.statusColor = 'text-slate-400';
-
+            let subCount;
             try {
                 const res = await fetchActiveResidents();
-                newDash.subscriberCount = res.length;
-            } catch (e) { }
+                subCount = res.length;
+            } catch (e) { /* keep previous count */ }
 
-            setDashData(newDash);
+            setDashData((prev) => {
+                const newDash = { ...prev };
+                newDash.waterLevel = (data.waterLevelM !== null && data.waterLevelM !== undefined) ? data.waterLevelM.toFixed(2) + ' m' : '--';
+
+                const level = data.alertLevel || 'OFFLINE';
+                newDash.status = level;
+                if (level === 'RED') newDash.statusColor = 'text-red-600';
+                else if (level === 'ORANGE') newDash.statusColor = 'text-orange-500';
+                else if (level === 'YELLOW') newDash.statusColor = 'text-yellow-500';
+                else if (level === 'GREEN') newDash.statusColor = 'text-green-600';
+                else newDash.statusColor = 'text-slate-400';
+
+                if (subCount !== undefined) newDash.subscriberCount = subCount;
+                return newDash;
+            });
         } catch (e) {
             console.error("Dashboard Load Error:", e);
         }
@@ -425,6 +429,19 @@ export default function Admin() {
             clearInterval(canaryInterval);
         };
     }, []);
+
+    // Poll alert status so overrides / shared state show up on every admin device without refresh (demo stream uses simulated dash).
+    useEffect(() => {
+        if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
+        if (demoMode) return;
+
+        const pollMs = 10000;
+        const id = setInterval(() => {
+            loadDashboardData();
+        }, pollMs);
+
+        return () => clearInterval(id);
+    }, [user, role, demoMode]);
 
     // Telemetry time changer
     useEffect(() => {
