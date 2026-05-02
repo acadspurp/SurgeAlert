@@ -1,83 +1,102 @@
+# EdgeSystem/processing/image_processor.py
 import cv2
 import numpy as np
-import time
-from config.settings import MAX_CORNERS, QUALITY_LEVEL, MIN_DISTANCE, \
+from config.settings import (
+    IMAGE_WIDTH, IMAGE_HEIGHT, MAX_CORNERS, QUALITY_LEVEL, MIN_DISTANCE,
     LK_WINDOW_SIZE, LK_MAX_LEVEL, LK_CRITERIA, PIXELS_TO_METERS
+)
 
 class ImageProcessor:
+    """Handles all computer vision tasks."""
     def __init__(self):
-        self.prev_gray = None
-        self.prev_pts = None
-        self.prev_time = None
-
-        # CV Parameters from settings
-        self.feature_params = dict(maxCorners=MAX_CORNERS,
-                                   qualityLevel=QUALITY_LEVEL, 
-                                   minDistance=MIN_DISTANCE, 
-                                   blockSize=7)
-        self.lk_params = dict(winSize=LK_WINDOW_SIZE,
-                              maxLevel=LK_MAX_LEVEL, 
-                              criteria=LK_CRITERIA)
+        print("Initialized Image Processor.")
+        self.shi_tomasi_params = dict(
+            maxCorners=MAX_CORNERS,
+            qualityLevel=QUALITY_LEVEL,
+            minDistance=MIN_DISTANCE,
+            blockSize=7
+        )
+        self.lucas_kanade_params = dict(
+            winSize=LK_WINDOW_SIZE,
+            maxLevel=LK_MAX_LEVEL,
+            criteria=LK_CRITERIA
+        )
+        # State for optical flow
+        self.previous_frame_gray = None
+        self.previous_points = None
 
     def process_frame(self, frame):
         """
-        Calculates real optical flow.
-        Returns: flow_mps, rise_mps, viz_frame, raw_vectors
+        Processes a single frame to calculate flow and rise rates.
+        Returns: (flow_rate_mps, rise_rate_mps, visualized_frame)
         """
         if frame is None:
-            return 0.0, 0.0, None, []
-            
-        viz_frame = frame.copy()
-        current_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            return 0.0, 0.0, None
+
+        current_frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
-        # Initialization on first frame
-        if self.prev_gray is None:
-            self.prev_gray = current_gray
-            self.prev_pts = cv2.goodFeaturesToTrack(current_gray, mask=None, **self.feature_params)
-            self.prev_time = time.time()
-            return 0.0, 0.0, viz_frame, []
+        # Create a copy of the frame to draw on
+        visualized_frame = frame.copy()
 
-        curr_time = time.time()
-        dt = curr_time - self.prev_time
-        self.prev_time = curr_time
-        
-        if dt < 0.001: dt = 0.001
+        # For the first frame, we only detect features and set the state
+        if self.previous_frame_gray is None:
+            self.previous_frame_gray = current_frame_gray
+            self.previous_points = cv2.goodFeaturesToTrack(
+                self.previous_frame_gray, mask=None, **self.shi_tomasi_params
+            )
+            return 0.0, 0.0, visualized_frame
 
-        # Lucas-Kanade Optical Flow
-        if self.prev_pts is None or len(self.prev_pts) < 5:
-            self.prev_pts = cv2.goodFeaturesToTrack(self.prev_gray, mask=None, **self.feature_params)
-            self.prev_gray = current_gray
-            return 0.0, 0.0, viz_frame, []
-            
-        next_pts, status, _ = cv2.calcOpticalFlowPyrLK(self.prev_gray, current_gray, self.prev_pts, None, **self.lk_params)
+        # If we don't have any points to track, find them again
+        if self.previous_points is None or len(self.previous_points) < 5:
+             self.previous_points = cv2.goodFeaturesToTrack(
+                self.previous_frame_gray, mask=None, **self.shi_tomasi_params
+            )
+             if self.previous_points is None:
+                 self.previous_frame_gray = current_frame_gray
+                 return 0.0, 0.0, visualized_frame
 
-        if next_pts is not None and status is not None:
-            good_new = next_pts[status == 1]
-            good_old = self.prev_pts[status == 1]
+        # Calculate optical flow
+        new_points, status, error = cv2.calcOpticalFlowPyrLK(
+            self.previous_frame_gray,
+            current_frame_gray,
+            self.previous_points,
+            None,
+            **self.lucas_kanade_params
+        )
+
+        # Select good points
+        if new_points is not None and status is not None:
+            good_new = new_points[status == 1]
+            good_old = self.previous_points[status == 1]
         else:
-            self.prev_gray = current_gray
-            return 0.0, 0.0, viz_frame, []
+            self.previous_frame_gray = current_frame_gray
+            self.previous_points = None
+            return 0.0, 0.0, visualized_frame
 
-        # --- PHYSICS CALCULATION ---
-        displacements = good_new - good_old
-        velocities_px = displacements / dt
-        avg_vel_px = np.mean(velocities_px, axis=0)
-
-        # Result Conversion
-        flow_mps = abs(avg_vel_px[0]) * PIXELS_TO_METERS
-        rise_mps = -avg_vel_px[1] * PIXELS_TO_METERS
-
-        raw_vectors = []
-        for i, (new, old) in enumerate(zip(good_new, good_old)):
-            a, b = new.ravel()
-            c, d = old.ravel()
-            if i % 2 == 0:
-                raw_vectors.append([float(c), float(d), float(a), float(b)])
+        # Calculate movement and Draw Visualization
+        if len(good_new) > 0:
+            DT = 1/30 # Assuming 30 FPS
+            velocities = (good_new - good_old) / DT 
+            avg_velocity = np.mean(velocities, axis=0)
             
-            cv2.line(viz_frame, (int(a), int(b)), (int(c), int(d)), (0, 255, 0), 2)
-            cv2.circle(viz_frame, (int(a), int(b)), 3, (0, 0, 255), -1)
+            # Draw tracks
+            for i, (new, old) in enumerate(zip(good_new, good_old)):
+                a, b = new.ravel()
+                c, d = old.ravel()
+                # Draw the movement line (Green)
+                visualized_frame = cv2.line(visualized_frame, (int(a), int(b)), (int(c), int(d)), (0, 255, 0), 2)
+                # Draw the current point (Red)
+                visualized_frame = cv2.circle(visualized_frame, (int(a), int(b)), 3, (0, 0, 255), -1)
 
-        self.prev_gray = current_gray.copy()
-        self.prev_pts = good_new.reshape(-1, 1, 2)
+            # Use the constant imported from settings.py
+            flow_rate_mps = abs(avg_velocity[0]) * PIXELS_TO_METERS
+            rise_rate_mps = -avg_velocity[1] * PIXELS_TO_METERS 
+        else:
+            flow_rate_mps = 0.0
+            rise_rate_mps = 0.0
 
-        return flow_mps, rise_mps, viz_frame, raw_vectors
+        # Update the state for the next frame
+        self.previous_frame_gray = current_frame_gray
+        self.previous_points = good_new.reshape(-1, 1, 2)
+
+        return round(flow_rate_mps, 2), round(rise_rate_mps, 2), visualized_frame

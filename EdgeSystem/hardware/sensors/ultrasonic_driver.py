@@ -1,49 +1,56 @@
+import RPi.GPIO as GPIO
 import time
-import random
-from config.settings import TRIG_PIN, ECHO_PIN
 
-try:
-    import RPi.GPIO as GPIO
-    IS_PI = True
-except (ImportError, RuntimeError):
-    IS_PI = False
-    print(" [Hardware] RPi.GPIO not found. Using Simulated Distance Data.")
+# Pin Configuration (Match your wiring!)
+TRIG_PIN = 23
+ECHO_PIN = 24
 
 def init_sensor():
-    if not IS_PI: return 
-    try:
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setwarnings(False)
-        GPIO.setup(TRIG_PIN, GPIO.OUT)
-        GPIO.setup(ECHO_PIN, GPIO.IN)
-        GPIO.output(TRIG_PIN, False)
-        time.sleep(0.5) 
-        print("JSN-SR04T Initialized.")
-    except Exception as e:
-        print(f"Error initializing Ultrasonic: {e}")
+    """Initializes GPIO pins for the sensor."""
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(TRIG_PIN, GPIO.OUT)
+    GPIO.setup(ECHO_PIN, GPIO.IN)
+    GPIO.output(TRIG_PIN, False)
+    time.sleep(0.3) # Allow sensor to settle
 
 def get_distance():
-    if not IS_PI:
-        # Simulates a water distance between 1.5m and 4.0m
-        return round(random.uniform(1.5, 4.0), 3)
-
+    """Reads the distance from the ultrasonic sensor in METERS."""
     try:
+        # Ensure pins are set up if called repeatedly
+        init_sensor() 
+        
+        # Send 10us pulse
         GPIO.output(TRIG_PIN, True)
-        time.sleep(0.00002) 
+        time.sleep(0.00001)
         GPIO.output(TRIG_PIN, False)
 
         pulse_start = time.time()
+        pulse_end = time.time()
         timeout_start = time.time()
 
+        # Wait for Echo to go HIGH
         while GPIO.input(ECHO_PIN) == 0:
             pulse_start = time.time()
-            if pulse_start - timeout_start > 0.1: return 0.0 
+            if pulse_start - timeout_start > 0.1: 
+                return 0.0 # Timeout
 
+        # Wait for Echo to go LOW
         while GPIO.input(ECHO_PIN) == 1:
             pulse_end = time.time()
-            if pulse_end - pulse_start > 0.1: return 0.0 
+            if pulse_end - pulse_start > 0.1: 
+                return 0.0 # Timeout
 
-        distance_m = ((pulse_end - pulse_start) * 17150) / 100
-        return round(max(0.20, distance_m), 3)
-    except:
+        pulse_duration = pulse_end - pulse_start
+        
+        # Distance = (Time * Speed of Sound) / 2
+        # Speed of sound ~ 34300 cm/s
+        distance_cm = pulse_duration * 17150
+        distance_m = distance_cm / 100
+
+        return round(distance_m, 3)
+
+    except Exception as e:
+        print(f"Sensor Error: {e}")
         return 0.0
+    finally:
+        GPIO.cleanup()

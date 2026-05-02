@@ -3,7 +3,6 @@ package com.surgealert.service;
 import com.surgealert.dto.SensorDataDTO;
 import com.surgealert.entity.SensorData;
 import com.surgealert.repository.SensorDataRepository;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -12,76 +11,35 @@ import java.util.stream.Collectors;
 
 @Service
 public class SensorDataService {
-
     private final SensorDataRepository sensorDataRepository;
-
-    // Reads from application.properties → surgealert.sensor.depth-m → SENSOR_DEPTH_M in .env
-    @Value("${surgealert.sensor.depth-m:6.1}")
-    private double sensorDepthM;
-
-    // REMOVED IS_AQUARIUM_MODE to prevent logic conflict with Edge System.
-    // We now strictly trust the Edge system's judgment.
 
     public SensorDataService(SensorDataRepository sensorDataRepository) {
         this.sensorDataRepository = sensorDataRepository;
     }
 
     public SensorData saveSensorData(SensorDataDTO dto) {
-        // --- DATA GUARD: REJECT GHOST VALUES / NOISE ---
-        // Typical ultrasonic sensor noise (like 0.17m, 0.10m) is blocked.
-        // Anything below 0.30m in a river context is likely an erroneous reading or sensor floor.
-        if (dto.getWaterLevelM() != null && dto.getWaterLevelM() < 0.30) {
-            System.out.println(" [DATA GUARD] Blocking ghost value: " + dto.getWaterLevelM() + "m");
-            return null; 
-        }
-
         SensorData sensorData = new SensorData();
-
-        // Set Basic Data
         sensorData.setTimestamp(dto.getTimestamp() != null ? dto.getTimestamp() : LocalDateTime.now());
         sensorData.setWaterLevelM(dto.getWaterLevelM());
         sensorData.setSensorFlowRateMps(dto.getSensorFlowRateMps());
         sensorData.setImageFlowRateMps(dto.getImageFlowRateMps());
         sensorData.setImageRiseRateMps(dto.getImageRiseRateMps());
-
-        // --- 1. ALERT LEVEL LOGIC (TRUST THE EDGE) ---
-        // If hardware (Edge) sends a status, use it explicitly.
+        
+        // LOGIC: If hardware sends status, use it. If not, calculate it here.
         String alertLevel = dto.getCurrentAlertLevel();
-        
         if (alertLevel == null || alertLevel.isEmpty()) {
-            // Only calculate as a fallback if Edge sent nothing
-            alertLevel = calculateFallbackAlertLevel(dto.getWaterLevelM());
-        }
-        sensorData.setCurrentAlertLevel(alertLevel.toUpperCase());
-
-        // --- 2. PREDICTION DATA LOGIC (TRUST THE EDGE) ---
-        if (dto.getPredictedLevel() != null) {
-            sensorData.setPredictedLevel(dto.getPredictedLevel());
-        } else {
-            // Fallback to current level if AI failed
-            sensorData.setPredictedLevel(dto.getWaterLevelM());
-        }
-
-        // Trust Edge's predicted alert level
-        String predictedAlert = dto.getPredictedAlertLevel();
-        if (predictedAlert != null && !predictedAlert.isEmpty()) {
-            sensorData.setPredictedAlertLevel(predictedAlert);
-        } else {
-            // Fallback calculation
-            sensorData.setPredictedAlertLevel(calculateFallbackAlertLevel(sensorData.getPredictedLevel()));
+            alertLevel = calculateAlertLevel(dto.getWaterLevelM());
         }
         
-        // Note: The image (SnapshotBase64) is not saved to the DB entity here 
-        // because the SensorData entity doesn't usually store the full image string 
-        // to keep the DB light. It is handled in memory by the Controller.
+        sensorData.setCurrentAlertLevel(alertLevel.toUpperCase());
         
         return sensorDataRepository.save(sensorData);
     }
 
     public SensorDataDTO getLatestSensorData() {
-        return sensorDataRepository.findFirstByWaterLevelMGreaterThanEqualOrderByTimestampDesc(0.30)
+        return sensorDataRepository.findFirstByOrderByTimestampDesc()
                 .map(this::convertToDTO)
-                .orElse(null);
+                .orElse(null); // Returns null if no data exists (Offline state)
     }
 
     public List<SensorDataDTO> getRecentSensorData(int hours) {
@@ -100,22 +58,15 @@ public class SensorDataService {
         dto.setImageFlowRateMps(sensorData.getImageFlowRateMps());
         dto.setImageRiseRateMps(sensorData.getImageRiseRateMps());
         dto.setCurrentAlertLevel(sensorData.getCurrentAlertLevel());
-
-        // Return Prediction Data
-        dto.setPredictedLevel(sensorData.getPredictedLevel());
-        dto.setPredictedAlertLevel(sensorData.getPredictedAlertLevel());
-
         return dto;
     }
 
-    // Fallback alert classifier — used only when the Edge system is offline.
-    // Thresholds are derived from sensorDepthM which comes from SENSOR_DEPTH_M in .env.
-    // Mirrors the ratios in: EdgeSystem/config/settings.py and ConfigController.java
-    private String calculateFallbackAlertLevel(Double waterLevel) {
+    // CENTRALIZED LOGIC FOR ALERT STATUS
+    private String calculateAlertLevel(Double waterLevel) {
         if (waterLevel == null) return "GREEN";
-        if (waterLevel >= sensorDepthM * 0.90) return "RED";    // ~5.49 m at 6.1 m depth
-        if (waterLevel >= sensorDepthM * 0.74) return "ORANGE"; // ~4.51 m
-        if (waterLevel >= sensorDepthM * 0.57) return "YELLOW"; // ~3.48 m
-        return "GREEN";
+        if (waterLevel < 15.0) return "GREEN";
+        if (waterLevel >= 15.0 && waterLevel < 16.0) return "YELLOW";
+        if (waterLevel >= 16.0 && waterLevel < 18.0) return "ORANGE";
+        return "RED";
     }
 }

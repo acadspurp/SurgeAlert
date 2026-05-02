@@ -19,10 +19,10 @@ public class WeatherResponse {
         @JsonProperty("weathercode")
         private List<Integer> weathercode;
         
-        @JsonProperty("apparent_temperature_max")
+        @JsonProperty("temperature_2m_max")
         private List<Double> temperatureMax;
         
-        @JsonProperty("apparent_temperature_min")
+        @JsonProperty("temperature_2m_min")
         private List<Double> temperatureMin;
 
         // Getters and Setters
