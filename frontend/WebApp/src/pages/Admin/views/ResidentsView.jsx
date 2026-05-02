@@ -22,7 +22,7 @@ export default function ResidentsView(props) {
 
   // 1. Apply Filtering (Search + Priority)
   const filteredData = useMemo(() => {
-    let result = (Array.isArray(residents) ? residents : []);
+    let result = [...(Array.isArray(residents) ? residents : [])];
 
     // Search filter
     if (searchTerm.trim()) {

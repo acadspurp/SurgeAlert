@@ -22,28 +22,58 @@ def init_sensor():
     except Exception as e:
         print(f"Error initializing Ultrasonic: {e}")
 
+import collections
+
+# Queue for median filtering (size defined in settings)
+from config.settings import SMOOTHING_WINDOW
+reading_queue = collections.deque(maxlen=SMOOTHING_WINDOW)
+
 def get_distance():
     if not IS_PI:
         # Simulates a water distance between 1.5m and 4.0m
         return round(random.uniform(1.5, 4.0), 3)
 
     try:
+        # Trigger the sensor
         GPIO.output(TRIG_PIN, True)
-        time.sleep(0.00002) 
+        time.sleep(0.00001) # JSN-SR04T requires 10us trigger
         GPIO.output(TRIG_PIN, False)
 
         pulse_start = time.time()
+        pulse_end = time.time()
         timeout_start = time.time()
 
+        # Wait for ECHO to go high
         while GPIO.input(ECHO_PIN) == 0:
             pulse_start = time.time()
-            if pulse_start - timeout_start > 0.1: return 0.0 
+            if pulse_start - timeout_start > 0.05: # 50ms timeout
+                return _get_smoothed_value(0.0)
 
+        # Wait for ECHO to go low
         while GPIO.input(ECHO_PIN) == 1:
             pulse_end = time.time()
-            if pulse_end - pulse_start > 0.1: return 0.0 
+            if pulse_end - pulse_start > 0.05: # 50ms timeout
+                return _get_smoothed_value(0.0)
 
-        distance_m = ((pulse_end - pulse_start) * 17150) / 100
-        return round(max(0.20, distance_m), 3)
-    except:
+        duration = pulse_end - pulse_start
+        # distance = (time * speed of sound) / 2
+        distance_m = (duration * 343) / 2
+        
+        # JSN-SR04T min distance is ~20-25cm
+        final_val = round(max(0.20, distance_m), 3)
+        return _get_smoothed_value(final_val)
+    except Exception as e:
+        print(f" [Hardware] Ultrasonic Read Error: {e}")
+        return _get_smoothed_value(0.0)
+
+def _get_smoothed_value(new_val):
+    """Internal helper to apply median filtering to raw readings."""
+    if new_val > 0:
+        reading_queue.append(new_val)
+    
+    if not reading_queue:
         return 0.0
+        
+    # Return median of the last N readings to filter spikes
+    sorted_readings = sorted(list(reading_queue))
+    return sorted_readings[len(sorted_readings) // 2]

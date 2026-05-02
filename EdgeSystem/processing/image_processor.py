@@ -19,9 +19,9 @@ class ImageProcessor:
                               maxLevel=LK_MAX_LEVEL, 
                               criteria=LK_CRITERIA)
 
-    def process_frame(self, frame):
+    def process_frame(self, frame, water_level=0.0):
         """
-        Calculates real optical flow.
+        Calculates real optical flow using dynamic scaling based on water level.
         Returns: flow_mps, rise_mps, viz_frame, raw_vectors
         """
         if frame is None:
@@ -63,9 +63,19 @@ class ImageProcessor:
         velocities_px = displacements / dt
         avg_vel_px = np.mean(velocities_px, axis=0)
 
-        # Result Conversion
-        flow_mps = abs(avg_vel_px[0]) * PIXELS_TO_METERS
-        rise_mps = -avg_vel_px[1] * PIXELS_TO_METERS
+        # Result Conversion (Dynamic Scale based on water level)
+        # Higher water = closer to camera = more pixels per meter
+        # We assume PIXELS_TO_METERS is calibrated at mudplain (water_level=0)
+        from config.settings import SENSOR_HEIGHT_FROM_MUDPLAIN
+        
+        # Calculate distance from camera to water
+        dist_to_water = max(0.5, SENSOR_HEIGHT_FROM_MUDPLAIN - water_level)
+        
+        # Adjust scale: factor decreases as water rises (closer objects look bigger/faster)
+        dynamic_scale = PIXELS_TO_METERS * (dist_to_water / SENSOR_HEIGHT_FROM_MUDPLAIN)
+
+        flow_mps = abs(avg_vel_px[0]) * dynamic_scale
+        rise_mps = -avg_vel_px[1] * dynamic_scale
 
         raw_vectors = []
         for i, (new, old) in enumerate(zip(good_new, good_old)):
