@@ -11,7 +11,11 @@ export default function DatasetsView(props) {
     <>
 {/* DATASET REQUESTS */}
         <div className="animate-fade-in">
+<<<<<<< HEAD
             <h1 className="text-3xl font-black text-sky-100 tracking-tight mb-8 pl-10">Data Requests</h1>
+=======
+            <h1 className="mb-6 pl-0 text-2xl font-black tracking-tight text-sky-100 sm:mb-8 sm:text-3xl md:pl-10">Data Requests</h1>
+>>>>>>> parent of 06f1660b (.)
             <div className="bg-[#1e293b] rounded-2xl shadow-lg overflow-hidden border border-slate-700">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-[#0f172a]">
