@@ -210,7 +210,7 @@ export default function Home() {
 
     useEffect(() => {
         if (mqttData) {
-            processAlertData(mqttData.currentAlertLevel || 'green', mqttData.waterLevelM);
+            loadAlertStatus();
             if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${mqttData.snapshotBase64}`);
                 setCameraLastUpdated(new Date().toLocaleTimeString());
@@ -231,7 +231,22 @@ export default function Home() {
             loadTides();
         }, 3600000);
 
-        return () => clearInterval(weatherInterval);
+        const alertInterval = setInterval(() => {
+            loadAlertStatus();
+        }, 10000);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                loadAlertStatus();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(weatherInterval);
+            clearInterval(alertInterval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, []);
 
     // Auto-Simulate for local testing if API is offline or data is corrupt
@@ -327,6 +342,13 @@ export default function Home() {
     const formatTideTime = (value) =>
         value ? new Date(value * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : 'N/A';
 
+    const scrollToSafetyGuide = () => {
+        if (window.innerWidth < 768) {
+            const el = document.getElementById('safety-action-guide');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }
+    };
+
     return (
         <div id="home-view" className="min-h-screen bg-[#0f172a] text-gray-200 lg:p-6 pb-24">
 
@@ -334,9 +356,15 @@ export default function Home() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
 
                 {/* RIVER LEVEL GAUGE */}
-                <div className={`lg:col-span-5 xl:col-span-6 rounded-2xl p-4 sm:p-6 border ${colors.border} ${colors.bg} ${colors.glow} flex flex-col justify-between overflow-hidden`}>
-                    <div className="flex justify-between items-center mb-4">
+                <div 
+                    className={`lg:col-span-5 xl:col-span-6 rounded-2xl p-4 sm:p-6 border ${colors.border} ${colors.bg} ${colors.glow} flex flex-col justify-between overflow-hidden max-md:cursor-pointer active:opacity-90 transition-opacity`}
+                    onClick={scrollToSafetyGuide}
+                    role="region"
+                    aria-label="River Level Gauge. Tap to scroll to Safety Action Guide."
+                >
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4">
                         <h2 className="text-sm font-bold text-gray-400 tracking-widest uppercase">River Level Gauge</h2>
+                        <span className="text-xs text-blue-400 font-semibold sm:hidden italic mt-1">Hint: Tap card → Safety Action Guide</span>
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-center sm:items-stretch gap-4 sm:gap-6 h-full w-full">
@@ -450,7 +478,7 @@ export default function Home() {
             </div>
 
             {/* MIDDLE ROW: ACTIONS CHECKLIST */}
-            <div className={`rounded-2xl p-4 sm:p-6 mb-6 border-2 bg-gradient-to-br from-[#1e293b] to-[#0f172a] ${colors.border} ${colors.glow} min-w-0`}>
+            <div id="safety-action-guide" className={`rounded-2xl p-4 sm:p-6 mb-6 border-2 bg-gradient-to-br from-[#1e293b] to-[#0f172a] ${colors.border} ${colors.glow} min-w-0 scroll-mt-24`}>
                 <h2 className="text-xs sm:text-sm font-bold text-slate-100 tracking-widest mb-3 sm:mb-4 uppercase">Safety Action Guide</h2>
                 <div className={`w-full py-2.5 sm:py-3 px-2 text-center rounded-lg font-black text-base sm:text-xl tracking-wide sm:tracking-wider uppercase mb-4 sm:mb-6 shadow-md break-words ${alertLevelKey === 'red' ? 'bg-red-600 text-white' : alertLevelKey === 'orange' ? 'bg-orange-500 text-white' : alertLevelKey === 'yellow' ? 'bg-yellow-400 text-gray-900' : 'bg-green-500 text-white'}`}>
                     {alertLevelText}

@@ -7,6 +7,7 @@ export default function Login() {
     const navigate = useNavigate();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e) => {
@@ -69,16 +70,27 @@ export default function Login() {
                             onChange={(e) => setUsername(e.target.value)}
                         />
                     </div>
-                    <div className="mb-6">
-                        <label className="block text-gray-700 text-sm font-medium mb-2">Password</label>
-                        <input
-                            type="password"
-                            id="login-password"
-                            className="custom-input"
-                            required
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                        />
+                    <div className="mb-6 relative">
+                        <label htmlFor="login-password" className="block text-gray-700 text-sm font-medium mb-2">Password</label>
+                        <div className="relative">
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                id="login-password"
+                                autoComplete="current-password"
+                                className="custom-input pr-12"
+                                required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
+                            <button
+                                type="button"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 p-2"
+                                onClick={() => setShowPassword(!showPassword)}
+                                aria-label={showPassword ? "Hide password" : "Show password"}
+                            >
+                                <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                            </button>
+                        </div>
                     </div>
                     <button type="submit" className="custom-btn btn-blue w-full" disabled={loading}>
                         {loading ? 'Logging in...' : 'Login'}

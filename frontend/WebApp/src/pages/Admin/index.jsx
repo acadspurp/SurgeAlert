@@ -334,12 +334,7 @@ export default function Admin() {
             return;
         }
 
-        // Live Priority
-        if (mqttData && mqttData.waterLevelM !== null && mqttData.waterLevelM !== undefined) {
-            if (demoMode) {
-                setDemoMode(false); // Force demo off
-            }
-        }
+        // Demo Mode is fully decoupled from live sensor updates.
 
         if (demoMode) return;
 
@@ -419,13 +414,18 @@ export default function Admin() {
         const criticalInterval = setInterval(loadPendingCriticalAlerts, 15000);
         const canaryInterval = setInterval(loadCanaryHealth, 20000);
 
+        const dashboardInterval = setInterval(() => {
+            if (!demoMode) loadDashboardData();
+        }, 10000);
+
         return () => {
             clearInterval(tideInterval);
             clearInterval(logsInterval);
             clearInterval(criticalInterval);
             clearInterval(canaryInterval);
+            clearInterval(dashboardInterval);
         };
-    }, []);
+    }, [demoMode]);
 
     // Telemetry time changer
     useEffect(() => {
@@ -1026,7 +1026,14 @@ export default function Admin() {
     return (
         <div className="flex h-screen overflow-hidden bg-[#0f172a]">
             {/* SIDEBAR */}
-            <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-[#0f172a] text-white flex flex-col shadow-xl transition-all duration-300 relative`} id="sidebar">
+            {/* Mobile Overlay */}
+            {isSidebarOpen && (
+                <div 
+                    className="md:hidden fixed inset-0 bg-black/50 z-40"
+                    onClick={() => setIsSidebarOpen(false)}
+                ></div>
+            )}
+            <aside className={`${isSidebarOpen ? 'w-64 max-md:fixed max-md:h-full max-md:z-50 pointer-events-auto' : 'w-20 max-md:w-0 max-md:pointer-events-none'} bg-[#0f172a] text-white flex flex-col shadow-xl transition-all duration-300 relative`} id="sidebar">
                 {/* Demo Mode Toggle */}
                 <div className="absolute top-2 right-[-40px] z-50">
                     <button onClick={() => setDemoMode(!demoMode)} className={`p-2 rounded-r-lg shadow-md ${demoMode ? 'bg-orange-500 hover:bg-orange-600' : 'bg-slate-600 hover:bg-gray-400'} transition tooltip-parent`}>

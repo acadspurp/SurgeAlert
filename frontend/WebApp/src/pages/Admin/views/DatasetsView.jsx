@@ -12,7 +12,8 @@ export default function DatasetsView(props) {
 {/* DATASET REQUESTS */}
         <div className="animate-fade-in">
             <h1 className="mb-6 pl-0 text-2xl font-black tracking-tight text-sky-100 sm:mb-8 sm:text-3xl md:pl-10">Data Requests</h1>
-            <div className="bg-[#1e293b] rounded-2xl shadow-lg overflow-hidden border border-slate-700">
+            <div className="text-xs text-sky-300 italic mb-2 md:hidden">Scroll horizontally to view more <i className="fa-solid fa-arrow-right-long"></i></div>
+            <div className="bg-[#1e293b] rounded-2xl shadow-lg overflow-x-auto overscroll-x-contain border border-slate-700">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-[#0f172a]">
                         <tr>

@@ -19,7 +19,7 @@ export default function ReportsView(props) {
                 {/* Form */}
                 <div className="flex-1 space-y-6">
                     <h3 className="text-lg font-bold text-slate-100 border-b pb-2">Filter Parameters</h3>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-bold text-slate-200 mb-1">Start Date</label>
                             <input
@@ -29,7 +29,7 @@ export default function ReportsView(props) {
                               value={reportStart}
                               onClick={(e) => e.target.showPicker()}
                               onChange={(e)=>setReportStart(e.target.value)}
-                              className={`w-full border-2 rounded-xl p-3 focus:border-blue-500 outline-none transition bg-[#0f172a] border-slate-700 cursor-pointer text-white`}
+                              className={`w-full min-w-0 flex-1 break-words border-2 rounded-xl p-3 focus:border-blue-500 outline-none transition bg-[#0f172a] border-slate-700 cursor-pointer text-white`}
                             />
                         </div>
                         <div>
@@ -41,7 +41,7 @@ export default function ReportsView(props) {
                               value={reportEnd}
                               onClick={(e) => e.target.showPicker()}
                               onChange={(e)=>setReportEnd(e.target.value)}
-                              className={`w-full border-2 rounded-xl p-3 focus:border-blue-500 outline-none transition bg-[#0f172a] border-slate-700 cursor-pointer text-white`}
+                              className={`w-full min-w-0 flex-1 break-words border-2 rounded-xl p-3 focus:border-blue-500 outline-none transition bg-[#0f172a] border-slate-700 cursor-pointer text-white`}
                             />
                         </div>
                     </div>
