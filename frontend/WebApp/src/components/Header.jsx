@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { getUser, clearUser } from '../services/auth.js';
+import { logoUrl } from '../branding/logo.js';
 
 export default function Header() {
     const navigate = useNavigate();
@@ -28,7 +29,7 @@ export default function Header() {
             <nav className="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-20">
                     <div className="flex items-center gap-3 cursor-pointer header-logo" onClick={() => handleNavClick('/')}>
-                        <img src="/src/assets/logo.png" alt="SurgeAlert Logo" className="w-16 h-16 object-contain" />
+                        <img src={logoUrl} alt="" className="w-16 h-16 object-contain" aria-hidden />
                         <span className="text-2xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-300 transition-opacity duration-200">SurgeAlert</span>
                     </div>
                     {/* Desktop Menu */}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { submitDatasetRequest } from '../services/api';
+import { logoUrl } from '../branding/logo.js';
 
 export default function About() {
     const [showModal, setShowModal] = useState(false);
@@ -79,7 +80,7 @@ ${formData.abstractPurpose}
                 {/* I. Hero Section */}
                 <div className="text-center py-8 text-white border-0">
                     <div className="inline-block p-2 rounded-2xl bg-[#1e293b] mb-4 shadow-xl border border-gray-700">
-                        <img src="/src/assets/logo.png" alt="SurgeAlert" className="w-48 h-48 object-contain" />
+                        <img src={logoUrl} alt="" className="w-48 h-48 object-contain" aria-hidden />
                     </div>
                     <h1 className="text-4xl font-black tracking-tight mb-4 text-[#38bdf8]">SurgeAlert - Flood Monitoring System</h1>
                     <p className="text-lg font-medium text-gray-400">A Thesis Project by 4th-Year Computer Engineering students of Polytechnic University of the Philippines - Manila.</p>
