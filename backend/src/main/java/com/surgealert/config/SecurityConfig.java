@@ -3,6 +3,7 @@ package com.surgealert.config;
 import com.surgealert.security.AuthTokenFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -28,21 +29,36 @@ public class SecurityConfig {
         this.authTokenFilter = authTokenFilter;
     }
 
+    /**
+     * Public external APIs (weather, tides, inbound SMS) must not run behind AuthTokenFilter.
+     * Stale/invalid Bearer tokens on cross-origin browser requests can otherwise yield HTTP 403.
+     */
     @Bean
+    @Order(0)
+    public SecurityFilterChain externalApiSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .securityMatcher("/api/external/**")
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+        return http.build();
+    }
+
+    @Bean
+    @Order(1)
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.GET, "/api/external/weather", "/api/external/tides").permitAll()
                 .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/register").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/public/alerts/override").hasAnyRole("ADMIN", "HEAD_ADMIN")
                 .requestMatchers("/api/public/alerts/critical/pending/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
-                .requestMatchers("/api/public/**", "/api/public/system/**", "/api/external/**", "/api/residents/send-otp", "/api/residents/verify-otp", "/api/residents/register", "/api/residents/unsubscribe-otp").permitAll()
+                .requestMatchers("/api/public/**", "/api/public/system/**", "/api/residents/send-otp", "/api/residents/verify-otp", "/api/residents/register", "/api/residents/unsubscribe-otp").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/sensor-data").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/sensor-data/latest").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/external/sms/receive").permitAll()
                 .requestMatchers("/api/admin/**", "/api/admin/templates/**", "/api/admin/datasets", "/api/admin/datasets/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
                 .requestMatchers("/api/sensor-data/recent", "/api/sensor-data/audit", "/api/sensor-data/reports/export").hasAnyRole("ADMIN", "HEAD_ADMIN")
                 .requestMatchers("/api/residents/active", "/api/residents/id/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
