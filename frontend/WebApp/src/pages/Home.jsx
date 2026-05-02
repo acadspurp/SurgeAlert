@@ -38,6 +38,14 @@ export default function Home() {
         thresholds: { yellow: 3.48, orange: 4.51, red: 5.49 }
     });
 
+<<<<<<< HEAD
+=======
+    const sensorConfigRef = useRef(sensorConfig);
+    useEffect(() => {
+        sensorConfigRef.current = sensorConfig;
+    }, [sensorConfig]);
+
+>>>>>>> parent of 6e2b3a28 (.)
     const getCurrentTideSummary = (events) => {
         if (!Array.isArray(events) || events.length === 0) return { status: 'Normal', nextHigh: null, nextLow: null };
         const now = new Date();
@@ -339,7 +347,11 @@ export default function Home() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
 
                 {/* RIVER LEVEL GAUGE */}
+<<<<<<< HEAD
                 <div className={`lg:col-span-5 xl:col-span-6 rounded-2xl p-6 border ${colors.border} ${colors.bg} ${colors.glow} flex flex-col justify-between overflow-hidden`}>
+=======
+                <div className={`lg:col-span-5 xl:col-span-6 rounded-2xl p-4 sm:p-6 border ${colors.border} ${colors.bg} ${colors.glow} flex flex-col justify-between overflow-hidden`}>
+>>>>>>> parent of 6e2b3a28 (.)
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-sm font-bold text-gray-400 tracking-widest uppercase">River Level Gauge</h2>
                     </div>
@@ -455,9 +467,15 @@ export default function Home() {
             </div>
 
             {/* MIDDLE ROW: ACTIONS CHECKLIST */}
+<<<<<<< HEAD
             <div className={`rounded-2xl p-6 mb-6 border-2 bg-gradient-to-br from-[#1e293b] to-[#0f172a] ${colors.border} ${colors.glow}`}>
                 <h2 className="text-sm font-bold text-slate-100 tracking-widest mb-4 uppercase">Safety Action Guide</h2>
                 <div className={`w-full py-3 text-center rounded-lg font-black text-xl tracking-wider uppercase mb-6 shadow-md ${alertLevelKey === 'red' ? 'bg-red-600 text-white' : alertLevelKey === 'orange' ? 'bg-orange-500 text-white' : alertLevelKey === 'yellow' ? 'bg-yellow-400 text-gray-900' : 'bg-green-500 text-white'}`}>
+=======
+            <div className={`rounded-2xl p-4 sm:p-6 mb-6 border-2 bg-gradient-to-br from-[#1e293b] to-[#0f172a] ${colors.border} ${colors.glow} min-w-0`}>
+                <h2 className="text-xs sm:text-sm font-bold text-slate-100 tracking-widest mb-3 sm:mb-4 uppercase">Safety Action Guide</h2>
+                <div className={`w-full py-2.5 sm:py-3 px-2 text-center rounded-lg font-black text-base sm:text-xl tracking-wide sm:tracking-wider uppercase mb-4 sm:mb-6 shadow-md break-words ${alertLevelKey === 'red' ? 'bg-red-600 text-white' : alertLevelKey === 'orange' ? 'bg-orange-500 text-white' : alertLevelKey === 'yellow' ? 'bg-yellow-400 text-gray-900' : 'bg-green-500 text-white'}`}>
+>>>>>>> parent of 6e2b3a28 (.)
                     {alertLevelText}
                 </div>
                 <div dangerouslySetInnerHTML={{ __html: alertHtml }}></div>
