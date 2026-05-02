@@ -35,6 +35,7 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.GET, "/api/external/weather", "/api/external/tides").permitAll()
                 .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/register").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/public/alerts/override").hasAnyRole("ADMIN", "HEAD_ADMIN")
                 .requestMatchers("/api/public/alerts/critical/pending/**").hasAnyRole("ADMIN", "HEAD_ADMIN")

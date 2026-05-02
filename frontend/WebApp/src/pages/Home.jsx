@@ -193,7 +193,10 @@ export default function Home() {
             console.error('Failed to fetch weather:', error);
             if (!silent) {
                 setWeatherCards([]);
-                setWeatherError('Could not load weather forecast. Check that the backend is reachable and can reach Open-Meteo.');
+                setWeatherError(
+                    error?.message
+                    || 'Could not load weather forecast. Check that the backend is reachable and can reach Open-Meteo.'
+                );
             }
         } finally {
             if (!silent) setIsWeatherLoading(false);

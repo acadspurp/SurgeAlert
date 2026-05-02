@@ -1,5 +1,6 @@
 package com.surgealert.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surgealert.dto.TideResponse;
 import com.surgealert.dto.WeatherResponse;
@@ -9,11 +10,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import java.net.URI;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -44,14 +51,15 @@ public class ExternalApiService {
     private final double TIDE_LON = 120.963;
 
     public WeatherResponse fetchWeatherForecast() {
-        // Open-Meteo does not require an API key
-        String url = String.format(
-            "https://api.open-meteo.com/v1/forecast?latitude=%s&longitude=%s&daily=weathercode,apparent_temperature_max,apparent_temperature_min&timezone=Asia/Manila",
-            LAT, LON
-        );
-
         try {
-            return restTemplate.getForObject(url, WeatherResponse.class);
+            URI uri = UriComponentsBuilder.fromHttpUrl("https://api.open-meteo.com/v1/forecast")
+                    .queryParam("latitude", LAT)
+                    .queryParam("longitude", LON)
+                    .queryParam("daily", "weathercode,apparent_temperature_max,apparent_temperature_min")
+                    .queryParam("timezone", "Asia/Manila")
+                    .build()
+                    .toUri();
+            return restTemplate.getForObject(uri, WeatherResponse.class);
         } catch (Exception e) {
             e.printStackTrace();
             return null; // Controller will handle the null
@@ -90,35 +98,109 @@ public class ExternalApiService {
         }
 
         String key = tideApiKey != null ? tideApiKey.trim() : "";
-        if (key.isEmpty()) {
-            System.err.println("WARNING: WORLDTIDES_API_KEY is missing in .env! Tide data will not be fetched.");
-            TideResponse errorResponse = new TideResponse();
-            errorResponse.setError("Tide API Key is missing. Check your .env file.");
-            return errorResponse;
+        TideResponse worldTides = null;
+
+        if (!key.isEmpty()) {
+            try {
+                URI uri = UriComponentsBuilder.fromHttpUrl("https://www.worldtides.info/api/v3")
+                        .queryParam("extremes", "")
+                        .queryParam("lat", TIDE_LAT)
+                        .queryParam("lon", TIDE_LON)
+                        .queryParam("key", key)
+                        .build()
+                        .toUri();
+                worldTides = restTemplate.getForObject(uri, TideResponse.class);
+                if (worldTides != null
+                        && worldTides.getError() == null
+                        && worldTides.getExtremes() != null
+                        && !worldTides.getExtremes().isEmpty()) {
+                    try {
+                        String json = objectMapper.writeValueAsString(worldTides);
+                        tideCacheRepository.save(new TideCache(today, json));
+                    } catch (Exception saveEx) {
+                        System.err.println("Tide cache save failed (returning live data anyway): " + saveEx.getMessage());
+                    }
+                    return worldTides;
+                }
+            } catch (Exception e) {
+                System.err.println("WorldTides request failed (will try marine fallback): " + e.getMessage());
+            }
+        } else {
+            System.err.println("WORLDTIDES_API_KEY empty; using Open-Meteo marine tide model.");
         }
 
-        String keyEncoded = URLEncoder.encode(key, StandardCharsets.UTF_8);
-        String url = String.format(
-            "https://www.worldtides.info/api/v3?extremes&lat=%s&lon=%s&key=%s",
-            TIDE_LAT, TIDE_LON, keyEncoded
-        );
+        TideResponse marine = fetchTidesFromMarineModel();
+        if (marine != null) {
+            return marine;
+        }
 
+        if (worldTides != null && worldTides.getError() != null && !worldTides.getError().isBlank()) {
+            return worldTides;
+        }
+
+        TideResponse errorResponse = new TideResponse();
+        if (key.isEmpty()) {
+            errorResponse.setError("Tide API key is missing and the marine tide fallback failed.");
+        } else {
+            errorResponse.setError("WorldTides returned no usable data (often HTTP 403: invalid key, no credits, or IP blocked). Marine fallback also failed.");
+        }
+        return errorResponse;
+    }
+
+    /**
+     * Open-Meteo marine model (no API key). Coarser than WorldTides; used when WorldTides is unavailable.
+     */
+    private TideResponse fetchTidesFromMarineModel() {
+        String url = String.format(
+                "https://marine-api.open-meteo.com/v1/marine?latitude=%s&longitude=%s&hourly=sea_level_height_msl&forecast_days=4&timezone=Asia/Manila",
+                TIDE_LAT, TIDE_LON);
         try {
-            TideResponse response = restTemplate.getForObject(url, TideResponse.class);
-            if (response != null && response.getError() == null) {
-                try {
-                    String json = objectMapper.writeValueAsString(response);
-                    tideCacheRepository.save(new TideCache(today, json));
-                } catch (Exception saveEx) {
-                    System.err.println("Tide cache save failed (returning live data anyway): " + saveEx.getMessage());
+            JsonNode root = restTemplate.getForObject(url, JsonNode.class);
+            if (root == null || !root.has("hourly")) {
+                return null;
+            }
+            JsonNode hourly = root.get("hourly");
+            JsonNode times = hourly.get("time");
+            JsonNode heights = hourly.get("sea_level_height_msl");
+            if (times == null || heights == null || !times.isArray() || times.size() < 3) {
+                return null;
+            }
+
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
+            ZoneId zone = ZoneId.of("Asia/Manila");
+            List<TideResponse.TideExtreme> extremes = new ArrayList<>();
+
+            for (int i = 1; i < times.size() - 1; i++) {
+                double prev = heights.get(i - 1).asDouble();
+                double cur = heights.get(i).asDouble();
+                double next = heights.get(i + 1).asDouble();
+                String timeStr = times.get(i).asText();
+                long epochSec = ZonedDateTime.of(LocalDateTime.parse(timeStr, fmt), zone).toEpochSecond();
+                if (cur > prev && cur > next) {
+                    TideResponse.TideExtreme e = new TideResponse.TideExtreme();
+                    e.setDt(epochSec);
+                    e.setType("High");
+                    e.setHeight(cur);
+                    e.setDate(timeStr);
+                    extremes.add(e);
+                } else if (cur < prev && cur < next) {
+                    TideResponse.TideExtreme e = new TideResponse.TideExtreme();
+                    e.setDt(epochSec);
+                    e.setType("Low");
+                    e.setHeight(cur);
+                    e.setDate(timeStr);
+                    extremes.add(e);
                 }
             }
-            return response;
+            if (extremes.isEmpty()) {
+                return null;
+            }
+            TideResponse r = new TideResponse();
+            r.setExtremes(extremes);
+            return r;
         } catch (Exception e) {
-            e.printStackTrace();
-            TideResponse errorResponse = new TideResponse();
-            errorResponse.setError("Backend failed to fetch tides: " + e.getMessage());
-            return errorResponse;
+            System.err.println("Open-Meteo marine tide fallback failed: " + e.getMessage());
+            return null;
         }
     }
 }
