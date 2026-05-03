@@ -103,7 +103,7 @@ export default function ResidentsView(props) {
 
           {/* Filters & Add Button */}
           <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
-            <div className="flex gap-2 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <select 
                 value={priorityFilter}
                 onChange={(e) => { setPriorityFilter(e.target.value); setCurrentPage(1); }}
