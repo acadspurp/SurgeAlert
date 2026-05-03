@@ -29,33 +29,15 @@ public class ConfigController {
     @Value("${surgealert.sensor.depth-m:6.1}")
     private double sensorDepthM;
 
-    // Threshold ratios — same percentages used by EdgeSystem/config/settings.py
-    private static final double YELLOW_RATIO = 0.57;
-    private static final double ORANGE_RATIO = 0.74;
-    private static final double RED_RATIO    = 0.90;
-
-    /**
-     * Returns sensor depth and all alert thresholds, computed from the single env var.
-     *
-     * Response shape:
-     * {
-     *   "sensorDepthM": 6.1,
-     *   "thresholds": {
-     *     "yellow": 3.48,
-     *     "orange": 4.51,
-     *     "red":    5.49
-     *   }
-     * }
-     */
     @GetMapping("/thresholds")
     public ResponseEntity<Map<String, Object>> getThresholds() {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("sensorDepthM", sensorDepthM);
 
         Map<String, Double> thresholds = new LinkedHashMap<>();
-        thresholds.put("yellow", round2(sensorDepthM * YELLOW_RATIO));
-        thresholds.put("orange", round2(sensorDepthM * ORANGE_RATIO));
-        thresholds.put("red",    round2(sensorDepthM * RED_RATIO));
+        thresholds.put("yellow", 2.50);
+        thresholds.put("orange", 4.00);
+        thresholds.put("red",    5.50);
         response.put("thresholds", thresholds);
 
         return ResponseEntity.ok(response);

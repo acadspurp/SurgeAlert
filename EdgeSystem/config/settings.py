@@ -108,13 +108,11 @@ else:
 
     PIXELS_TO_METERS = 0.01
 
-    # Thresholds derived as a % of total sensor depth
-    #   RED      → 90%  (near capacity, high flood risk)
-    #   CRITICAL → 98%  (river overflowing, catastrophic)
-    WATER_LEVEL_YELLOW_THRESHOLD   = round(SENSOR_HEIGHT_FROM_MUDPLAIN * 0.57, 2)
-    WATER_LEVEL_ORANGE_THRESHOLD   = round(SENSOR_HEIGHT_FROM_MUDPLAIN * 0.74, 2)
-    WATER_LEVEL_RED_THRESHOLD      = round(SENSOR_HEIGHT_FROM_MUDPLAIN * 0.90, 2)
-    WATER_LEVEL_CRITICAL_THRESHOLD = round(SENSOR_HEIGHT_FROM_MUDPLAIN * 0.98, 2)
+    # Thresholds (Meters) - Synchronized with ML Model E
+    WATER_LEVEL_YELLOW_THRESHOLD   = 2.50
+    WATER_LEVEL_ORANGE_THRESHOLD   = 4.00
+    WATER_LEVEL_RED_THRESHOLD      = 5.50
+    WATER_LEVEL_CRITICAL_THRESHOLD = 6.00
 
     # Real river uses real tide height (1:1 ratio)
     TIDE_SCALING_FACTOR = 1.0

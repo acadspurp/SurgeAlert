@@ -480,8 +480,8 @@ export default function Admin() {
                     ...prev,
                     waterLevel: newWl.toFixed(2) + ' m',
                     flowRate: randomFlow.toFixed(2) + ' m/s',
-                    status: newWl >= 8.5 ? 'RED' : newWl >= 7.0 ? 'ORANGE' : newWl >= 6.0 ? 'YELLOW' : 'GREEN',
-                    statusColor: newWl >= 8.5 ? 'text-red-600' : newWl >= 7.0 ? 'text-orange-500' : newWl >= 6.0 ? 'text-yellow-500' : 'text-green-600',
+                    status: newWl >= 5.5 ? 'RED' : newWl >= 4.0 ? 'ORANGE' : newWl >= 2.5 ? 'YELLOW' : 'GREEN',
+                    statusColor: newWl >= 5.5 ? 'text-red-600' : newWl >= 4.0 ? 'text-orange-500' : newWl >= 2.5 ? 'text-yellow-500' : 'text-green-600',
                     prediction: (newWl + 0.5).toFixed(2) + ' m'
                 }));
 
@@ -776,9 +776,9 @@ export default function Admin() {
         const predStr = dashData.prediction.replace(' m', '');
         const predVal = parseFloat(predStr);
         if (isNaN(predVal)) return 'NORMAL';
-        if (predVal >= 1.0) return 'RED';
-        if (predVal >= 0.7) return 'ORANGE';
-        if (predVal >= 0.4) return 'YELLOW';
+        if (predVal >= 5.5) return 'RED';
+        if (predVal >= 4.0) return 'ORANGE';
+        if (predVal >= 2.5) return 'YELLOW';
         return 'NORMAL';
     };
 

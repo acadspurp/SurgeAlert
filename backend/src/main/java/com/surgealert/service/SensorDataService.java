@@ -209,10 +209,10 @@ public class SensorDataService {
     // Mirrors the ratios in: EdgeSystem/config/settings.py and ConfigController.java
     private String calculateFallbackAlertLevel(Double waterLevel) {
         if (waterLevel == null) return "GREEN";
-        if (waterLevel >= sensorDepthM * 0.98) return "CRITICAL"; // Overflow imminent
-        if (waterLevel >= sensorDepthM * 0.90) return "RED";      // ~5.49 m at 6.1 m depth
-        if (waterLevel >= sensorDepthM * 0.74) return "ORANGE";   // ~4.51 m
-        if (waterLevel >= sensorDepthM * 0.57) return "YELLOW";   // ~3.48 m
+        if (waterLevel >= 6.00) return "CRITICAL"; // Synchronized with Edge
+        if (waterLevel >= 5.50) return "RED";      // Synchronized with Edge
+        if (waterLevel >= 4.00) return "ORANGE";   // Synchronized with Edge
+        if (waterLevel >= 2.50) return "YELLOW";   // Synchronized with Edge
         return "GREEN";
     }
 }
