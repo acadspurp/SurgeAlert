@@ -47,7 +47,7 @@ export default function DashboardView(props) {
                                 <p className="text-sm text-slate-300">Current Logic Status: <span className="font-bold">{dashData.status}</span></p>
                                 <p className="mt-1 flex flex-wrap items-center text-sm text-slate-300">
                                     <span className="mr-1">AI Recommended Status:</span>
-                                    <span className={`font-bold ${aiRecommendedStatus === 'RED' ? 'text-red-600' : aiRecommendedStatus === 'ORANGE' ? 'text-orange-500' : aiRecommendedStatus === 'YELLOW' ? 'text-yellow-600' : 'text-green-600'}`}>
+                                    <span className={`font-bold ${aiRecommendedStatus === 'CRITICAL' ? 'text-purple-600 font-black animate-pulse' : aiRecommendedStatus === 'RED' ? 'text-red-600' : aiRecommendedStatus === 'ORANGE' ? 'text-orange-500' : aiRecommendedStatus === 'YELLOW' ? 'text-yellow-600' : 'text-green-600'}`}>
                                         {aiRecommendedStatus}
                                     </span>
                                     {isDivergent && <i className="fa-solid fa-triangle-exclamation ml-2 shrink-0 animate-pulse text-yellow-500" title="Divergence Detected!"></i>}
@@ -60,6 +60,7 @@ export default function DashboardView(props) {
                                     <button type="button" onClick={() => handleOverride('YELLOW')} className="touch-manipulation min-h-[48px] rounded-lg bg-yellow-400 px-2 py-2 text-center text-sm font-bold text-yellow-900 shadow transition hover:bg-yellow-500 active:scale-[0.98] sm:min-h-0 sm:px-4 sm:py-2">Yellow</button>
                                     <button type="button" onClick={() => handleOverride('ORANGE')} className="touch-manipulation min-h-[48px] rounded-lg bg-orange-500 px-2 py-2 text-center text-sm font-bold text-white shadow transition hover:bg-orange-600 active:scale-[0.98] sm:min-h-0 sm:px-4 sm:py-2">Orange</button>
                                     <button type="button" onClick={() => handleOverride('RED')} className="touch-manipulation min-h-[48px] rounded-lg bg-red-600 px-2 py-2 text-center text-sm font-bold text-white shadow transition hover:bg-red-700 active:scale-[0.98] sm:min-h-0 sm:px-4 sm:py-2">Red</button>
+                                    <button type="button" onClick={() => handleOverride('CRITICAL')} className="touch-manipulation min-h-[48px] rounded-lg bg-purple-700 col-span-2 sm:col-auto px-2 py-2 text-center text-sm font-bold text-white shadow transition hover:bg-purple-800 active:scale-[0.98] sm:min-h-0 sm:px-4 sm:py-2">Critical/Evac</button>
                                 </div>
                                 {aiRecommendedStatus !== 'NORMAL' && (
                                     <button type="button" onClick={() => handleOverride(aiRecommendedStatus)} className="touch-manipulation flex w-full items-center justify-center rounded-full border border-blue-800 bg-blue-900/40 px-3 py-2 text-xs font-bold text-blue-400 transition hover:bg-blue-900/60 active:scale-[0.98] sm:w-auto">
@@ -80,6 +81,20 @@ export default function DashboardView(props) {
                     <DashboardCard title="Active Warning Subscribers" value={dashData.subscriberCount} icon="fa-users" color="teal" subtitle="Residents currently receiving texts." />
                 </div>
 
+                {/* ENVIRONMENTAL CONTEXT */}
+                <div className="mb-6">
+                    <h2 className="text-lg font-bold text-sky-100 mb-4 flex items-center px-1">
+                        <i className="fa-solid fa-cloud-sun-rain mr-2 text-cyan-400"></i> Environmental Context
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+                        <DashboardCard title="QC Rain (Upstream)" value={dashData.qcRain} icon="fa-cloud-showers-heavy" color="blue" subtitle="Quezon City area" />
+                        <DashboardCard title="Marulas Rain (Site)" value={dashData.marulasRain} icon="fa-cloud-rain" color="indigo" subtitle="Local precipitation" />
+                        <DashboardCard title="Tide Height" value={dashData.tideHeight} icon="fa-arrow-up-wide-short" color="cyan" subtitle="Current sea level" />
+                        <DashboardCard title="Air Pressure" value={dashData.pressure} icon="fa-compress" color="slate" subtitle="Atmospheric pressure" />
+                        <DashboardCard title="Wind Speed" value={dashData.wind} icon="fa-wind" color="teal" subtitle="Local wind velocity" />
+                    </div>
+                </div>
+
                 {/* HEALTH + MINI-LOG */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                     <div className="bg-[#1e293b] p-6 rounded-2xl shadow-lg border border-slate-700">
@@ -92,6 +107,7 @@ export default function DashboardView(props) {
                             <HealthRow label="Ultrasonic" ok={hardwareOnline} />
                             <HealthRow label="Speed Radar" ok={hardwareOnline} />
                         </div>
+
                         <div className="mt-4 text-xs text-slate-200">
                             {demoMode ? 'Mocked as online for presentations.' : 'Online if receiving telemetry in the last ~12 seconds.'}
                         </div>

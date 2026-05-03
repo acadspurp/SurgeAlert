@@ -9,7 +9,7 @@ class PiCameraDriver:
         self.cap = cv2.VideoCapture(CAMERA_INDEX)
             
         if not self.cap.isOpened():
-            print("ERROR: Could not open laptop camera. Try changing CAMERA_INDEX to 1 in settings.")
+            print(f"ERROR: Could not open Hardware Camera (Index {CAMERA_INDEX}). Please check physical connection.")
             raise RuntimeError("Camera initialization failed.")
             
         # Set Resolution
@@ -17,7 +17,7 @@ class PiCameraDriver:
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, IMAGE_HEIGHT)
         
         time.sleep(1)
-        print("Camera Initialized Successfully (Laptop Mode).")
+        print("Hardware Camera Initialized Successfully.")
 
     def capture_frame(self):
         ret, frame = self.cap.read()

@@ -11,17 +11,22 @@ function ensureApiPathSuffix(url) {
 
 const envApiBaseUrl = ensureApiPathSuffix(import.meta.env.VITE_API_BASE_URL || "");
 
+const PRODUCTION_URL = "https://surgealert-web.pages.dev"; // <-- PUT YOUR LINK HERE
+
 function defaultApiBaseUrl() {
-  // Prefer explicit build-time env (Cloudflare Pages → Variables). Must match Render's
-  // "your-service.onrender.com" URL exactly — each Render service has a unique subdomain.
   const originFallback = (import.meta.env.VITE_BACKEND_ORIGIN || "").trim().replace(/\/+$/, "");
   if (originFallback) {
     return `${originFallback}/api`;
   }
-  if (typeof window !== "undefined" && window.location.hostname.endsWith("pages.dev")) {
-    return "https://surgealert-backend-fxqk.onrender.com/api";
+
+  // If running locally, use localhost. If on production, use the PRODUCTION_URL
+  if (typeof window !== "undefined") {
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      return "http://localhost:8080/api";
+    }
   }
-  return "http://localhost:8080/api";
+
+  return `${PRODUCTION_URL}/api`;
 }
 
 // Normalize trailing slash so endpoint joins stay consistent.

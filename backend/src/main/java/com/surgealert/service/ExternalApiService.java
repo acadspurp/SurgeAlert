@@ -75,7 +75,10 @@ public class ExternalApiService {
 
             if (cacheOpt.isPresent()) {
                 try {
-                    return objectMapper.readValue(cacheOpt.get().getJsonResponse(), TideResponse.class);
+                    TideResponse cachedResponse = objectMapper.readValue(cacheOpt.get().getJsonResponse(), TideResponse.class);
+                    if (hasFutureExtremes(cachedResponse)) {
+                        return cachedResponse;
+                    }
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -87,7 +90,10 @@ public class ExternalApiService {
                 long age = Math.abs(ChronoUnit.DAYS.between(latest.getFetchDate(), today));
                 if (age <= Math.max(0, tideCacheMaxAgeDays)) {
                     try {
-                        return objectMapper.readValue(latest.getJsonResponse(), TideResponse.class);
+                        TideResponse cachedResponse = objectMapper.readValue(latest.getJsonResponse(), TideResponse.class);
+                        if (hasFutureExtremes(cachedResponse)) {
+                            return cachedResponse;
+                        }
                     } catch (Exception ignored) {
                         // fall through to network refresh
                     }
@@ -104,6 +110,7 @@ public class ExternalApiService {
             try {
                 URI uri = UriComponentsBuilder.fromHttpUrl("https://www.worldtides.info/api/v3")
                         .queryParam("extremes", "")
+                        .queryParam("days", "3")
                         .queryParam("lat", TIDE_LAT)
                         .queryParam("lon", TIDE_LON)
                         .queryParam("key", key)
@@ -202,5 +209,18 @@ public class ExternalApiService {
             System.err.println("Open-Meteo marine tide fallback failed: " + e.getMessage());
             return null;
         }
+    }
+
+    private boolean hasFutureExtremes(TideResponse response) {
+        if (response == null || response.getExtremes() == null || response.getExtremes().isEmpty()) {
+            return false;
+        }
+        long nowSeconds = System.currentTimeMillis() / 1000;
+        for (TideResponse.TideExtreme extreme : response.getExtremes()) {
+            if (extreme.getDt() > nowSeconds) {
+                return true;
+            }
+        }
+        return false;
     }
 }

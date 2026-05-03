@@ -14,7 +14,7 @@ public class SensorData {
     @Column(nullable = false)
     private LocalDateTime timestamp;
 
-    @Column(nullable = false)
+    @Column(name = "water_level", nullable = false)
     private Double waterLevelM;
 
     @Column(nullable = false)
@@ -23,18 +23,25 @@ public class SensorData {
     @Column(nullable = false)
     private Double imageFlowRateMps;
 
-    @Column(nullable = false)
+    @Column(name = "rise_rate", nullable = false)
     private Double imageRiseRateMps;
+
+    @Column(name = "sensor_rise_rate", nullable = true)
+    private Double sensorRiseRate;
 
     @Column(nullable = false)
     private String currentAlertLevel; // GREEN, YELLOW, ORANGE, RED
 
-    // --- NEW COLUMNS FOR AI PREDICTION ---
-    @Column(nullable = true) // Nullable because old data won't have predictions
+    // --- NEW COLUMNS FOR AI PREDICTION (Derived from sensors) ---
+    @Column(nullable = true) 
     private Double predictedLevel;
 
     @Column(nullable = true)
     private String predictedAlertLevel;
+
+    @Lob
+    @Column(name = "image_base64", columnDefinition = "TEXT")
+    private String imageBase64;
 
     @PrePersist
     protected void onCreate() {
@@ -66,10 +73,15 @@ public class SensorData {
     public String getCurrentAlertLevel() { return currentAlertLevel; }
     public void setCurrentAlertLevel(String currentAlertLevel) { this.currentAlertLevel = currentAlertLevel; }
 
-    // --- NEW GETTERS/SETTERS ---
     public Double getPredictedLevel() { return predictedLevel; }
     public void setPredictedLevel(Double predictedLevel) { this.predictedLevel = predictedLevel; }
 
     public String getPredictedAlertLevel() { return predictedAlertLevel; }
     public void setPredictedAlertLevel(String predictedAlertLevel) { this.predictedAlertLevel = predictedAlertLevel; }
+
+    public String getImageBase64() { return imageBase64; }
+    public void setImageBase64(String imageBase64) { this.imageBase64 = imageBase64; }
+
+    public Double getSensorRiseRate() { return sensorRiseRate; }
+    public void setSensorRiseRate(Double sensorRiseRate) { this.sensorRiseRate = sensorRiseRate; }
 }

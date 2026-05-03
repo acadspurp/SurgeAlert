@@ -34,7 +34,7 @@ def calculate_water_level(distance_from_sensor):
     if len(_recent_levels) >= 3:
         water_level = float(median(_recent_levels))
     
-    return max(0.0, water_level)
+    return round(max(0.0, water_level), 2)
 
 if __name__ == '__main__':
     print("--- Testing Sensor Data Processor ---")

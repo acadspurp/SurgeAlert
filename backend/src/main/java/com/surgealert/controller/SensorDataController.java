@@ -178,7 +178,9 @@ public class SensorDataController {
     public ResponseEntity<String> generateReport(
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
-            @RequestParam(defaultValue = "true") boolean includeTelemetry,
+            @RequestParam(defaultValue = "true") boolean includeRaw,
+            @RequestParam(defaultValue = "true") boolean includeCalculated,
+            @RequestParam(defaultValue = "true") boolean includeAlerts,
             @RequestParam(defaultValue = "true") boolean includeAI) {
         DateRange parsedRange = null;
         if ((startDate != null && !startDate.isBlank()) || (endDate != null && !endDate.isBlank())) {
@@ -200,11 +202,9 @@ public class SensorDataController {
             }
         }
         
-        // "Good-looking" CSV template with a title block, summary rows, then data table.
-        List<SensorDataDTO> all = sensorDataService.getRecentSensorData(24 * 30); // Max 30 days
+        List<SensorDataDTO> all = sensorDataService.getRecentSensorData(24 * 30);
         final DateRange range = parsedRange;
 
-        // Filter by date range when provided (YYYY-MM-DD)
         List<SensorDataDTO> filtered = all.stream().filter(d -> {
             if (d == null || d.getTimestamp() == null) return false;
             if (range != null) {
@@ -214,64 +214,68 @@ public class SensorDataController {
             return true;
         }).toList();
 
-        // Compute summary stats (telemetry only)
+        // Summary Stats
         Stats wlStats = new Stats();
         Stats frStats = new Stats();
         for (SensorDataDTO d : filtered) {
-            if (includeTelemetry) {
-                wlStats.accept(d.getWaterLevelM());
-                frStats.accept(d.getSensorFlowRateMps());
-            }
+            wlStats.accept(d.getWaterLevelM());
+            frStats.accept(d.getSensorFlowRateMps());
         }
 
         StringBuilder csv = new StringBuilder();
-        csv.append(csvRow("SurgeAlert Report")).append("\n");
-        csv.append(csvRow("")).append("\n");
-
-        csv.append(csvRow("Metric", "Value")).append("\n");
+        csv.append(csvRow("SurgeAlert Detailed Export Report")).append("\n");
         csv.append(csvRow("Generated At", java.time.LocalDateTime.now().toString())).append("\n");
-        csv.append(csvRow("Date Range", (startDate == null || startDate.isBlank() ? "—" : startDate) + " to " + (endDate == null || endDate.isBlank() ? "—" : endDate))).append("\n");
-        csv.append(csvRow("Rows Exported", String.valueOf(filtered.size()))).append("\n");
+        csv.append(csvRow("Date Range", (startDate == null || startDate.isBlank() ? "Entire History" : startDate + " to " + endDate))).append("\n");
+        csv.append(csvRow("Total Records", String.valueOf(filtered.size()))).append("\n\n");
 
-        if (includeTelemetry) {
-            csv.append(csvRow("")).append("\n");
-            csv.append(csvRow("Telemetry Summary", "")).append("\n");
-            csv.append(csvRow("Water Level (m) - Min", wlStats.minStr(2))).append("\n");
-            csv.append(csvRow("Water Level (m) - Avg", wlStats.avgStr(2))).append("\n");
-            csv.append(csvRow("Water Level (m) - Max", wlStats.maxStr(2))).append("\n");
-            csv.append(csvRow("Flow Rate (m/s) - Min", frStats.minStr(2))).append("\n");
-            csv.append(csvRow("Flow Rate (m/s) - Avg", frStats.avgStr(2))).append("\n");
-            csv.append(csvRow("Flow Rate (m/s) - Max", frStats.maxStr(2))).append("\n");
+        if (includeCalculated || includeRaw) {
+            csv.append(csvRow("Summary Statistics (Last 30 Days/Range)")).append("\n");
+            if (includeCalculated) {
+                csv.append(csvRow("Water Level (m) [Min/Avg/Max]", wlStats.minStr(2), wlStats.avgStr(2), wlStats.maxStr(2))).append("\n");
+            }
+            if (includeRaw) {
+                csv.append(csvRow("Flow Rate (m/s) [Min/Avg/Max]", frStats.minStr(2), frStats.avgStr(2), frStats.maxStr(2))).append("\n");
+            }
+            csv.append("\n");
         }
 
-        csv.append("\n");
-        csv.append(csvRow("Data")).append("\n");
-
-        // Header row
+        // Header
         StringBuilder header = new StringBuilder();
         header.append(csvCell("Timestamp"));
-        if (includeTelemetry) {
-            header.append(",").append(csvCell("Water Level (m)"))
-                  .append(",").append(csvCell("Sensor Flow Rate (m/s)"))
-                  .append(",").append(csvCell("Optical Flow Rate (m/s)"))
-                  .append(",").append(csvCell("Current Alert Level"));
+        if (includeCalculated) header.append(",").append(csvCell("Water Level (m)"));
+        if (includeRaw) {
+            header.append(",").append(csvCell("Radar Flow (m/s)"))
+                  .append(",").append(csvCell("Optical Flow (m/s)"))
+                  .append(",").append(csvCell("Rise Rate (m/s)"))
+                  .append(",").append(csvCell("Tide_Height_m"))
+                  .append(",").append(csvCell("Rain_mm"))
+                  .append(",").append(csvCell("Pressure_hPa"))
+                  .append(",").append(csvCell("Wind_Speed"));
         }
+        if (includeAlerts) header.append(",").append(csvCell("Current Alert Status"));
         if (includeAI) {
-            header.append(",").append(csvCell("Predicted Level (m)"));
+            header.append(",").append(csvCell("AI Predicted Level (m)"))
+                  .append(",").append(csvCell("AI Predicted Status"));
         }
         csv.append(header).append("\n");
 
         for (SensorDataDTO d : filtered) {
             StringBuilder row = new StringBuilder();
             row.append(csvCell(d.getTimestamp().toString()));
-            if (includeTelemetry) {
-                row.append(",").append(csvCell(numOrBlank(d.getWaterLevelM())))
-                   .append(",").append(csvCell(numOrBlank(d.getSensorFlowRateMps())))
+            if (includeCalculated) row.append(",").append(csvCell(numOrBlank(d.getWaterLevelM())));
+            if (includeRaw) {
+                row.append(",").append(csvCell(numOrBlank(d.getSensorFlowRateMps())))
                    .append(",").append(csvCell(numOrBlank(d.getImageFlowRateMps())))
-                   .append(",").append(csvCell(d.getCurrentAlertLevel() != null ? d.getCurrentAlertLevel() : ""));
+                   .append(",").append(csvCell(numOrBlank(d.getImageRiseRateMps())))
+                   .append(",").append(csvCell(numOrBlank(d.getTideHeightM())))
+                   .append(",").append(csvCell(numOrBlank(d.getRainMm())))
+                   .append(",").append(csvCell(numOrBlank(d.getPressureHpa())))
+                   .append(",").append(csvCell(numOrBlank(d.getWindSpeedKph())));
             }
+            if (includeAlerts) row.append(",").append(csvCell(d.getCurrentAlertLevel()));
             if (includeAI) {
-                row.append(",").append(csvCell(numOrBlank(d.getPredictedLevel())));
+                row.append(",").append(csvCell(numOrBlank(d.getPredictedLevel())))
+                   .append(",").append(csvCell(d.getPredictedAlertLevel()));
             }
             csv.append(row).append("\n");
         }

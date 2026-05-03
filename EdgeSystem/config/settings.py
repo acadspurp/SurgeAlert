@@ -56,6 +56,9 @@ MQTT_USERNAME = os.getenv("MQTT_USERNAME", "")
 MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "")
 MQTT_TOPIC_SENSOR = "surgealert/sensor-data"
 
+# --- TIDES API ---
+WORLDTIDES_API_KEY = os.getenv("WORLDTIDES_API_KEY", "")
+
 
 # --- CAMERA ---
 CAMERA_INDEX = 0
@@ -106,12 +109,12 @@ else:
     PIXELS_TO_METERS = 0.01
 
     # Thresholds derived as a % of total sensor depth
-    #   YELLOW → 57%  (past halfway, rising trend possible)
-    #   ORANGE → 74%  (¾ full, action window narrowing)
-    #   RED    → 90%  (near capacity, evacuate immediately)
-    WATER_LEVEL_YELLOW_THRESHOLD = round(SENSOR_HEIGHT_FROM_MUDPLAIN * 0.57, 2)
-    WATER_LEVEL_ORANGE_THRESHOLD = round(SENSOR_HEIGHT_FROM_MUDPLAIN * 0.74, 2)
-    WATER_LEVEL_RED_THRESHOLD    = round(SENSOR_HEIGHT_FROM_MUDPLAIN * 0.90, 2)
+    #   RED      → 90%  (near capacity, high flood risk)
+    #   CRITICAL → 98%  (river overflowing, catastrophic)
+    WATER_LEVEL_YELLOW_THRESHOLD   = round(SENSOR_HEIGHT_FROM_MUDPLAIN * 0.57, 2)
+    WATER_LEVEL_ORANGE_THRESHOLD   = round(SENSOR_HEIGHT_FROM_MUDPLAIN * 0.74, 2)
+    WATER_LEVEL_RED_THRESHOLD      = round(SENSOR_HEIGHT_FROM_MUDPLAIN * 0.90, 2)
+    WATER_LEVEL_CRITICAL_THRESHOLD = round(SENSOR_HEIGHT_FROM_MUDPLAIN * 0.98, 2)
 
     # Real river uses real tide height (1:1 ratio)
     TIDE_SCALING_FACTOR = 1.0

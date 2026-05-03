@@ -5,13 +5,19 @@ import HealthRow from '../components/HealthRow';
 import TelemetryCard from '../components/TelemetryCard';
 
 export default function ReportsView(props) {
-  const { demoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, openCreateUserModal, openEditUserModal, saveUserModal, beginEditTemplate, cancelEditTemplate, saveEditedTemplate, handleDeleteAdminUser, approveDatasetRequest } = props;
-
-
+  const { 
+    reportStart, setReportStart, reportEnd, setReportEnd, 
+    reportRaw, setReportRaw,
+    reportCalculated, setReportCalculated,
+    reportAlerts, setReportAlerts,
+    reportAI, setReportAI, 
+    reportSms, setReportSms, 
+    reportSubscribers, setReportSubscribers, 
+    handleDownloadReport 
+  } = props;
 
   return (
     <>
-{/* 6. REPORTS */}
         <div className="animate-fade-in w-full max-w-4xl min-w-0">
             <h1 className="mb-6 pl-0 text-2xl font-black tracking-tight text-sky-100 sm:mb-8 sm:text-3xl md:pl-10">Download Reports</h1>
             
@@ -49,17 +55,29 @@ export default function ReportsView(props) {
                     <div className="min-w-0">
                         <label className="mb-3 block text-sm font-bold text-slate-200">Data to Include</label>
                         <div className="space-y-3 rounded-xl border border-slate-700 bg-[#0f172a] p-4 shadow-inner">
-                            <label className="flex cursor-pointer items-start gap-3 rounded-lg p-1 group hover:bg-[#1e293b]/80" onClick={() => setReportTelemetry(!reportTelemetry)}>
-                                <div className={"mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 border-blue-500 transition-colors " + (reportTelemetry ? 'bg-blue-500' : 'bg-[#1e293b]')}>
-                                    {reportTelemetry && <i className="fa-solid fa-check text-xs text-white"></i>}
+                            <label className="flex cursor-pointer items-start gap-3 rounded-lg p-1 group hover:bg-[#1e293b]/80" onClick={() => setReportRaw(!reportRaw)}>
+                                <div className={"mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 border-blue-500 transition-colors " + (reportRaw ? 'bg-blue-500' : 'bg-[#1e293b]')}>
+                                    {reportRaw && <i className="fa-solid fa-check text-xs text-white"></i>}
                                 </div>
-                                <span className="min-w-0 flex-1 break-words text-sm font-semibold text-slate-200 transition group-hover:font-bold group-hover:text-white">Sensor Telemetry Data</span>
+                                <span className="min-w-0 flex-1 break-words text-sm font-semibold text-slate-200 transition group-hover:font-bold group-hover:text-white">Raw Sensor Readings (Flow/Rise)</span>
+                            </label>
+                            <label className="flex cursor-pointer items-start gap-3 rounded-lg p-1 group hover:bg-[#1e293b]/80" onClick={() => setReportCalculated(!reportCalculated)}>
+                                <div className={"mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 border-blue-500 transition-colors " + (reportCalculated ? 'bg-blue-500' : 'bg-[#1e293b]')}>
+                                    {reportCalculated && <i className="fa-solid fa-check text-xs text-white"></i>}
+                                </div>
+                                <span className="min-w-0 flex-1 break-words text-sm font-semibold text-slate-200 transition group-hover:font-bold group-hover:text-white">Calculated Water Level (m)</span>
+                            </label>
+                            <label className="flex cursor-pointer items-start gap-3 rounded-lg p-1 group hover:bg-[#1e293b]/80" onClick={() => setReportAlerts(!reportAlerts)}>
+                                <div className={"mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 border-blue-500 transition-colors " + (reportAlerts ? 'bg-blue-500' : 'bg-[#1e293b]')}>
+                                    {reportAlerts && <i className="fa-solid fa-check text-xs text-white"></i>}
+                                </div>
+                                <span className="min-w-0 flex-1 break-words text-sm font-semibold text-slate-200 transition group-hover:font-bold group-hover:text-white">Current Alert Status (Green-Red)</span>
                             </label>
                             <label className="flex cursor-pointer items-start gap-3 rounded-lg p-1 group hover:bg-[#1e293b]/80" onClick={() => setReportAI(!reportAI)}>
                                 <div className={"mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 border-blue-500 transition-colors " + (reportAI ? 'bg-blue-500' : 'bg-[#1e293b]')}>
                                     {reportAI && <i className="fa-solid fa-check text-xs text-white"></i>}
                                 </div>
-                                <span className="min-w-0 flex-1 break-words text-sm font-semibold text-slate-200 transition group-hover:font-bold group-hover:text-white">AI Performance & Predictions</span>
+                                <span className="min-w-0 flex-1 break-words text-sm font-semibold text-slate-200 transition group-hover:font-bold group-hover:text-white">AI Flood Prediction (ML)</span>
                             </label>
                             <label className="flex cursor-pointer items-start gap-3 rounded-lg p-1 group hover:bg-[#1e293b]/80" onClick={() => setReportSms(!reportSms)}>
                                 <div className={"mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 border-blue-500 transition-colors " + (reportSms ? 'bg-blue-500' : 'bg-[#1e293b]')}>

@@ -63,7 +63,10 @@ export default function Admin() {
     const [activeView, setActiveView] = useState('dashboard');
     const [dashData, setDashData] = useState({
         waterLevel: '-- m', flowRate: '-- m/s', status: 'Normal', statusColor: 'text-green-600',
-        prediction: '-- m', predColor: 'text-slate-400', subscriberCount: 0
+        prediction: '-- m', predColor: 'text-slate-400', subscriberCount: 0,
+        batteryLevel: '--',
+        qcRain: '-- mm', marulasRain: '-- mm', tideHeight: '-- m', 
+        pressure: '-- hPa', wind: '-- kph'
     });
     const [cameraImg, setCameraImg] = useState(null);
     const [cameraLastUpdated, setCameraLastUpdated] = useState(null);
@@ -80,7 +83,9 @@ export default function Admin() {
     // Report Data
     const [reportStart, setReportStart] = useState("");
     const [reportEnd, setReportEnd] = useState("");
-    const [reportTelemetry, setReportTelemetry] = useState(true);
+    const [reportRaw, setReportRaw] = useState(true);
+    const [reportCalculated, setReportCalculated] = useState(true);
+    const [reportAlerts, setReportAlerts] = useState(true);
     const [reportAI, setReportAI] = useState(true);
     const [reportSms, setReportSms] = useState(false);
     const [reportSubscribers, setReportSubscribers] = useState(false);
@@ -169,7 +174,8 @@ export default function Admin() {
 
                 const level = data.alertLevel || 'OFFLINE';
                 newDash.status = level;
-                if (level === 'RED') newDash.statusColor = 'text-red-600';
+                if (level === 'CRITICAL') newDash.statusColor = 'text-purple-600 font-black animate-pulse';
+                else if (level === 'RED') newDash.statusColor = 'text-red-600';
                 else if (level === 'ORANGE') newDash.statusColor = 'text-orange-500';
                 else if (level === 'YELLOW') newDash.statusColor = 'text-yellow-500';
                 else if (level === 'GREEN') newDash.statusColor = 'text-green-600';
@@ -369,6 +375,13 @@ export default function Admin() {
                 newDash.prediction = mqttData.predictedLevel.toFixed(2) + ' m';
             }
 
+            // NEW ENVIRONMENTAL FIELDS
+            newDash.qcRain = (mqttData.QC_Rain_mm !== null && mqttData.QC_Rain_mm !== undefined) ? mqttData.QC_Rain_mm.toFixed(1) + ' mm' : '-- mm';
+            newDash.marulasRain = (mqttData.Marulas_Rain_mm !== null && mqttData.Marulas_Rain_mm !== undefined) ? mqttData.Marulas_Rain_mm.toFixed(1) + ' mm' : '-- mm';
+            newDash.tideHeight = (mqttData.Tide_Height_m !== null && mqttData.Tide_Height_m !== undefined) ? mqttData.Tide_Height_m.toFixed(2) + ' m' : '-- m';
+            newDash.pressure = (mqttData.Pressure_hPa !== null && mqttData.Pressure_hPa !== undefined) ? mqttData.Pressure_hPa.toFixed(0) + ' hPa' : '-- hPa';
+            newDash.wind = (mqttData.Wind_Speed !== null && mqttData.Wind_Speed !== undefined) ? mqttData.Wind_Speed.toFixed(1) + ' kph' : '-- kph';
+
             setDashData(newDash);
 
             if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
@@ -561,7 +574,7 @@ export default function Admin() {
     const handleDownloadReport = async (format) => {
         try {
             // Use the backend CSV generator which handles massive datasets and proper date filtering
-            const blob = await downloadReport(reportStart, reportEnd, reportTelemetry, reportAI);
+            const blob = await downloadReport(reportStart, reportEnd, reportRaw, reportCalculated, reportAlerts, reportAI);
             
             // Create a temporary link to download the blob
             const url = window.URL.createObjectURL(blob);
@@ -1106,7 +1119,9 @@ export default function Admin() {
                 </div>
                 {(() => {
                     const viewProps = {
-                        demoMode, setDemoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, editingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
+                        demoMode, setDemoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, 
+                        reportRaw, setReportRaw, reportCalculated, setReportCalculated, reportAlerts, setReportAlerts,
+                        reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, editingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
                         openCreateUserModal, openEditUserModal, saveUserModal,
                         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
                         handleDeleteAdminUser,

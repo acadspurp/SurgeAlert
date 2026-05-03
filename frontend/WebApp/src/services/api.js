@@ -319,7 +319,7 @@ export async function fetchSensorData(hours = 24) {
 }
 
 // --- ADMIN: REPORTS ---
-export async function downloadReport(startDate, endDate, includeTelemetry, includeAI) {
+export async function downloadReport(startDate, endDate, includeRaw, includeCalculated, includeAlerts, includeAI) {
     const normalizeUiDate = (value) => {
         if (!value) return '';
         // Accept YYYY-MM-DD from HTML date pickers or MM-DD-YYYY from custom input.
@@ -331,8 +331,17 @@ export async function downloadReport(startDate, endDate, includeTelemetry, inclu
     };
     const start = normalizeUiDate(startDate);
     const end = normalizeUiDate(endDate);
-    // Return the URL for direct download or fetch blob
-    const response = await apiFetch(`${API_BASE_URL}/sensor-data/reports/export?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}&includeTelemetry=${includeTelemetry}&includeAI=${includeAI}`);
+    
+    const params = new URLSearchParams({
+        startDate: start,
+        endDate: end,
+        includeRaw: includeRaw,
+        includeCalculated: includeCalculated,
+        includeAlerts: includeAlerts,
+        includeAI: includeAI
+    });
+
+    const response = await apiFetch(`${API_BASE_URL}/sensor-data/reports/export?${params.toString()}`);
     if (!response.ok) throw new Error('Failed to generate report');
     return await response.blob();
 }

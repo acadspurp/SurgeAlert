@@ -10,7 +10,8 @@ from config.settings import (
     MODEL_PATH, 
     WATER_LEVEL_YELLOW_THRESHOLD, 
     WATER_LEVEL_ORANGE_THRESHOLD, 
-    WATER_LEVEL_RED_THRESHOLD
+    WATER_LEVEL_RED_THRESHOLD,
+    WATER_LEVEL_CRITICAL_THRESHOLD
 )
 
 class AlertManager:
@@ -36,43 +37,74 @@ class AlertManager:
             print(f" [AI] CRITICAL ERROR loading model: {e}")
             self.model = None
 
-    def determine_alert_level(self, water_level):
+    def determine_alert_level(self, water_level, predicted_level=None, rise_rate_per_hour=0.0):
         """
-        Rule-Based Logic: Determines the alert level (color) based on strict thresholds.
-        Args: water_level (float)
-        Returns: str ('GREEN', 'YELLOW', 'ORANGE', 'RED')
+        Intelligent Alert Logic:
+        1. CRITICAL: Physical overflow OR predicted overflow within 1 hour.
+        2. RED: Dangerously high levels (90%+) OR predicted danger + rising tide.
+        3. ORANGE: Moderate levels (74%+) OR extremely fast rise rate (Flash Flood).
         """
         if water_level is None:
             return "GREEN"
             
+        # --- LEVEL 5: CRITICAL ---
+        # Immediate overflow OR Predicted overflow in 1 hour (includes tide)
+        if water_level >= WATER_LEVEL_CRITICAL_THRESHOLD:
+            return "CRITICAL"
+        
+        if predicted_level is not None and predicted_level >= 6.0: 
+             return "CRITICAL"
+
+        # --- LEVEL 4: RED ---
+        # High Risk stage.
         if water_level >= WATER_LEVEL_RED_THRESHOLD:
             return "RED"
-        elif water_level >= WATER_LEVEL_ORANGE_THRESHOLD:
-            return "ORANGE"
-        elif water_level >= WATER_LEVEL_YELLOW_THRESHOLD:
-            return "YELLOW"
-        else:
-            return "GREEN"
+        
+        # --- FLASH FLOOD & TIDE MOMENTUM ESCALATION ---
+        # If water is rising very fast (>0.5m per hour) and we are already at Orange, jump to Red.
+        if rise_rate_per_hour >= 0.5 and water_level >= WATER_LEVEL_ORANGE_THRESHOLD:
+            return "RED"
 
-    def predict_future_level(self, current_level, flow_rate, rise_rate):
+        # --- LEVEL 3: ORANGE ---
+        if water_level >= WATER_LEVEL_ORANGE_THRESHOLD:
+            return "ORANGE"
+            
+        # --- LEVEL 2: YELLOW ---
+        if water_level >= WATER_LEVEL_YELLOW_THRESHOLD or rise_rate_per_hour >= 0.3:
+            return "YELLOW"
+            
+        return "GREEN"
+
+    def predict_alert_class(self, water_level, rise_rate_cv, rise_rate_sensor, tide_level, 
+                           qc_rain, qc_lag1, qc_lag2,
+                           mar_rain, mar_lag1, mar_lag2, mar_3h, mar_6h, mar_24h,
+                           pressure, wind, soil_moisture):
         """
-        AI Logic: Predicts water level 1 hour into the future.
-        Input order must match train_model.py: [water_level, flow_rate, rise_rate]
+        AI Logic: Predicts the ALERT CLASS based on your professional 16-feature vector.
+        Input order (MUST match train_model.py): 
+        [water_level, rise_rate_cv, rise_rate_sensor, Tide_Height_m, 
+         QC_Rain_mm, QC_Lag1, QC_Lag2, Marulas_Rain_mm, Mar_Lag1, Mar_Lag2, 
+         Mar_3hr_Sum, Mar_6hr_Sum, Mar_24hr_Sum, Pressure_hPa, Wind_Speed, Soil_Moisture_pct]
         """
-        # Fallback if model failed to load
         if self.model is None:
-            return current_level
+            return None
 
         try:
-            # Prepare input vector
-            features = np.array([[current_level, flow_rate, rise_rate]])
+            # Prepare input vector (Must match train_model.py exactly)
+            features = np.array([[
+                water_level, rise_rate_cv, rise_rate_sensor, tide_level,
+                qc_rain, qc_lag1, qc_lag2,
+                mar_rain, mar_lag1, mar_lag2, mar_3h, mar_6h, mar_24h,
+                pressure, wind, soil_moisture
+            ]])
             
-            # Predict
-            predicted_level = self.model.predict(features)[0]
+            # Predict (Returns 0, 1, 2, or 3)
+            pred_index = int(self.model.predict(features)[0])
             
-            # Safety clamp: Water level cannot be negative
-            return max(0.0, float(predicted_level))
+            # Map index back to String Levels based on user's dataset definition
+            mapping = {0: "GREEN", 1: "YELLOW", 2: "ORANGE", 3: "RED"}
+            return mapping.get(pred_index, "GREEN")
             
         except Exception as e:
             print(f" [AI] Prediction Error: {e}")
-            return current_level
+            return None
