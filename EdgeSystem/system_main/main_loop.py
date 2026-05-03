@@ -49,6 +49,40 @@ def send_to_backend(payload, mqtt_client):
         print(f" [Net] MQTT Publish Error: {e}")
         return False
 
+def sync_system_config(db, mode="all"):
+    """Fetches all residents, templates, and OTPs from the backend to ensure offline reliability."""
+    try:
+        url = f"{BACKEND_API_URL}/edge/sync/all"
+        headers = {"X-Edge-Key": EDGE_API_KEY}
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Mode-based Syncing
+            if mode == "all":
+                if "residents" in data: db.sync_residents(data["residents"])
+                if "templates" in data: db.sync_templates(data["templates"])
+                if "otps" in data: db.sync_otps(data["otps"])
+                print(" [Sync] Full system configuration updated.")
+            elif mode == "otp":
+                if "otps" in data: db.sync_otps(data["otps"])
+                # We don't log the silent OTP sync to keep logs clean
+            
+            return True
+        else:
+            print(f" [Sync] Failed to sync config ({mode}). HTTP {response.status_code}")
+            return False
+    except Exception as e:
+        print(f" [Sync] Config sync error ({mode}): {e}")
+        return False
+
+def cleanup_expired_otps_task(db):
+    """Simple task to clean up old OTPs every 10 minutes."""
+    while True:
+        db.cleanup_expired_otps()
+        time.sleep(600) # 10 Minutes
+
 def sync_offline_data(db, mqtt_client):
     """Syncs unsynced data from SQLite to the backend."""
     if not mqtt_client.is_connected():
@@ -117,9 +151,25 @@ def main():
     
     try:
         print(f" [Net] Connecting to Secure MQTT Broker at {MQTT_BROKER}...")
+        
+        # Define callback for outbound SMS (Backend asking Pi to send SMS)
+        def on_message(client, userdata, msg):
+            if msg.topic == "surgealert/outbound/sms":
+                try:
+                    data = json.loads(msg.payload.decode())
+                    num = data.get("number")
+                    txt = data.get("message")
+                    if num and txt and sms:
+                        print(f" [SMS] Received Outbound Request for {num}")
+                        sms.send_sms(num, txt)
+                except Exception as e:
+                    print(f" [SMS] Failed to process outbound MQTT SMS: {e}")
+
+        mqtt_client.on_message = on_message
         mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        mqtt_client.subscribe("surgealert/outbound/sms")
         mqtt_client.loop_start() # Start background thread for MQTT network traffic
-        print(" [Net] MQTT Connected Successfully!")
+        print(" [Net] MQTT Connected & Subscribed to Outbound SMS!")
     except Exception as e:
         print(f" [Net] MQTT Connection Failed: {e}")
 
@@ -155,6 +205,8 @@ def main():
 
     last_log_time = 0           # Force immediate first save
     last_sync_time = time.time()
+    last_config_sync = 0
+    last_otp_sync = 0
     last_sms_time = 0
     last_tide_update = 0
     TIDE_UPDATE_INTERVAL = 1800 # 30 Minutes
@@ -162,6 +214,11 @@ def main():
     WEATHER_UPDATE_INTERVAL = 3600 # 1 Hour (API Data)
     LOG_INTERVAL = 300.0        # Save and send data every 5 minutes
     SYNC_INTERVAL = 60.0        # Check for unsynced data every 60 seconds
+    CONFIG_SYNC_INTERVAL = 300.0 # Fetch new residents/templates every 5 mins
+    OTP_SYNC_INTERVAL = 60.0     # Fetch new OTPs every 1 min
+
+    # Start background cleanup task (Every 10 mins to match OTP expiry)
+    threading.Thread(target=cleanup_expired_otps_task, args=(db,), daemon=True).start()
 
     # --- AGGREGATION BUFFERS ---
     # We will collect readings every 1 second, store them here, and process them every 5 minutes.
@@ -255,19 +312,27 @@ def main():
                 db.log_tide_metrics(tide_now)
                 db.log_weather_metrics(weather_data)
                 
-                # 2. AI-based Alert Prediction
-                ai_pred_alert = alerter.predict_alert_class(
-                    agg_wl, agg_img_rise, agg_sensor_rise, tide_future, 
-                    weather_data["QC_Rain_mm"], weather_data["QC_Lag1"], weather_data["QC_Lag2"],
-                    weather_data["Marulas_Rain_mm"], weather_data["Mar_Lag1"], weather_data["Mar_Lag2"],
-                    weather_data["Mar_3hr_Sum"], weather_data["Mar_6hr_Sum"], weather_data["Mar_24hr_Sum"],
-                    weather_data["Pressure_hPa"], weather_data["Wind_Speed"], weather_data["Soil_Moisture_pct"]
-                )
+                # 2. AI-based Alert Prediction (Offline Fail-safe)
+                # If internet is down, weather_manager and tide_manager might return 0.0 or defaults.
+                # We only predict if we have "fresh" data or if the model can handle it.
+                ai_pred_alert = None
+                if weather_data.get("Pressure_hPa", 1013) != 1013: # Heuristic: if pressure isn't default, we have net
+                    ai_pred_alert = alerter.predict_alert_class(
+                        agg_wl, agg_img_rise, agg_sensor_rise, tide_future, 
+                        weather_data["QC_Rain_mm"], weather_data["QC_Lag1"], weather_data["QC_Lag2"],
+                        weather_data["Marulas_Rain_mm"], weather_data["Mar_Lag1"], weather_data["Mar_Lag2"],
+                        weather_data["Mar_3hr_Sum"], weather_data["Mar_6hr_Sum"], weather_data["Mar_24hr_Sum"],
+                        weather_data["Pressure_hPa"], weather_data["Wind_Speed"], weather_data["Soil_Moisture_pct"]
+                    )
                 
                 if ai_pred_alert:
                     agg_pred_alert = ai_pred_alert
                 else:
-                    agg_pred_alert = alerter.determine_alert_level(agg_pred_level, rise_rate_per_hour=agg_rise_h)
+                    # ML Classifier remains blank/null in logical mapping if data not available
+                    # We fallback to the deterministic alert for the UI/MQTT but mark ML as null
+                    print(" [AI] Data insufficient for ML prediction (Internet likely down). Skipping classification.")
+                    agg_pred_alert = agg_alert # Use physical alert as placeholder for UI
+                    pred_class = None # This will be saved as NULL in SQLite if handled correctly
 
                 # 3. Log ML Features Realtime
                 alert_map = {"GREEN": 0, "YELLOW": 1, "ORANGE": 2, "RED": 3, "CRITICAL": 3}
@@ -356,22 +421,38 @@ def main():
                 threading.Thread(target=sync_offline_data, args=(db, mqtt_client)).start()
                 last_sync_time = current_time
 
-            # --- F. OFFLINE FAILSAFE (SIM7600G-H) - FULLY RESTORED & PROTECTED ---
-            if current_alert == "RED":
-                print(" [ALERT] RED LEVEL DETECTED! (SMS logic prepared)")
+            # --- E.3. SYSTEM CONFIG SYNC (Residents/Templates - Every 5 mins) ---
+            if current_time - last_config_sync >= CONFIG_SYNC_INTERVAL:
+                threading.Thread(target=sync_system_config, args=(db, "all")).start()
+                last_config_sync = current_time
+
+            # --- E.4. OTP FAST SYNC (Every 1 min) ---
+            if current_time - last_otp_sync >= OTP_SYNC_INTERVAL:
+                threading.Thread(target=sync_system_config, args=(db, "otp")).start()
+                last_otp_sync = current_time
+
+            # --- F. EMERGENCY SMS ALERTING (Using Local Templates) ---
+            if current_alert in ["ORANGE", "RED"]:
+                print(f" [ALERT] {current_alert} LEVEL DETECTED! (SMS processing...)")
                 current_time = time.time()
+                # Rate limit SMS to every 5 minutes per alert state
                 if current_time - last_sms_time >= 300: 
                     try:
                         recipients = db.get_all_registered_phone_numbers()
+                        template = db.get_template(current_alert)
+                        
                         if recipients and sms:
+                            # Fallback if no template synced yet
+                            msg = template if template else f"SURGE ALERT: {current_alert}! Water level at {current_wl:.2f}m. Evacuate if necessary."
+                            # Replace placeholders if they exist in template
+                            msg = msg.replace("{{level}}", f"{current_wl:.2f}m")
+                            msg = msg.replace("{{alert}}", current_alert)
+
                             for number in recipients:
-                                msg = (f"SURGE ALERT: CRITICAL! Water level at {current_wl:.2f}m. "
-                                       f"Flow: {radar_flow:.2f}mps. Evacuate immediately!")
                                 threading.Thread(target=sms.send_sms, args=(number, msg)).start()
                             last_sms_time = current_time
                     except Exception as e:
-                        # Cross-Dependency: Catch all errors so SMS failure doesn't stop logging
-                        print(f" [SMS] Failed to process emergency alerts (Non-Fatal): {e}")
+                        print(f" [SMS] Failed to process emergency alerts: {e}")
 
             # --- G. VISUALIZATION & OUTPUT ---
             print(f"WL: {current_wl:.2f}m | Tide: {tide_effect:+.3f}m | Pred: {pred_level:.2f}m | P.Alert: {pred_alert}", flush=True)

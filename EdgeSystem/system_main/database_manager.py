@@ -131,6 +131,24 @@ class DatabaseManager:
                     FOREIGN KEY(sensor_data_id) REFERENCES sensor_data(id)
                 )
             """)
+
+            # 7. Alert Templates (Synced from Backend)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS alert_templates (
+                    alert_type TEXT PRIMARY KEY,
+                    template TEXT NOT NULL
+                )
+            """)
+
+            # 8. OTP Cache (Synced from Backend for offline verification)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS otp_cache (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    otp_code TEXT NOT NULL,
+                    phone_number TEXT NOT NULL,
+                    expires_at TEXT NOT NULL
+                )
+            """)
             
             # Migration logic (Ensure new professional columns exist)
             try:
@@ -290,16 +308,72 @@ class DatabaseManager:
             cursor.execute("SELECT phone_number FROM residents")
             return [row[0] for row in cursor.fetchall()]
 
-    def register_resident(self, phone_number):
+    # --- SYNC HELPERS ---
+    def sync_residents(self, phone_numbers):
+        """Clears and re-populates the residents table with a fresh list from the backend."""
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("INSERT INTO residents (phone_number, registration_date) VALUES (?, ?)",
-                               (phone_number, datetime.now().isoformat()))
+                cursor.execute("DELETE FROM residents")
+                now = datetime.now().isoformat()
+                for phone in phone_numbers:
+                    cursor.execute("INSERT OR IGNORE INTO residents (phone_number, registration_date) VALUES (?, ?)", 
+                                 (phone, now))
                 conn.commit()
-            return True
-        except sqlite3.IntegrityError:
-            return False 
+                print(f" [DB] Synced {len(phone_numbers)} residents.")
+        except Exception as e:
+            print(f" [DB] Error syncing residents: {e}")
+
+    def sync_templates(self, templates_list):
+        """Updates local SMS templates."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                for t in templates_list:
+                    cursor.execute("INSERT OR REPLACE INTO alert_templates (alert_type, template) VALUES (?, ?)",
+                                 (t['alertType'].upper(), t['template']))
+                conn.commit()
+                print(f" [DB] Synced {len(templates_list)} templates.")
+        except Exception as e:
+            print(f" [DB] Error syncing templates: {e}")
+
+    def sync_otps(self, otp_map):
+        """Updates local OTP cache from backend snapshot."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                # We don't delete everything, just update/insert. 
+                # cleanup_expired_otps will handle the 20-min rule.
+                from datetime import timedelta
+                expiry = (datetime.now() + timedelta(minutes=20)).isoformat()
+                for phone, code in otp_map.items():
+                    cursor.execute("INSERT OR REPLACE INTO otp_cache (otp_code, phone_number, expires_at) VALUES (?, ?, ?)",
+                                 (code, phone, expiry))
+                conn.commit()
+        except Exception as e:
+            print(f" [DB] Error syncing OTPs: {e}")
+
+    def cleanup_expired_otps(self):
+        """Deletes OTPs older than their expiry time (20 mins)."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                now = datetime.now().isoformat()
+                cursor.execute("DELETE FROM otp_cache WHERE expires_at < ?", (now,))
+                conn.commit()
+        except Exception as e:
+            print(f" [DB] Error cleaning up OTPs: {e}")
+
+    def get_template(self, alert_type):
+        """Retrieves a specific template from the local DB."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT template FROM alert_templates WHERE alert_type = ?", (alert_type.upper(),))
+                row = cursor.fetchone()
+                return row[0] if row else None
+        except Exception:
+            return None
 
     def log_sent_alert(self, alert_level, message, recipient_count):
         return
