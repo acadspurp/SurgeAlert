@@ -139,7 +139,6 @@ export default function Admin() {
     const [userForm, setUserForm] = useState({ fullName: '', username: '', password: '', role: 'ADMIN' });
 
     // New Features State
-    const [demoMode, setDemoMode] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
     const [trendIndicators, setTrendIndicators] = useState({ waterLevel: '-', flowRate: '-' });
@@ -152,7 +151,7 @@ export default function Admin() {
     const evacuationSitesRef = useRef([]);
 
     // Derived State for Hardware Health (Must be before useEffects that use it)
-    const hardwareOnline = demoMode ? true : (secondsSinceUpdate !== null ? secondsSinceUpdate <= 12 : false);
+    const hardwareOnline = (secondsSinceUpdate !== null ? secondsSinceUpdate <= 12 : false);
 
     const displayName = (user && (user.fullName || user.username)) || 'Admin';
 
@@ -360,8 +359,7 @@ export default function Admin() {
     useEffect(() => {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
 
-        // Handle Offline State: If hardware is disconnected and demo mode is off, reset values to --
-        if (!demoMode && !hardwareOnline) {
+        if (!hardwareOnline) {
             setDashData(prev => ({
                 ...prev,
                 waterLevel: '-- m',
@@ -372,12 +370,6 @@ export default function Admin() {
             }));
             return;
         }
-
-        // Demo mode: ignore live MQTT/API telemetry until the user turns demo off.
-        // (We intentionally do NOT auto-disable demo when live data exists — that caused UI
-        // toggle glitching and prevented presentations while the backend still returned readings.)
-
-        if (demoMode) return;
 
         if (mqttData) {
             setLastMqttAt(Date.now());
@@ -435,7 +427,7 @@ export default function Admin() {
             loadChartData(telemetryTime, 'TELEMETRY');
             loadChartData(cvTime, 'CV');
         }
-    }, [mqttData, demoMode]);
+    }, [mqttData]);
 
     useEffect(() => {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
@@ -1134,19 +1126,10 @@ export default function Admin() {
                         <i className="fa-solid fa-bars text-lg"></i>
                     </button>
                     <span className="min-w-0 flex-1 truncate text-sm font-bold text-sky-100">Admin</span>
-                    <button
-                        type="button"
-                        onClick={() => setDemoMode((v) => !v)}
-                        className={`shrink-0 rounded-lg px-3 py-2 text-white shadow ${demoMode ? 'bg-orange-500' : 'bg-slate-600'}`}
-                        aria-label="Toggle demo mode"
-                        title="Demo mode"
-                    >
-                        <i className={`fa-solid ${demoMode ? 'fa-vial-circle-check' : 'fa-vial'}`}></i>
-                    </button>
                 </div>
                 {(() => {
                     const viewProps = {
-                        demoMode, setDemoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, 
+                        hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, 
                         reportRaw, setReportRaw, reportCalculated, setReportCalculated, reportAlerts, setReportAlerts,
                         reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, editingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
                         openCreateUserModal, openEditUserModal, saveUserModal,

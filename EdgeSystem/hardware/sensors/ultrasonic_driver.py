@@ -30,8 +30,7 @@ reading_queue = collections.deque(maxlen=SMOOTHING_WINDOW)
 
 def get_distance():
     if not IS_PI:
-        # Simulates a water distance between 1.5m and 4.0m
-        return round(random.uniform(1.5, 4.0), 3)
+        return 0.0
 
     try:
         # Trigger the sensor

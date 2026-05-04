@@ -43,8 +43,7 @@ def _read_serial_loop():
 
 def get_flow_rate():
     if not _running:
-        # Simulation Mode
-        return round(random.uniform(0.1, 0.5), 3)
+        return 0.0
     return _current_speed_mps
 
 def close_radar():

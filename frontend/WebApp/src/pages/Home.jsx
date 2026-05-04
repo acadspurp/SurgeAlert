@@ -36,7 +36,6 @@ export default function Home() {
     const [isTidesLoading, setIsTidesLoading] = useState(true);
     const [isOffline, setIsOffline] = useState(false);
     const [isFabOpen, setIsFabOpen] = useState(true);
-    const [isDemoMode, setIsDemoMode] = useState(false);
     // Thresholds fetched from backend (driven by SENSOR_DEPTH_M in .env)
     const [sensorConfig, setSensorConfig] = useState({
         sensorDepthM: 6.1,

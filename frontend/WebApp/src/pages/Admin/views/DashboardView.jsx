@@ -19,16 +19,6 @@ export default function DashboardView(props) {
                 <div className="mb-6 flex flex-col gap-3 sm:mb-8 md:flex-row md:items-center md:justify-between">
                     <h1 className="pl-0 text-2xl font-black tracking-tight text-sky-100 sm:text-3xl md:pl-10">Dashboard</h1>
                     <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-200">
-                        <button
-                            type="button"
-                            onClick={() => setDemoMode((v) => !v)}
-                            className={`inline-flex max-w-full touch-manipulation items-center gap-2 rounded-full border px-3 py-2 text-left transition active:scale-[0.98] ${demoMode ? 'border-orange-400/60 bg-orange-900/30 text-orange-200' : hardwareOnline ? 'border-green-200 bg-green-900/40 text-green-100' : 'border-slate-700 bg-[#0f172a] text-slate-200'}`}
-                            aria-pressed={demoMode}
-                            title={demoMode ? 'Switch to live hardware stream' : 'Switch to demo stream (simulated data)'}
-                        >
-                            <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${demoMode ? 'bg-orange-400' : hardwareOnline ? 'bg-green-500' : 'bg-gray-400'} ${hardwareOnline && !demoMode ? 'animate-pulse' : ''}`}></span>
-                            <span className="min-w-0">{demoMode ? 'Demo stream' : 'Hardware stream'}</span>
-                        </button>
                         <span className="hidden sm:inline">
                             Last updated: {secondsSinceUpdate === null ? '—' : `${secondsSinceUpdate}s ago`}
                         </span>
