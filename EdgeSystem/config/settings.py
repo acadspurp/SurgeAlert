@@ -40,8 +40,13 @@ BACKEND_IP = os.getenv("BACKEND_IP", "127.0.0.1")
 BACKEND_PORT = os.getenv("BACKEND_PORT", "8080")
 
 # Handle Render URLs which might already include http/https
-if "render.com" in BACKEND_IP or "https://" in BACKEND_IP:
-    BACKEND_API_URL = f"{BACKEND_IP}/api" if "://" in BACKEND_IP else f"https://{BACKEND_IP}/api"
+if "render.com" in BACKEND_IP or "https://" in BACKEND_IP or "http://" in BACKEND_IP:
+    # Strip trailing slashes and normalize
+    clean_ip = BACKEND_IP.rstrip("/")
+    if "://" in clean_ip:
+        BACKEND_API_URL = f"{clean_ip}/api"
+    else:
+        BACKEND_API_URL = f"https://{clean_ip}/api"
 else:
     BACKEND_API_URL = f"http://{BACKEND_IP}:{BACKEND_PORT}/api"
 EDGE_API_KEY = os.getenv("EDGE_API_KEY", "")

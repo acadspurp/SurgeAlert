@@ -30,10 +30,10 @@ public class SensorDataService {
     @Value("${surgealert.sensor.depth-m:6.1}")
     private double sensorDepthM;
 
-    @Value("${surgealert.thresholds.yellow:2.50}")
+    @Value("${surgealert.thresholds.yellow:3.50}")
     private double yellowThreshold;
 
-    @Value("${surgealert.thresholds.orange:4.00}")
+    @Value("${surgealert.thresholds.orange:4.50}")
     private double orangeThreshold;
 
     @Value("${surgealert.thresholds.red:5.50}")
@@ -278,10 +278,7 @@ public class SensorDataService {
     }
 
     // Fallback alert classifier — used only when the Edge system is offline.
-    // Thresholds are derived from sensorDepthM which comes from SENSOR_DEPTH_M in
-    // .env.
-    // Mirrors the ratios in: EdgeSystem/config/settings.py and
-    // ConfigController.java
+    // Thresholds are derived from application.properties or .env
     private String calculateFallbackAlertLevel(Double waterLevel) {
         if (waterLevel == null)
             return "GREEN";
