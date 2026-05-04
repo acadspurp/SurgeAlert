@@ -199,17 +199,18 @@ export default function Home() {
         }
         try {
             const data = await fetchWeatherData();
-            const dayData = data.daily;
-            const cards = [];
-            for (let i = 0; i < 5; i++) {
-                if (!dayData.time[i]) continue;
-                const dateObj = new Date(dayData.time[i]);
-                const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-                const tempMax = Math.round(dayData.apparent_temperature_max[i]);
-                const tempMin = Math.round(dayData.apparent_temperature_min[i]);
-                const weatherCode = dayData.weathercode[i];
-                const info = getWeatherInfo(weatherCode);
-                cards.push({ dayName, tempMax, tempMin, icon: info.icon, description: info.description });
+            if (data && data.daily && data.daily.time) {
+                const dayData = data.daily;
+                for (let i = 0; i < 5; i++) {
+                    if (!dayData.time[i]) continue;
+                    const dateObj = new Date(dayData.time[i]);
+                    const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+                    const tempMax = Math.round(dayData.apparent_temperature_max[i]);
+                    const tempMin = Math.round(dayData.apparent_temperature_min[i]);
+                    const weatherCode = dayData.weathercode[i];
+                    const info = getWeatherInfo(weatherCode);
+                    cards.push({ dayName, tempMax, tempMin, icon: info.icon, description: info.description });
+                }
             }
             setWeatherCards(cards);
             if (cards.length === 0) {

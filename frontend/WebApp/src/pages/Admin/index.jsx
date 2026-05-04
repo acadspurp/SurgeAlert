@@ -168,6 +168,12 @@ export default function Admin() {
             const latestRecords = await fetchSensorData(1); // Get last 1 hour of data
             const latest = latestRecords.length > 0 ? latestRecords[latestRecords.length - 1] : null;
             
+            // 3. Get Live Weather for KPI fallback
+            let liveWeather = null;
+            try {
+                liveWeather = await fetchWeatherData();
+            } catch (e) { console.error("Live weather fetch failed", e); }
+
             let subCount;
             try {
                 const res = await fetchActiveResidents();
@@ -193,12 +199,19 @@ export default function Admin() {
                     newDash.flowRate = latest.sensorFlowRateMps !== null ? latest.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s';
                     newDash.prediction = latest.predictedLevel !== null ? latest.predictedLevel.toFixed(2) + ' m' : '-- m';
                     
-                    // Use the legacy getters I added to the DTO
-                    newDash.qcRain = (latest.QC_Rain_mm !== null && latest.QC_Rain_mm !== undefined) ? latest.QC_Rain_mm.toFixed(1) + ' mm' : '-- mm';
-                    newDash.marulasRain = (latest.Marulas_Rain_mm !== null && latest.Marulas_Rain_mm !== undefined) ? latest.Marulas_Rain_mm.toFixed(1) + ' mm' : '-- mm';
-                    newDash.tideHeight = (latest.Tide_Height_m !== null && latest.Tide_Height_m !== undefined) ? latest.Tide_Height_m.toFixed(2) + ' m' : '-- m';
-                    newDash.pressure = (latest.Pressure_hPa !== null && latest.Pressure_hPa !== undefined) ? latest.Pressure_hPa.toFixed(0) + ' hPa' : '-- hPa';
-                    newDash.wind = (latest.Wind_Speed !== null && latest.Wind_Speed !== undefined) ? latest.Wind_Speed.toFixed(1) + ' kph' : '-- kph';
+                    // Fallback to live API if telemetry fields are missing
+                    newDash.qcRain = (latest.QC_Rain_mm !== null && latest.QC_Rain_mm !== undefined) ? latest.QC_Rain_mm.toFixed(1) + ' mm' : (liveWeather ? liveWeather.rain_mm.toFixed(1) + ' mm' : '-- mm');
+                    newDash.marulasRain = (latest.Marulas_Rain_mm !== null && latest.Marulas_Rain_mm !== undefined) ? latest.Marulas_Rain_mm.toFixed(1) + ' mm' : (liveWeather ? liveWeather.rain_mm.toFixed(1) + ' mm' : '-- mm');
+                    newDash.tideHeight = (latest.Tide_Height_m !== null && latest.Tide_Height_m !== undefined) ? latest.Tide_Height_m.toFixed(2) + ' m' : (statusData.tideHeightM !== null ? statusData.tideHeightM.toFixed(2) + ' m' : '-- m');
+                    newDash.pressure = (latest.Pressure_hPa !== null && latest.Pressure_hPa !== undefined) ? latest.Pressure_hPa.toFixed(0) + ' hPa' : (liveWeather ? liveWeather.pressure_hpa.toFixed(0) + ' hPa' : '-- hPa');
+                    newDash.wind = (latest.Wind_Speed !== null && latest.Wind_Speed !== undefined) ? latest.Wind_Speed.toFixed(1) + ' kph' : (liveWeather ? liveWeather.wind_speed.toFixed(1) + ' kph' : '-- kph');
+                } else if (liveWeather || statusData) {
+                    // Total fallback to API if no telemetry exists at all
+                    newDash.qcRain = liveWeather ? liveWeather.rain_mm.toFixed(1) + ' mm' : '-- mm';
+                    newDash.marulasRain = liveWeather ? liveWeather.rain_mm.toFixed(1) + ' mm' : '-- mm';
+                    newDash.tideHeight = (statusData && statusData.tideHeightM !== null) ? statusData.tideHeightM.toFixed(2) + ' m' : '-- m';
+                    newDash.pressure = liveWeather ? liveWeather.pressure_hpa.toFixed(0) + ' hPa' : '-- hPa';
+                    newDash.wind = liveWeather ? liveWeather.wind_speed.toFixed(1) + ' kph' : '-- kph';
                 }
 
                 if (subCount !== undefined) newDash.subscriberCount = subCount;
