@@ -115,8 +115,8 @@ else:
 
     # Thresholds (Meters) - Synchronized with ML Model E
     WATER_LEVEL_RED_THRESHOLD = float(os.getenv("RED_THRESHOLD", 5.50))
-    WATER_LEVEL_ORANGE_THRESHOLD = float(os.getenv("ORANGE_THRESHOLD", 4.00))
-    WATER_LEVEL_YELLOW_THRESHOLD = float(os.getenv("YELLOW_THRESHOLD", 2.50))
+    WATER_LEVEL_ORANGE_THRESHOLD = float(os.getenv("ORANGE_THRESHOLD", 4.50))
+    WATER_LEVEL_YELLOW_THRESHOLD = float(os.getenv("YELLOW_THRESHOLD", 3.50))
 
     # Real river uses real tide height (1:1 ratio)
     TIDE_SCALING_FACTOR = 1.0

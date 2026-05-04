@@ -51,7 +51,7 @@ class AlertManager:
         if water_level >= WATER_LEVEL_RED_THRESHOLD:
             return "RED"
         
-        if predicted_level is not None and predicted_level >= 5.5: 
+        if predicted_level is not None and predicted_level >= WATER_LEVEL_RED_THRESHOLD: 
              return "RED"
         
         # --- FLASH FLOOD & TIDE MOMENTUM ESCALATION ---

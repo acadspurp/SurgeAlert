@@ -96,7 +96,7 @@ export async function fetchSystemThresholds() {
         return await response.json();
     } catch {
         // Safe fallback if backend is unreachable — keeps the UI functional
-        return { sensorDepthM: 6.1, thresholds: { yellow: 3.48, orange: 4.51, red: 5.49 } };
+        return { sensorDepthM: 6.1, thresholds: { yellow: 3.50, orange: 4.50, red: 5.50 } };
     }
 }
 
