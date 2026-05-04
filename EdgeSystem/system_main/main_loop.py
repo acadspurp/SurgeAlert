@@ -429,7 +429,21 @@ def main():
                     "snapshotBase64": b64_img
                 }
 
-                # 6. Send to Java Backend via MQTT in Thread
+                # 6. Serial Monitor / Console Output
+                print("\n" + "="*50)
+                print(f" [SURGEALERT TELEMETRY] - {datetime.now().strftime('%H:%M:%S')}")
+                print("-" * 50)
+                print(f" WATER LEVEL   : {agg_wl:.2f} m  ({agg_alert})")
+                print(f" FLOW RATE     : {agg_radar:.2f} m/s (Radar) | {agg_img_flow:.2f} m/s (CV)")
+                print(f" RISE RATE     : {agg_img_rise*3600:.2f} m/h")
+                print(f" PREDICTION (+1h): {agg_pred_level:.2f} m  -> {agg_pred_alert}")
+                print("-" * 50)
+                print(f" RAINFALL (QC/MAR): {weather_payload['QC_Rain_mm']:.1f}mm / {weather_payload['Marulas_Rain_mm']:.1f}mm")
+                print(f" TIDE / PRESS  : {tide_now:.2f}m / {weather_payload['Pressure_hPa']:.0f}hPa")
+                print(f" BACKEND SYNC  : {'SUCCESS' if env_data else 'OFFLINE (Using Fallbacks)'}")
+                print("="*50 + "\n")
+
+                # 7. Send to Java Backend via MQTT in Thread
                 def send_and_mark():
                     if send_to_backend(payload, mqtt_client) and record_id:
                         db.mark_data_synced([record_id])

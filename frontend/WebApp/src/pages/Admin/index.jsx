@@ -161,7 +161,13 @@ export default function Admin() {
     // -------------------------------------------------------------
     const loadDashboardData = async () => {
         try {
-            const data = await fetchAlertStatus();
+            // 1. Get official Alert Status (Level + Water Level)
+            const statusData = await fetchAlertStatus();
+            
+            // 2. Get the latest detailed telemetry for environmental cards
+            const latestRecords = await fetchSensorData(1); // Get last 1 hour of data
+            const latest = latestRecords.length > 0 ? latestRecords[latestRecords.length - 1] : null;
+            
             let subCount;
             try {
                 const res = await fetchActiveResidents();
@@ -170,9 +176,10 @@ export default function Admin() {
 
             setDashData((prev) => {
                 const newDash = { ...prev };
-                newDash.waterLevel = (data.waterLevelM !== null && data.waterLevelM !== undefined) ? data.waterLevelM.toFixed(2) + ' m' : '--';
-
-                const level = data.alertLevel || 'OFFLINE';
+                
+                // Alert Status
+                newDash.waterLevel = (statusData.waterLevelM !== null && statusData.waterLevelM !== undefined) ? statusData.waterLevelM.toFixed(2) + ' m' : '--';
+                const level = statusData.alertLevel || 'OFFLINE';
                 newDash.status = level;
                 if (level === 'CRITICAL') newDash.statusColor = 'text-purple-600 font-black animate-pulse';
                 else if (level === 'RED') newDash.statusColor = 'text-red-600';
@@ -180,6 +187,19 @@ export default function Admin() {
                 else if (level === 'YELLOW') newDash.statusColor = 'text-yellow-500';
                 else if (level === 'GREEN') newDash.statusColor = 'text-green-600';
                 else newDash.statusColor = 'text-slate-400';
+
+                // Environmental Metrics (Populate from latest record if MQTT hasn't arrived)
+                if (latest) {
+                    newDash.flowRate = latest.sensorFlowRateMps !== null ? latest.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s';
+                    newDash.prediction = latest.predictedLevel !== null ? latest.predictedLevel.toFixed(2) + ' m' : '-- m';
+                    
+                    // Use the legacy getters I added to the DTO
+                    newDash.qcRain = (latest.QC_Rain_mm !== null && latest.QC_Rain_mm !== undefined) ? latest.QC_Rain_mm.toFixed(1) + ' mm' : '-- mm';
+                    newDash.marulasRain = (latest.Marulas_Rain_mm !== null && latest.Marulas_Rain_mm !== undefined) ? latest.Marulas_Rain_mm.toFixed(1) + ' mm' : '-- mm';
+                    newDash.tideHeight = (latest.Tide_Height_m !== null && latest.Tide_Height_m !== undefined) ? latest.Tide_Height_m.toFixed(2) + ' m' : '-- m';
+                    newDash.pressure = (latest.Pressure_hPa !== null && latest.Pressure_hPa !== undefined) ? latest.Pressure_hPa.toFixed(0) + ' hPa' : '-- hPa';
+                    newDash.wind = (latest.Wind_Speed !== null && latest.Wind_Speed !== undefined) ? latest.Wind_Speed.toFixed(1) + ' kph' : '-- kph';
+                }
 
                 if (subCount !== undefined) newDash.subscriberCount = subCount;
                 return newDash;
