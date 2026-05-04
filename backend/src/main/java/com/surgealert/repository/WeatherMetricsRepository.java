@@ -9,4 +9,8 @@ import java.util.Optional;
 @Repository
 public interface WeatherMetricsRepository extends JpaRepository<WeatherMetrics, Long> {
     Optional<WeatherMetrics> findFirstByOrderByTimestampDesc();
+    
+    Optional<WeatherMetrics> findFirstByTimestampBeforeOrderByTimestampDesc(java.time.LocalDateTime timestamp);
+    
+    java.util.List<WeatherMetrics> findAllByTimestampAfter(java.time.LocalDateTime timestamp);
 }

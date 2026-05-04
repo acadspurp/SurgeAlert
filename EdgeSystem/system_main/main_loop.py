@@ -83,6 +83,18 @@ def cleanup_expired_otps_task(db):
         db.cleanup_expired_otps()
         time.sleep(600) # 10 Minutes
 
+def sync_environmental_data():
+    """Fetches pre-calculated ML features from the backend (every 30 mins)."""
+    try:
+        url = f"{BACKEND_API_URL}/edge/sync/environmental"
+        headers = {"X-Edge-Key": EDGE_API_KEY}
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        print(f" [Sync] Environmental fetch error: {e}")
+    return None
+
 def sync_offline_data(db, mqtt_client):
     """Syncs unsynced data from SQLite to the backend."""
     if not mqtt_client.is_connected():
@@ -207,6 +219,7 @@ def main():
     last_sync_time = time.time()
     last_config_sync = 0
     last_otp_sync = 0
+    last_env_sync = 0
     last_sms_time = 0
     last_tide_update = 0
     TIDE_UPDATE_INTERVAL = 1800 # 30 Minutes
@@ -216,6 +229,10 @@ def main():
     SYNC_INTERVAL = 60.0        # Check for unsynced data every 60 seconds
     CONFIG_SYNC_INTERVAL = 300.0 # Fetch new residents/templates every 5 mins
     OTP_SYNC_INTERVAL = 60.0     # Fetch new OTPs every 1 min
+    ENV_SYNC_INTERVAL = 1800.0   # Fetch ML Features from Backend every 30 mins
+
+    # Local Cache for environmental features
+    env_data = {}
 
     # Start background cleanup task (Every 10 mins to match OTP expiry)
     threading.Thread(target=cleanup_expired_otps_task, args=(db,), daemon=True).start()
@@ -257,17 +274,10 @@ def main():
             buffer_sensor_rise.append(sensor_rise)
 
             # --- C. PREDICTION & TIDE LOGIC ---
-            # Periodic Tide Fetch (Every 30 mins or on start)
-            tide_now = 0.0
-            tide_future = 0.0
-            tide_effect = 0.0
-            
-            # This helper handles the 30min fetch internally and returns (now, future, trend)
-            tide_now, tide_future, tide_effect = tide_manager.get_current_tide_summary()
-            
-            if time.time() - last_tide_update >= TIDE_UPDATE_INTERVAL:
-                print(f" [Tides] Status: {tide_now}m (Trend: {tide_effect:+.3f}m)")
-                last_tide_update = time.time()
+            # Tide and Weather are now FETCHED from the Backend periodically.
+            # We use the cached 'env_data' pulled in the sync step E.5.
+            tide_future = env_data.get("tide_height", 0.0)
+            tide_effect = env_data.get("tide_trend", 0.0)
             
             # Composite Prediction (Current + Rise in 1h + Tide change in 1h)
             rise_rate_h = img_rise * 3600
@@ -295,49 +305,62 @@ def main():
                 
                 agg_alert = alerter.determine_alert_level(agg_wl, predicted_level=agg_pred_level, rise_rate_per_hour=agg_rise_h)
                 
-                # --- PERIODIC WEATHER UPDATE (Every 15 mins) ---
-                weather_data = {
-                    "QC_Rain_mm": 0.0, "QC_Lag1": 0.0, "QC_Lag2": 0.0, "QC_3hr_Sum": 0.0, "QC_6hr_Sum": 0.0,
-                    "Marulas_Rain_mm": 0.0, "Mar_Lag1": 0.0, "Mar_Lag2": 0.0,
-                    "Mar_3hr_Sum": 0.0, "Mar_6hr_Sum": 0.0, "Mar_24hr_Sum": 0.0, 
-                    "Pressure_hPa": 1013.25, "Press_Trend": 0.0,
-                    "Wind_Speed": 0.0, "Wind_Sin": 0.0, "Wind_Cos": 1.0, 
-                    "Soil_Moisture_pct": 0.5
+                # Weather Data is now pulled from 'env_data'
+                weather_payload = {
+                    "QC_Rain_mm": env_data.get("qc_rain", 0.0),
+                    "QC_Lag1": env_data.get("qc_lag1", 0.0),
+                    "QC_Lag2": env_data.get("qc_lag2", 0.0),
+                    "QC_3hr_Sum": env_data.get("qc_3h", 0.0),
+                    "QC_6hr_Sum": env_data.get("qc_6h", 0.0),
+                    "Marulas_Rain_mm": env_data.get("mar_rain", 0.0),
+                    "Mar_Lag1": env_data.get("mar_lag1", 0.0),
+                    "Mar_Lag2": env_data.get("mar_lag2", 0.0),
+                    "Mar_3hr_Sum": env_data.get("mar_3h", 0.0),
+                    "Mar_6hr_Sum": env_data.get("mar_6h", 0.0),
+                    "Mar_24hr_Sum": env_data.get("mar_24h", 0.0), 
+                    "Pressure_hPa": env_data.get("pressure", 1013.25),
+                    "Press_Trend": 0.0,
+                    "Wind_Speed": env_data.get("wind_speed", 0.0),
+                    "Wind_Sin": env_data.get("wind_sin", 0.0),
+                    "Wind_Cos": env_data.get("wind_cos", 1.0), 
+                    "Soil_Moisture_pct": env_data.get("soil_moisture", 0.5)
                 }
-                if current_time - last_weather_update >= WEATHER_UPDATE_INTERVAL:
-                    weather_data = weather_manager.get_current_weather()
-                    last_weather_update = current_time
 
                 # Enforce 5-minute local logging for ALL metrics to strictly match cloud DB sync
                 db.log_tide_metrics(tide_now)
                 db.log_weather_metrics(weather_data)
                 
-                # 2. AI-based Alert Prediction (Offline Fail-safe)
-                # If internet is down, weather_manager and tide_manager might return 0.0 or defaults.
-                # We only predict if we have "fresh" data or if the model can handle it.
+                # 2. AI-based Alert Prediction (Using Backend Environmental Sync)
                 ai_pred_alert = None
-                if weather_data.get("Pressure_hPa", 1013) != 1013: # Heuristic: if pressure isn't default, we have net
+                if env_data: 
                     ai_pred_alert = alerter.predict_alert_class(
-                        agg_wl, agg_img_rise, agg_sensor_rise, tide_future, 
-                        weather_data["QC_Rain_mm"], weather_data["QC_Lag1"], weather_data["QC_Lag2"],
-                        weather_data["Marulas_Rain_mm"], weather_data["Mar_Lag1"], weather_data["Mar_Lag2"],
-                        weather_data["Mar_3hr_Sum"], weather_data["Mar_6hr_Sum"], weather_data["Mar_24hr_Sum"],
-                        weather_data["Pressure_hPa"], weather_data["Wind_Speed"], weather_data["Soil_Moisture_pct"]
+                        agg_wl, agg_img_rise, agg_sensor_rise, 
+                        env_data.get("tide_height", 0.0),
+                        env_data.get("qc_rain", 0.0),
+                        env_data.get("qc_lag1", 0.0),
+                        env_data.get("qc_lag2", 0.0),
+                        env_data.get("mar_rain", 0.0),
+                        env_data.get("mar_lag1", 0.0),
+                        env_data.get("mar_lag2", 0.0),
+                        env_data.get("mar_3h", 0.0),
+                        env_data.get("mar_6h", 0.0),
+                        env_data.get("mar_24h", 0.0),
+                        env_data.get("pressure", 1013.25),
+                        env_data.get("wind_speed", 0.0),
+                        env_data.get("soil_moisture", 0.5)
                     )
                 
                 if ai_pred_alert:
                     agg_pred_alert = ai_pred_alert
                 else:
-                    # ML Classifier remains blank/null in logical mapping if data not available
-                    # We fallback to the deterministic alert for the UI/MQTT but mark ML as null
-                    print(" [AI] Data insufficient for ML prediction (Internet likely down). Skipping classification.")
-                    agg_pred_alert = agg_alert # Use physical alert as placeholder for UI
-                    pred_class = None # This will be saved as NULL in SQLite if handled correctly
+                    print(" [AI] Environmental Data missing. Skipping ML classification.")
+                    agg_pred_alert = agg_alert 
+                    pred_class = None 
 
                 # 3. Log ML Features Realtime
                 alert_map = {"GREEN": 0, "YELLOW": 1, "ORANGE": 2, "RED": 3, "CRITICAL": 3}
                 pred_class = alert_map.get(agg_pred_alert, 0)
-                db.log_ml_features(agg_wl, agg_img_rise, agg_sensor_rise, tide_future, tide_effect, weather_data, pred_class)
+                db.log_ml_features(agg_wl, agg_img_rise, agg_sensor_rise, tide_future, tide_effect, weather_payload, pred_class)
 
                 # Clear buffers
                 buffer_wl.clear()
@@ -360,7 +383,7 @@ def main():
                         pred_alert_level=agg_pred_alert,
                         tide_future=tide_future,
                         tide_trend=tide_effect,
-                        weather_data=weather_data,
+                        weather_data=weather_payload,
                         pred_class=pred_class,
                         raw_vectors=raw_vectors
                     )
@@ -384,24 +407,24 @@ def main():
                     "predictedAlertLevel": agg_pred_alert,
                     "Tide_Height_m": round(float(tide_future), 2),
                     "Tide_Trend": round(float(tide_effect), 3),
-                    "QC_Rain_mm": round(float(weather_data["QC_Rain_mm"]), 2),
-                    "QC_Lag1": round(float(weather_data["QC_Lag1"]), 2),
-                    "QC_Lag2": round(float(weather_data["QC_Lag2"]), 2),
-                    "QC_3hr_Sum": round(float(weather_data["QC_3hr_Sum"]), 2),
-                    "QC_6hr_Sum": round(float(weather_data["QC_6hr_Sum"]), 2),
-                    "Marulas_Rain_mm": round(float(weather_data["Marulas_Rain_mm"]), 2),
-                    "Mar_Lag1": round(float(weather_data["Mar_Lag1"]), 2),
-                    "Mar_Lag2": round(float(weather_data["Mar_Lag2"]), 2),
-                    "Mar_3hr_Sum": round(float(weather_data["Mar_3hr_Sum"]), 2),
-                    "Mar_6hr_Sum": round(float(weather_data["Mar_6hr_Sum"]), 2),
-                    "Mar_24hr_Sum": round(float(weather_data["Mar_24hr_Sum"]), 2),
-                    "Pressure_hPa": round(float(weather_data["Pressure_hPa"]), 2),
-                    "Press_Trend": round(float(weather_data["Press_Trend"]), 3),
-                    "Wind_Speed": round(float(weather_data["Wind_Speed"]), 2),
-                    "Wind_Sin": round(float(weather_data["Wind_Sin"]), 4),
-                    "Wind_Cos": round(float(weather_data["Wind_Cos"]), 4),
+                    "QC_Rain_mm": round(float(weather_payload["QC_Rain_mm"]), 2),
+                    "QC_Lag1": round(float(weather_payload["QC_Lag1"]), 2),
+                    "QC_Lag2": round(float(weather_payload["QC_Lag2"]), 2),
+                    "QC_3hr_Sum": round(float(weather_payload["QC_3hr_Sum"]), 2),
+                    "QC_6hr_Sum": round(float(weather_payload["QC_6hr_Sum"]), 2),
+                    "Marulas_Rain_mm": round(float(weather_payload["Marulas_Rain_mm"]), 2),
+                    "Mar_Lag1": round(float(weather_payload["Mar_Lag1"]), 2),
+                    "Mar_Lag2": round(float(weather_payload["Mar_Lag2"]), 2),
+                    "Mar_3hr_Sum": round(float(weather_payload["Mar_3hr_Sum"]), 2),
+                    "Mar_6hr_Sum": round(float(weather_payload["Mar_6hr_Sum"]), 2),
+                    "Mar_24hr_Sum": round(float(weather_payload["Mar_24hr_Sum"]), 2),
+                    "Pressure_hPa": round(float(weather_payload["Pressure_hPa"]), 2),
+                    "Press_Trend": round(float(weather_payload["Press_Trend"]), 3),
+                    "Wind_Speed": round(float(weather_payload["Wind_Speed"]), 2),
+                    "Wind_Sin": round(float(weather_payload["Wind_Sin"]), 4),
+                    "Wind_Cos": round(float(weather_payload["Wind_Cos"]), 4),
                     "predicted_alert_class": pred_class,
-                    "Soil_Moisture": round(float(weather_data["Soil_Moisture_pct"]), 2),
+                    "Soil_Moisture": round(float(weather_payload["Soil_Moisture_pct"]), 2),
                     "is_simulated": cam is None,
                     "snapshotBase64": b64_img
                 }
@@ -430,6 +453,15 @@ def main():
             if current_time - last_otp_sync >= OTP_SYNC_INTERVAL:
                 threading.Thread(target=sync_system_config, args=(db, "otp")).start()
                 last_otp_sync = current_time
+
+            # --- E.5. ENVIRONMENTAL SYNC (Every 30 mins) ---
+            if current_time - last_env_sync >= ENV_SYNC_INTERVAL:
+                def fetch_and_set():
+                    nonlocal env_data
+                    res = sync_environmental_data()
+                    if res: env_data = res
+                threading.Thread(target=fetch_and_set).start()
+                last_env_sync = current_time
 
             # --- F. EMERGENCY SMS ALERTING (Using Local Templates) ---
             if current_alert in ["ORANGE", "RED"]:

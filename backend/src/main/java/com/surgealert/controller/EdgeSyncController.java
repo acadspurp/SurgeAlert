@@ -1,14 +1,16 @@
 package com.surgealert.controller;
 
 import com.surgealert.dto.AlertTemplateDTO;
-import com.surgealert.entity.AlertTemplate;
 import com.surgealert.repository.AlertTemplateRepository;
+import com.surgealert.repository.MLFeaturesRealtimeRepository;
 import com.surgealert.service.ResidentService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -24,10 +26,15 @@ public class EdgeSyncController {
 
     private final ResidentService residentService;
     private final AlertTemplateRepository templateRepository;
+    private final MLFeaturesRealtimeRepository mlRepository;
 
-    public EdgeSyncController(ResidentService residentService, AlertTemplateRepository templateRepository) {
+    @Autowired
+    public EdgeSyncController(ResidentService residentService, 
+                              AlertTemplateRepository templateRepository,
+                              MLFeaturesRealtimeRepository mlRepository) {
         this.residentService = residentService;
         this.templateRepository = templateRepository;
+        this.mlRepository = mlRepository;
     }
 
     /**
@@ -35,23 +42,45 @@ public class EdgeSyncController {
      */
     @GetMapping("/all")
     public ResponseEntity<Map<String, Object>> syncAll(@RequestHeader(value = "X-Edge-Key", required = false) String edgeKey) {
-        // In a real production system, we'd validate the edgeKey here.
-        
-        Map<String, Object> data = new HashMap<>();
-        
-        // 1. All Active Resident Phone Numbers
+        Map<String, Object> data = new LinkedHashMap<>();
         data.put("residents", residentService.getAllActivePhoneNumbers());
-        
-        // 2. All SMS Templates
         List<AlertTemplateDTO> templates = templateRepository.findAll().stream()
                 .map(t -> new AlertTemplateDTO(t.getId(), t.getAlertType(), t.getTemplate()))
                 .collect(Collectors.toList());
         data.put("templates", templates);
-        
-        // 3. Current Active OTPs (Using reflection to access the private map if needed, 
-        // or just providing a snapshot of what's in memory)
         data.put("otps", getActiveOtps());
-        
+        return ResponseEntity.ok(data);
+    }
+
+    /**
+     * Fetches the latest environmental data (Weather, Tides, Lags) calculated by the backend.
+     * The Pi uses this every 30 mins to run its ML Classifier.
+     */
+    @GetMapping("/environmental")
+    public ResponseEntity<Map<String, Object>> syncEnvironmental() {
+        Map<String, Object> data = new LinkedHashMap<>();
+        mlRepository.findFirstByOrderByTimestampDesc().ifPresent(ml -> {
+            data.put("month", ml.getMonth());
+            data.put("hour", ml.getHour());
+            data.put("tide_height", ml.getTideHeightM());
+            data.put("tide_trend", ml.getTideTrend());
+            data.put("pressure", ml.getPressureHpa());
+            data.put("wind_speed", ml.getWindSpeed());
+            data.put("wind_sin", ml.getWindSin());
+            data.put("wind_cos", ml.getWindCos());
+            data.put("soil_moisture", ml.getSoilMoisture());
+            data.put("qc_rain", ml.getQcRainMm());
+            data.put("qc_lag1", ml.getQcLag1Mm());
+            data.put("qc_lag2", ml.getQcLag2Mm());
+            data.put("qc_3h", ml.getQc3hrSum());
+            data.put("qc_6h", ml.getQc6hrSum());
+            data.put("mar_rain", ml.getMarulasRainMm());
+            data.put("mar_lag1", ml.getMarLag1Mm());
+            data.put("mar_lag2", ml.getMarLag2Mm());
+            data.put("mar_3h", ml.getMar3hrSum());
+            data.put("mar_6h", ml.getMar6hrSum());
+            data.put("mar_24h", ml.getMar24hrSum());
+        });
         return ResponseEntity.ok(data);
     }
 

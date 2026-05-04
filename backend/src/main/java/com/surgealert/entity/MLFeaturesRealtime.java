@@ -14,6 +14,12 @@ public class MLFeaturesRealtime {
     @Column(nullable = false)
     private LocalDateTime timestamp;
 
+    @Column(name = "Month", nullable = true)
+    private Integer month;
+
+    @Column(name = "Hour", nullable = true)
+    private Integer hour;
+
     // Feature Columns (Must match flood_dataset.csv headers)
     @Column(name = "water_level", nullable = false)
     private Double waterLevel;
@@ -97,6 +103,12 @@ public class MLFeaturesRealtime {
 
     public LocalDateTime getTimestamp() { return timestamp; }
     public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+
+    public Integer getMonth() { return month; }
+    public void setMonth(Integer month) { this.month = month; }
+
+    public Integer getHour() { return hour; }
+    public void setHour(Integer hour) { this.hour = hour; }
 
     public Double getWaterLevel() { return waterLevel; }
     public void setWaterLevel(Double waterLevel) { this.waterLevel = waterLevel; }

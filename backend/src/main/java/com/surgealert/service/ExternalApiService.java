@@ -42,27 +42,30 @@ public class ExternalApiService {
     @Value("${surgealert.tides.cache-max-age-days:2}")
     private long tideCacheMaxAgeDays;
 
-    // Hardcoded coordinates for Marulas/Manila
-    private final double LAT = 14.6773;
-    private final double LON = 120.9842;
+    // Coordinates
+    private final double MARULAS_LAT = 14.6773;
+    private final double MARULAS_LON = 120.9842;
+    private final double QC_LAT = 14.7153; // La Mesa Dam vicinity
+    private final double QC_LON = 121.0667;
     
-    // Coordinates specifically for Tide Station (Manila Harbor is closest reliable station)
+    // Tide Station (Manila Harbor)
     private final double TIDE_LAT = 14.576;
     private final double TIDE_LON = 120.963;
 
-    public WeatherResponse fetchWeatherForecast() {
+    public JsonNode fetchWeatherAt(double lat, double lon) {
         try {
             URI uri = UriComponentsBuilder.fromHttpUrl("https://api.open-meteo.com/v1/forecast")
-                    .queryParam("latitude", LAT)
-                    .queryParam("longitude", LON)
-                    .queryParam("daily", "weathercode,apparent_temperature_max,apparent_temperature_min")
+                    .queryParam("latitude", lat)
+                    .queryParam("longitude", lon)
+                    .queryParam("hourly", "precipitation,surface_pressure,wind_speed_10m,wind_direction_10m,soil_moisture_0_to_7cm")
                     .queryParam("timezone", "Asia/Manila")
+                    .queryParam("forecast_days", 2)
                     .build()
                     .toUri();
-            return restTemplate.getForObject(uri, WeatherResponse.class);
+            return restTemplate.getForObject(uri, JsonNode.class);
         } catch (Exception e) {
-            e.printStackTrace();
-            return null; // Controller will handle the null
+            System.err.println("Weather fetch failed for " + lat + "," + lon + ": " + e.getMessage());
+            return null;
         }
     }
 
