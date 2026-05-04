@@ -5,6 +5,7 @@ import json
 import requests
 import threading
 import base64
+import collections
 import sys
 import os
 from datetime import datetime
@@ -253,24 +254,38 @@ def main():
     buffer_sensor_rise = []
     
     prev_wl = None
+    wl_history = collections.deque(maxlen=6) # 30 seconds of history (6 * 5s)
 
     try:
         while True:
             start_time = time.time()
 
             # --- A. DATA GATHERING (Every 5 Seconds for Power Saving) ---
+            # Capture a 'burst' for Optical Flow (needs frames close together)
             frame = cam.capture_frame() if cam else np.zeros((IMAGE_HEIGHT, IMAGE_WIDTH, 3), np.uint8)
+            
+            if cam:
+                # Small delay to ensure measurable but trackable movement
+                time.sleep(0.1) 
+                frame_next = cam.capture_frame()
+            else:
+                frame_next = frame
+
             raw_dist = get_distance()
             radar_flow = get_radar_flow() 
 
             # --- B. PROCESSING ---
             current_wl = calculate_water_level(raw_dist)
-            img_flow, img_rise, viz_frame, raw_vectors = img_proc.process_frame(frame, water_level=current_wl)
+            # Use the burst frame for Optical Flow
+            img_flow, img_rise, viz_frame, raw_vectors = img_proc.process_frame(frame_next, water_level=current_wl)
 
-            # Calculate Sensor-based Rise Rate (m/s)
+            # Calculate Sensor-based Rise Rate (m/s) using a 30s rolling window for stability
             sensor_rise = 0.0
-            if prev_wl is not None:
-                sensor_rise = (current_wl - prev_wl) / 5.0
+            if len(wl_history) == wl_history.maxlen:
+                # (current - oldest) / time_delta
+                sensor_rise = (current_wl - wl_history[0]) / (5.0 * len(wl_history))
+            
+            wl_history.append(current_wl)
             prev_wl = current_wl
 
             # Add to buffers
@@ -282,8 +297,17 @@ def main():
 
             # --- C. PREDICTION & TIDE LOGIC ---
             # Using database-consistent naming: Tide_Height_m and Tide_Trend
-            Tide_Height_m = env_data.get("tide_height", 0.0)
-            Tide_Trend = env_data.get("tide_trend", 0.0)
+            # We use the local tide_manager as the primary source because it provides 5-minute 
+            # granularity by picking the closest point from its forecast "database".
+            h_now, _, trend = tide_manager.get_current_tide_summary()
+            
+            if h_now != 0.0:
+                Tide_Height_m = h_now
+                Tide_Trend = trend
+            else:
+                # Fallback to backend sync data only if local manager has no forecast
+                Tide_Height_m = env_data.get("tide_height", 0.0)
+                Tide_Trend = env_data.get("tide_trend", 0.0)
             
             # Composite Prediction (Current + Rise in 1h + Tide change in 1h)
             rise_rate_h = img_rise * 3600
