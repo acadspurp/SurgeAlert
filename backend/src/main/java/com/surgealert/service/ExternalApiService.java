@@ -206,34 +206,48 @@ public class ExternalApiService {
             DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
             ZoneId zone = ZoneId.of("Asia/Manila");
             List<TideResponse.TideExtreme> extremes = new ArrayList<>();
+            List<TideResponse.TideHeight> heightsList = new ArrayList<>();
 
-            for (int i = 1; i < times.size() - 1; i++) {
-                double prev = heights.get(i - 1).asDouble();
-                double cur = heights.get(i).asDouble();
-                double next = heights.get(i + 1).asDouble();
+            for (int i = 0; i < times.size(); i++) {
                 String timeStr = times.get(i).asText();
+                double curHeight = heights.get(i).asDouble();
                 long epochSec = ZonedDateTime.of(LocalDateTime.parse(timeStr, fmt), zone).toEpochSecond();
-                if (cur > prev && cur > next) {
-                    TideResponse.TideExtreme e = new TideResponse.TideExtreme();
-                    e.setDt(epochSec);
-                    e.setType("High");
-                    e.setHeight(cur);
-                    e.setDate(timeStr);
-                    extremes.add(e);
-                } else if (cur < prev && cur < next) {
-                    TideResponse.TideExtreme e = new TideResponse.TideExtreme();
-                    e.setDt(epochSec);
-                    e.setType("Low");
-                    e.setHeight(cur);
-                    e.setDate(timeStr);
-                    extremes.add(e);
+
+                // Add to hourly heights list
+                TideResponse.TideHeight h = new TideResponse.TideHeight();
+                h.setDt(epochSec);
+                h.setHeight(curHeight);
+                heightsList.add(h);
+
+                // Calculate extremes (High/Low)
+                if (i > 0 && i < times.size() - 1) {
+                    double prev = heights.get(i - 1).asDouble();
+                    double next = heights.get(i + 1).asDouble();
+                    if (curHeight > prev && curHeight > next) {
+                        TideResponse.TideExtreme e = new TideResponse.TideExtreme();
+                        e.setDt(epochSec);
+                        e.setType("High");
+                        e.setHeight(curHeight);
+                        e.setDate(timeStr);
+                        extremes.add(e);
+                    } else if (curHeight < prev && curHeight < next) {
+                        TideResponse.TideExtreme e = new TideResponse.TideExtreme();
+                        e.setDt(epochSec);
+                        e.setType("Low");
+                        e.setHeight(curHeight);
+                        e.setDate(timeStr);
+                        extremes.add(e);
+                    }
                 }
             }
-            if (extremes.isEmpty()) {
+            
+            if (heightsList.isEmpty() && extremes.isEmpty()) {
                 return null;
             }
+            
             TideResponse r = new TideResponse();
             r.setExtremes(extremes);
+            r.setHeights(heightsList);
             return r;
         } catch (Exception e) {
             System.err.println("Open-Meteo marine tide fallback failed: " + e.getMessage());

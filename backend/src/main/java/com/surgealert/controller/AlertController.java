@@ -21,7 +21,8 @@ public class AlertController {
     private final SensorDataService sensorDataService;
     private final CriticalAlertApprovalService criticalAlertApprovalService;
 
-    public AlertController(SensorDataService sensorDataService, CriticalAlertApprovalService criticalAlertApprovalService) {
+    public AlertController(SensorDataService sensorDataService,
+            CriticalAlertApprovalService criticalAlertApprovalService) {
         this.sensorDataService = sensorDataService;
         this.criticalAlertApprovalService = criticalAlertApprovalService;
     }
@@ -59,7 +60,6 @@ public class AlertController {
     @PostMapping("/override")
     public ResponseEntity<Map<String, String>> setOverride(@RequestBody Map<String, String> body) {
         String level = body.get("level");
-        String reason = body.get("reason");
         if (level == null || level.trim().isEmpty() || level.equalsIgnoreCase("NORMAL")) {
             overrideLevel = null;
             UserController.addLog("Admin cleared manual override. System returned to AUTO.");
@@ -70,13 +70,13 @@ public class AlertController {
         return ResponseEntity.ok(Collections.singletonMap("status", "success"));
     }
 
-
     @GetMapping("/camera")
     public ResponseEntity<Map<String, String>> getCameraUrl() {
         // 1. Try to get from RAM (Fastest)
         String imgBase64 = SensorDataController.currentImageBase64;
 
-        // 2. If RAM is empty (Server restarted), try to fetch the last known image from DB
+        // 2. If RAM is empty (Server restarted), try to fetch the last known image from
+        // DB
         if (imgBase64 == null || imgBase64.isEmpty()) {
             SensorDataDTO latest = sensorDataService.getLatestSensorData();
             if (latest != null && latest.getSnapshotBase64() != null) {

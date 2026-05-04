@@ -31,7 +31,18 @@ public class MqttConfig {
         options.setPassword(password.toCharArray());
         options.setCleanSession(true);
         options.setAutomaticReconnect(true);
-        options.setConnectionTimeout(10);
+        options.setConnectionTimeout(30); // Increased timeout for cloud
+        options.setKeepAliveInterval(60);
+
+        // Required for HiveMQ Cloud (ssl://)
+        if (brokerUrl != null && brokerUrl.startsWith("ssl://")) {
+            try {
+                options.setSocketFactory(javax.net.ssl.SSLSocketFactory.getDefault());
+            } catch (Exception e) {
+                System.err.println(" [MQTT] Failed to set SSL Socket Factory: " + e.getMessage());
+            }
+        }
+        
         return options;
     }
 
