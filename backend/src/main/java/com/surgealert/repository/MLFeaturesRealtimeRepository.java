@@ -9,4 +9,6 @@ import java.util.Optional;
 @Repository
 public interface MLFeaturesRealtimeRepository extends JpaRepository<MLFeaturesRealtime, Long> {
     Optional<MLFeaturesRealtime> findFirstByOrderByTimestampDesc();
+    
+    java.util.List<MLFeaturesRealtime> findAllByTimestampAfter(java.time.LocalDateTime timestamp);
 }

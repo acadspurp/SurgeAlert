@@ -11,4 +11,6 @@ public interface TideMetricsRepository extends JpaRepository<TideMetrics, Long> 
     Optional<TideMetrics> findFirstByOrderByTimestampDesc();
     
     boolean existsByTimestamp(java.time.LocalDateTime timestamp);
+
+    java.util.List<TideMetrics> findAllByTimestampAfter(java.time.LocalDateTime timestamp);
 }
