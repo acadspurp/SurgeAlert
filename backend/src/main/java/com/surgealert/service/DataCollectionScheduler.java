@@ -189,7 +189,7 @@ public class DataCollectionScheduler {
 
     private Double getRainfallSum(LocalDateTime now, int hours, String location) {
         LocalDateTime start = now.minusHours(hours);
-        List<WeatherMetrics> recent = weatherRepository.findAllByTimestampAfter(start);
+        List<WeatherMetrics> recent = weatherRepository.findByTimestampAfter(start);
         return recent.stream()
                 .mapToDouble(w -> location.equals("QC") ? (w.getQcRainMm() != null ? w.getQcRainMm() : 0.0) : (w.getMarulasRainMm() != null ? w.getMarulasRainMm() : 0.0))
                 .sum();

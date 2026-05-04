@@ -211,9 +211,9 @@ public class SensorDataService {
         List<SensorData> coreData = sensorDataRepository.findRecentData(since);
 
         // Fetch metrics for the same range to optimize joins
-        List<TideMetrics> tideList = tideMetricsRepository.findAllByTimestampAfter(since);
-        List<WeatherMetrics> weatherList = weatherMetricsRepository.findAllByTimestampAfter(since);
-        List<MLFeaturesRealtime> mlList = mlFeaturesRealtimeRepository.findAllByTimestampAfter(since);
+        List<TideMetrics> tideList = tideMetricsRepository.findByTimestampAfter(since);
+        List<WeatherMetrics> weatherList = weatherMetricsRepository.findByTimestampAfter(since);
+        List<MLFeaturesRealtime> mlList = mlFeaturesRealtimeRepository.findByTimestampAfter(since);
 
         return coreData.stream().map(sd -> {
             SensorDataDTO dto = convertToDTO(sd);
