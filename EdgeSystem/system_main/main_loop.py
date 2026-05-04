@@ -12,7 +12,7 @@ from datetime import datetime
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config.settings import BACKEND_API_URL, EDGE_API_KEY, MQTT_BROKER, MQTT_PORT, MQTT_USERNAME, MQTT_PASSWORD, MQTT_TOPIC_SENSOR
+from config.settings import BACKEND_IP, BACKEND_API_URL, EDGE_API_KEY, MQTT_BROKER, MQTT_PORT, MQTT_USERNAME, MQTT_PASSWORD, MQTT_TOPIC_SENSOR, IMAGE_WIDTH, IMAGE_HEIGHT
 import paho.mqtt.client as mqtt
 import ssl
 import warnings
@@ -259,7 +259,7 @@ def main():
             start_time = time.time()
 
             # --- A. DATA GATHERING (Every 5 Seconds for Power Saving) ---
-            frame = cam.capture_frame() if cam else np.zeros((480, 640, 3), np.uint8)
+            frame = cam.capture_frame() if cam else np.zeros((IMAGE_HEIGHT, IMAGE_WIDTH, 3), np.uint8)
             raw_dist = get_distance()
             radar_flow = get_radar_flow() 
 
@@ -507,7 +507,7 @@ def main():
                         print(f" [SMS] Failed to process emergency alerts: {e}")
 
             # --- G. VISUALIZATION & OUTPUT ---
-            print(f"WL: {current_wl:.2f}m | Tide: {tide_effect:+.3f}m | Pred: {pred_level:.2f}m | P.Alert: {pred_alert}", flush=True)
+            print(f"WL: {current_wl:.2f}m | Tide: {Tide_Trend:+.3f}m | Pred: {pred_level:.2f}m | P.Alert: {pred_alert}", flush=True)
 
             # Control loop speed (Maintains 1 sample every 5 seconds for power saving)
             elapsed = time.time() - start_time

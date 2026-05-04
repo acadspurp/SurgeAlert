@@ -1,5 +1,6 @@
 import cv2
 import time
+import numpy as np
 from config.settings import IMAGE_WIDTH, IMAGE_HEIGHT, CAMERA_INDEX
 
 class PiCameraDriver:
@@ -20,11 +21,16 @@ class PiCameraDriver:
         print("Hardware Camera Initialized Successfully.")
 
     def capture_frame(self):
-        ret, frame = self.cap.read()
-        if not ret:
-            # If the camera fails, return a blank black frame so the system doesn't crash
-            return np.zeros((IMAGE_HEIGHT, IMAGE_WIDTH, 3), np.uint8)
-        return frame
+        # Try up to 3 times to handle transient 'select() timeout' on Raspberry Pi
+        for i in range(3):
+            ret, frame = self.cap.read()
+            if ret:
+                return frame
+            print(f" [Hardware] Warning: Camera read failed (Attempt {i+1}/3).")
+            time.sleep(0.2)
+            
+        # If all retries fail, return a blank black frame so the system doesn't crash
+        return np.zeros((IMAGE_HEIGHT, IMAGE_WIDTH, 3), np.uint8)
 
     def close(self):
         if self.cap.isOpened():

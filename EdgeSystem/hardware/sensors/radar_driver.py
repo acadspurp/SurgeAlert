@@ -12,6 +12,11 @@ def init_radar():
     global _running, _serial_conn
     try:
         print(f" [Hardware] Initializing HLK-LD2415H Radar on {RADAR_PORT}...")
+        
+        # Check if we have the correct 'serial' module (pyserial)
+        if not hasattr(serial, 'Serial'):
+            raise AttributeError("module 'serial' has no attribute 'Serial'. Ensure 'pyserial' is installed, not 'serial'.")
+            
         _serial_conn = serial.Serial(RADAR_PORT, RADAR_BAUDRATE, timeout=1)
         _running = True
         # Start background thread to read from Serial
