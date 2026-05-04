@@ -1,87 +1,96 @@
 package com.surgealert.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 
+/**
+ * Data Transfer Object for Sensor Data.
+ * This class supports both:
+ * 1. Deserialization from Raspberry Pi (uses Snake_Case via @JsonAlias)
+ * 2. Serialization to Frontend React (uses CamelCase by default)
+ */
 public class SensorDataDTO {
 
     private Long id;
     private LocalDateTime timestamp;
 
     // Raw Sensor Data
-    @JsonProperty("water_level")
+    @JsonAlias("water_level")
     private Double waterLevelM;
+    
     private Double sensorFlowRateMps;
     
     // Computer Vision Data
     private Double imageFlowRateMps;
-    @JsonProperty("rise_rate")
+    
+    @JsonAlias("rise_rate")
     private Double imageRiseRateMps;
-    @JsonProperty("sensor_rise_rate")
+    
+    @JsonAlias("sensor_rise_rate")
     private Double sensorRiseRate;
     
     // Status
     private String currentAlertLevel;
     
-    // --- NEW FIELDS FOR AI PREDICTION ---
+    // --- AI PREDICTION ---
     private Double predictedLevel;
     private String predictedAlertLevel;
 
     // --- ENVIRONMENTAL METRICS ---
-    @JsonProperty("Tide_Height_m")
+    @JsonAlias("Tide_Height_m")
     private Double tideHeightM;
 
-    @JsonProperty("QC_Rain_mm")
+    @JsonAlias("QC_Rain_mm")
     private Double rainMm;
     
-    @JsonProperty("Marulas_Rain_mm")
+    @JsonAlias("Marulas_Rain_mm")
     private Double marulasRainMm;
 
-    @JsonProperty("Pressure_hPa")
+    @JsonAlias("Pressure_hPa")
     private Double pressureHpa;
 
-    @JsonProperty("Wind_Speed")
+    @JsonAlias("Wind_Speed")
     private Double windSpeedKph;
 
-    @JsonProperty("QC_Lag1")
+    @JsonAlias("QC_Lag1")
     private Double qcLag1;
-    @JsonProperty("QC_Lag2")
+    @JsonAlias("QC_Lag2")
     private Double qcLag2;
-    @JsonProperty("Mar_Lag1")
+    @JsonAlias("Mar_Lag1")
     private Double marLag1;
-    @JsonProperty("Mar_Lag2")
+    @JsonAlias("Mar_Lag2")
     private Double marLag2;
-    @JsonProperty("Mar_3hr_Sum")
+    @JsonAlias("Mar_3hr_Sum")
     private Double mar3hrSum;
-    @JsonProperty("Mar_6hr_Sum")
+    @JsonAlias("Mar_6hr_Sum")
     private Double mar6hrSum;
-
-    @JsonProperty("Mar_24hr_Sum")
+    @JsonAlias("Mar_24hr_Sum")
     private Double mar24hrSum;
 
-    @JsonProperty("Tide_Trend")
+    @JsonAlias("Tide_Trend")
     private Double tideTrend;
 
-    @JsonProperty("Press_Trend")
+    @JsonAlias("Press_Trend")
     private Double pressTrend;
 
-    @JsonProperty("Wind_Sin")
+    @JsonAlias("Wind_Sin")
     private Double windSin;
-    @JsonProperty("Wind_Cos")
+    @JsonAlias("Wind_Cos")
     private Double windCos;
 
-    @JsonProperty("QC_3hr_Sum")
+    @JsonAlias("QC_3hr_Sum")
     private Double qc3hrSum;
-    @JsonProperty("QC_6hr_Sum")
+    @JsonAlias("QC_6hr_Sum")
     private Double qc6hrSum;
 
-    @JsonProperty("predicted_alert_class")
+    @JsonAlias("predicted_alert_class")
     private Integer predictedAlertClass;
 
-    @JsonProperty("Soil_Moisture")
+    @JsonAlias("Soil_Moisture")
     private Double soilMoisturePct;
 
-    @JsonProperty("is_simulated")
+    @JsonAlias("is_simulated")
     private Boolean isSimulated;
 
     // Image
@@ -186,4 +195,12 @@ public class SensorDataDTO {
 
     public Boolean getIsSimulated() { return isSimulated; }
     public void setIsSimulated(Boolean isSimulated) { this.isSimulated = isSimulated; }
+
+    // --- FRONTEND LEGACY COMPATIBILITY ---
+    // In case some components use the Snake_Case fields in GET responses
+    @JsonProperty("QC_Rain_mm") public Double getLegacyQcRain() { return rainMm; }
+    @JsonProperty("Marulas_Rain_mm") public Double getLegacyMarRain() { return marulasRainMm; }
+    @JsonProperty("Tide_Height_m") public Double getLegacyTide() { return tideHeightM; }
+    @JsonProperty("Pressure_hPa") public Double getLegacyPress() { return pressureHpa; }
+    @JsonProperty("Wind_Speed") public Double getLegacyWind() { return windSpeedKph; }
 }
