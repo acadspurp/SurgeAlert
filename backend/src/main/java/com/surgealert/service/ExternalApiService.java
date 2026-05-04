@@ -113,6 +113,8 @@ public class ExternalApiService {
             try {
                 URI uri = UriComponentsBuilder.fromHttpUrl("https://www.worldtides.info/api/v3")
                         .queryParam("extremes", "")
+                        .queryParam("heights", "")
+                        .queryParam("resolution", "60")
                         .queryParam("days", "3")
                         .queryParam("lat", TIDE_LAT)
                         .queryParam("lon", TIDE_LON)

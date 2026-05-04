@@ -69,30 +69,40 @@ public class DataCollectionScheduler {
 
     private boolean performTideFetch() {
         TideResponse response = externalApiService.fetchTideData();
-        if (response == null || response.getError() != null) {
+        if (response == null || response.getError() != null || response.getHeights() == null) {
             return false;
         }
 
-        // The WorldTides API returns Extremes. The plan asks for hourly Tide_Height_m.
-        // Since WorldTides extremes are points, we will linearly interpolate or use the Marine model fallback for hourly.
-        // For simplicity and matching the plan's 3-day requirement, we log what we have.
-        // Real-time Tide Height is fetched by the Pi currently, but we can store the prediction here.
+        double prevHeight = 0.0;
+        for (TideResponse.TideHeight th : response.getHeights()) {
+            LocalDateTime dt = LocalDateTime.ofInstant(java.time.Instant.ofEpochSecond(th.getDt()), 
+                                                      java.time.ZoneId.of("Asia/Manila"));
+            
+            // Avoid duplicate entries for the same hour
+            if (tideRepository.existsByTimestamp(dt)) continue;
+
+            TideMetrics tm = new TideMetrics();
+            tm.setTimestamp(dt);
+            tm.setTideHeightM(th.getHeight());
+            tm.setTideTrend(th.getHeight() - prevHeight);
+            tideRepository.save(tm);
+            prevHeight = th.getHeight();
+        }
         return true;
     }
 
     private void performWeatherAndMlFetch() {
-        // 1. Fetch QC Weather
+        // 1. Fetch QC Weather (La Mesa) and Marulas Weather
         JsonNode qcData = externalApiService.fetchWeatherAt(14.7153, 121.0667);
-        // 2. Fetch Marulas Weather
         JsonNode marData = externalApiService.fetchWeatherAt(14.6773, 120.9842);
 
         if (qcData == null || marData == null) return;
 
         LocalDateTime now = LocalDateTime.now();
-        int hourIdx = now.getHour(); // Indices match hours in Open-Meteo response
+        int hourIdx = now.getHour();
 
         try {
-            // --- POPULATE WEATHER METRICS ---
+            // --- WEATHER METRICS ---
             WeatherMetrics weather = new WeatherMetrics();
             weather.setTimestamp(now);
             
@@ -109,56 +119,52 @@ public class DataCollectionScheduler {
             weather.setWindSpeed(windSpeed);
             weather.setSoilMoisture(soilMoisture);
             
-            // Calculate Marulas 24h sum (approximate from forecast data)
             double mar24h = 0;
-            for(int i=0; i<24; i++) {
-                mar24h += marData.get("hourly").get("precipitation").get(i).asDouble();
-            }
+            for(int i=0; i<24; i++) mar24h += marData.get("hourly").get("precipitation").get(i).asDouble();
             weather.setMar24hrSum(mar24h);
-            
             weatherRepository.save(weather);
 
-            // --- POPULATE ML FEATURES REALTIME (Calculated) ---
+            // --- ML FEATURES REALTIME (Targeted Columns Only) ---
             MLFeaturesRealtime ml = new MLFeaturesRealtime();
             ml.setTimestamp(now);
             ml.setMonth(now.getMonthValue());
             ml.setHour(now.getHour());
 
-            // Environmental Features
             ml.setQcRainMm(qcRain);
-            ml.setMarulasRainMm(marRain);
-            ml.setPressureHpa(pressure);
-            ml.setWindSpeed(windSpeed);
-            ml.setSoilMoisture(soilMoisture);
-
-            // Wind Direction -> Sin/Cos
-            double rad = Math.toRadians(windDir);
-            ml.setWindSin(Math.sin(rad));
-            ml.setWindCos(Math.cos(rad));
-
-            // CALCULATE LAGS & SUMS (Look back in DB)
             ml.setQcLag1Mm(getRainfallAt(now.minusHours(1), "QC"));
             ml.setQcLag2Mm(getRainfallAt(now.minusHours(2), "QC"));
             ml.setQc3hrSum(getRainfallSum(now, 3, "QC"));
             ml.setQc6hrSum(getRainfallSum(now, 6, "QC"));
 
+            ml.setMarulasRainMm(marRain);
             ml.setMarLag1Mm(getRainfallAt(now.minusHours(1), "MARULAS"));
             ml.setMarLag2Mm(getRainfallAt(now.minusHours(2), "MARULAS"));
             ml.setMar3hrSum(getRainfallSum(now, 3, "MARULAS"));
-            ml.setMar6hrSum(getRainfallSum(now, 6, "MARULAS"));
             ml.setMar24hrSum(mar24h);
 
-            // Tide Integration (Latest from TideMetrics)
+            ml.setPressureHpa(pressure);
+            
+            // Calculate Pressure Trend (Current - Last Hour)
+            Double lastPressure = weatherRepository.findFirstByTimestampBeforeOrderByTimestampDesc(now.minusMinutes(30))
+                    .map(WeatherMetrics::getPressureHpa).orElse(pressure);
+            ml.setPressTrend(pressure - lastPressure);
+
+            ml.setWindSpeed(windSpeed);
+            ml.setSoilMoisture(soilMoisture);
+
+            double rad = Math.toRadians(windDir);
+            ml.setWindSin(Math.sin(rad));
+            ml.setWindCos(Math.cos(rad));
+
             tideRepository.findFirstByOrderByTimestampDesc().ifPresent(t -> {
                 ml.setTideHeightM(t.getTideHeightM());
                 ml.setTideTrend(t.getTideTrend());
             });
 
             mlRepository.save(ml);
-            System.out.println(" [Scheduler] Hourly processing complete.");
-
+            System.out.println(" [Scheduler] ML Features table updated.");
         } catch (Exception e) {
-            System.err.println(" [Scheduler] Error processing hourly data: " + e.getMessage());
+            System.err.println(" [Scheduler] Error: " + e.getMessage());
         }
     }
 

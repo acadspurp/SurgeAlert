@@ -9,4 +9,6 @@ import java.util.Optional;
 @Repository
 public interface TideMetricsRepository extends JpaRepository<TideMetrics, Long> {
     Optional<TideMetrics> findFirstByOrderByTimestampDesc();
+    
+    boolean existsByTimestamp(java.time.LocalDateTime timestamp);
 }

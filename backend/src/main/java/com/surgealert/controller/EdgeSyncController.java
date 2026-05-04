@@ -65,6 +65,7 @@ public class EdgeSyncController {
             data.put("tide_height", ml.getTideHeightM());
             data.put("tide_trend", ml.getTideTrend());
             data.put("pressure", ml.getPressureHpa());
+            data.put("press_trend", ml.getPressTrend());
             data.put("wind_speed", ml.getWindSpeed());
             data.put("wind_sin", ml.getWindSin());
             data.put("wind_cos", ml.getWindCos());

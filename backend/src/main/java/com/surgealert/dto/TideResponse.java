@@ -11,10 +11,26 @@ public class TideResponse {
     @JsonProperty("error")
     private String error;
 
+    @JsonProperty("heights")
+    private List<TideHeight> heights;
+
     public List<TideExtreme> getExtremes() { return extremes; }
     public void setExtremes(List<TideExtreme> extremes) { this.extremes = extremes; }
+    public List<TideHeight> getHeights() { return heights; }
+    public void setHeights(List<TideHeight> heights) { this.heights = heights; }
     public String getError() { return error; }
     public void setError(String error) { this.error = error; }
+
+    public static class TideHeight {
+        @JsonProperty("dt")
+        private long dt;
+        @JsonProperty("height")
+        private double height;
+        public long getDt() { return dt; }
+        public void setDt(long dt) { this.dt = dt; }
+        public double getHeight() { return height; }
+        public void setHeight(double height) { this.height = height; }
+    }
 
     public static class TideExtreme {
         @JsonProperty("dt")

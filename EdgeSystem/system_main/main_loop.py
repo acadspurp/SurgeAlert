@@ -319,7 +319,7 @@ def main():
                     "Mar_6hr_Sum": env_data.get("mar_6h", 0.0),
                     "Mar_24hr_Sum": env_data.get("mar_24h", 0.0), 
                     "Pressure_hPa": env_data.get("pressure", 1013.25),
-                    "Press_Trend": 0.0,
+                    "Press_Trend": env_data.get("press_trend", 0.0),
                     "Wind_Speed": env_data.get("wind_speed", 0.0),
                     "Wind_Sin": env_data.get("wind_sin", 0.0),
                     "Wind_Cos": env_data.get("wind_cos", 1.0), 
