@@ -35,10 +35,15 @@ _load_env_file(os.path.join(BASE_DIR, "..", ".env"))
 _load_env_file(os.path.join(BASE_DIR, ".env"))
 
 # --- SECURITY & NETWORK ---
-# Update these IPs to match your Java Backend PC's IP
+# If deploying to Cloud (Render), set BACKEND_IP to your Render URL (e.g., surgealert.onrender.com)
 BACKEND_IP = os.getenv("BACKEND_IP", "127.0.0.1")
 BACKEND_PORT = os.getenv("BACKEND_PORT", "8080")
-BACKEND_API_URL = f"http://{BACKEND_IP}:{BACKEND_PORT}/api"
+
+# Handle Render URLs which might already include http/https
+if "render.com" in BACKEND_IP or "https://" in BACKEND_IP:
+    BACKEND_API_URL = f"{BACKEND_IP}/api" if "://" in BACKEND_IP else f"https://{BACKEND_IP}/api"
+else:
+    BACKEND_API_URL = f"http://{BACKEND_IP}:{BACKEND_PORT}/api"
 EDGE_API_KEY = os.getenv("EDGE_API_KEY", "")
 
 # --- HYBRID SMS/OTP DELIVERY ---
@@ -48,8 +53,8 @@ SEMAPHORE_API_KEY = os.getenv("SEMAPHORE_API_KEY", "")
 SEMAPHORE_API_URL = os.getenv("SEMAPHORE_API_URL", "https://api.semaphore.co/api/v4/messages")
 SEMAPHORE_SENDER_NAME = os.getenv("SEMAPHORE_SENDER_NAME", "SurgeAlert")
 
-# --- SECURE MQTT SETTINGS (HiveMQ Cloud Serverless) ---
-# Replace these with your actual HiveMQ Cloud details
+# --- SECURE MQTT SETTINGS (HiveMQ Cloud or Local Broker) ---
+# For Render deployment, use your HiveMQ Cloud cluster URL (e.g., xxx.s1.eu.hivemq.cloud)
 MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
 MQTT_PORT = 8883 # Port 8883 is required for MQTTS (SSL/TLS)
 MQTT_USERNAME = os.getenv("MQTT_USERNAME", "")

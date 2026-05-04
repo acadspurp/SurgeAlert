@@ -7,6 +7,7 @@ import threading
 import base64
 import sys
 import os
+from datetime import datetime
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -150,16 +151,22 @@ def sync_offline_data(db, mqtt_client):
 def main():
     print("--- STARTING SURGE ALERT EDGE SYSTEM (DATA COLLECTION MODE) ---")
     
-    # 0. Initialize MQTT Client for HiveMQ Cloud (MQTTS)
-    # CallbackAPIVersion is required for paho-mqtt 2.x
+    # 0. Initialize MQTT Client for Java Backend (MQTTS)
+    # Using CallbackAPIVersion.VERSION2 for paho-mqtt 2.0+
     try:
-        mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, client_id="SurgeAlertEdge", protocol=mqtt.MQTTv311)
-    except AttributeError:
-        # Fallback for paho-mqtt 1.x
+        mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="SurgeAlertEdge")
+    except (AttributeError, TypeError):
+        # Fallback for older paho-mqtt 1.x
         mqtt_client = mqtt.Client(client_id="SurgeAlertEdge", protocol=mqtt.MQTTv311)
     
-    mqtt_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
-    mqtt_client.tls_set(tls_version=ssl.PROTOCOL_TLS) # Enable SSL/TLS for secure connection
+    # Check if we are using HiveMQ (SSL/TLS) or Local Broker (Plain)
+    is_local = "localhost" in MQTT_BROKER or "127.0.0.1" in MQTT_BROKER or BACKEND_IP in MQTT_BROKER
+    
+    if not is_local:
+        mqtt_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+        mqtt_client.tls_set(tls_version=ssl.PROTOCOL_TLS) 
+    else:
+        print(" [Net] Local MQTT detected. Skipping SSL/Auth if not configured.")
     
     try:
         print(f" [Net] Connecting to Secure MQTT Broker at {MQTT_BROKER}...")
@@ -274,14 +281,13 @@ def main():
             buffer_sensor_rise.append(sensor_rise)
 
             # --- C. PREDICTION & TIDE LOGIC ---
-            # Tide and Weather are now FETCHED from the Backend periodically.
-            # We use the cached 'env_data' pulled in the sync step E.5.
-            tide_future = env_data.get("tide_height", 0.0)
-            tide_effect = env_data.get("tide_trend", 0.0)
+            # Using database-consistent naming: Tide_Height_m and Tide_Trend
+            Tide_Height_m = env_data.get("tide_height", 0.0)
+            Tide_Trend = env_data.get("tide_trend", 0.0)
             
             # Composite Prediction (Current + Rise in 1h + Tide change in 1h)
             rise_rate_h = img_rise * 3600
-            pred_level = max(0.0, current_wl + rise_rate_h + tide_effect)
+            pred_level = max(0.0, current_wl + rise_rate_h + Tide_Trend)
             
             # Intelligent Alert Decision
             current_alert = alerter.determine_alert_level(current_wl, predicted_level=pred_level, rise_rate_per_hour=rise_rate_h)
@@ -301,7 +307,7 @@ def main():
                 
                 # Recalculate alerts based on stable aggregates
                 agg_rise_h = agg_img_rise * 3600
-                agg_pred_level = max(0.0, agg_wl + agg_rise_h + tide_effect)
+                agg_pred_level = max(0.0, agg_wl + agg_rise_h + Tide_Trend)
                 
                 agg_alert = alerter.determine_alert_level(agg_wl, predicted_level=agg_pred_level, rise_rate_per_hour=agg_rise_h)
                 
@@ -323,12 +329,12 @@ def main():
                     "Wind_Speed": env_data.get("wind_speed", 0.0),
                     "Wind_Sin": env_data.get("wind_sin", 0.0),
                     "Wind_Cos": env_data.get("wind_cos", 1.0), 
-                    "Soil_Moisture_pct": env_data.get("soil_moisture", 0.5)
+                    "Soil_Moisture": env_data.get("soil_moisture", 0.5)
                 }
 
                 # Enforce 5-minute local logging for ALL metrics to strictly match cloud DB sync
-                db.log_tide_metrics(tide_now)
-                db.log_weather_metrics(weather_data)
+                db.log_tide_metrics(Tide_Height_m)
+                db.log_weather_metrics(weather_payload)
                 
                 # 2. AI-based Alert Prediction (Using Backend Environmental Sync)
                 ai_pred_alert = None
@@ -360,7 +366,7 @@ def main():
                 # 3. Log ML Features Realtime
                 alert_map = {"GREEN": 0, "YELLOW": 1, "ORANGE": 2, "RED": 3, "CRITICAL": 3}
                 pred_class = alert_map.get(agg_pred_alert, 0)
-                db.log_ml_features(agg_wl, agg_img_rise, agg_sensor_rise, tide_future, tide_effect, weather_payload, pred_class)
+                db.log_ml_features(agg_wl, agg_img_rise, agg_sensor_rise, Tide_Height_m, Tide_Trend, weather_payload, pred_class)
 
                 # Clear buffers
                 buffer_wl.clear()
@@ -381,8 +387,8 @@ def main():
                         pred_level=agg_pred_level,
                         alert_level=agg_alert,
                         pred_alert_level=agg_pred_alert,
-                        tide_future=tide_future,
-                        tide_trend=tide_effect,
+                        tide_future=Tide_Height_m,
+                        tide_trend=Tide_Trend,
                         weather_data=weather_payload,
                         pred_class=pred_class,
                         raw_vectors=raw_vectors
@@ -405,8 +411,8 @@ def main():
                     "currentAlertLevel": agg_alert,
                     "predictedLevel": round(float(agg_pred_level), 2),
                     "predictedAlertLevel": agg_pred_alert,
-                    "Tide_Height_m": round(float(tide_future), 2),
-                    "Tide_Trend": round(float(tide_effect), 3),
+                    "Tide_Height_m": round(float(Tide_Height_m), 2),
+                    "Tide_Trend": round(float(Tide_Trend), 3),
                     "QC_Rain_mm": round(float(weather_payload["QC_Rain_mm"]), 2),
                     "QC_Lag1": round(float(weather_payload["QC_Lag1"]), 2),
                     "QC_Lag2": round(float(weather_payload["QC_Lag2"]), 2),
@@ -424,7 +430,7 @@ def main():
                     "Wind_Sin": round(float(weather_payload["Wind_Sin"]), 4),
                     "Wind_Cos": round(float(weather_payload["Wind_Cos"]), 4),
                     "predicted_alert_class": pred_class,
-                    "Soil_Moisture": round(float(weather_payload["Soil_Moisture_pct"]), 2),
+                    "Soil_Moisture": round(float(weather_payload["Soil_Moisture"]), 2),
                     "is_simulated": cam is None,
                     "snapshotBase64": b64_img
                 }
@@ -439,7 +445,7 @@ def main():
                 print(f" PREDICTION (+1h): {agg_pred_level:.2f} m  -> {agg_pred_alert}")
                 print("-" * 50)
                 print(f" RAINFALL (QC/MAR): {weather_payload['QC_Rain_mm']:.1f}mm / {weather_payload['Marulas_Rain_mm']:.1f}mm")
-                print(f" TIDE / PRESS  : {tide_now:.2f}m / {weather_payload['Pressure_hPa']:.0f}hPa")
+                print(f" TIDE / PRESS  : {Tide_Height_m:.2f}m / {weather_payload['Pressure_hPa']:.0f}hPa")
                 print(f" BACKEND SYNC  : {'SUCCESS' if env_data else 'OFFLINE (Using Fallbacks)'}")
                 print("="*50 + "\n")
 

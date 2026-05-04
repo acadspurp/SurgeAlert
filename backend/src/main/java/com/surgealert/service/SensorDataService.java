@@ -59,7 +59,15 @@ public class SensorDataService {
             sensorData.setImageFlowRateMps(dto.getImageFlowRateMps());
             sensorData.setImageRiseRateMps(dto.getImageRiseRateMps());
             sensorData.setSensorRiseRate(dto.getSensorRiseRate());
-            sensorData.setImageBase64(dto.getSnapshotBase64());
+
+            if (dto.getSnapshotBase64() != null && !dto.getSnapshotBase64().isEmpty()) {
+                try {
+                    byte[] imageBytes = java.util.Base64.getDecoder().decode(dto.getSnapshotBase64());
+                    sensorData.setImageBytes(imageBytes);
+                } catch (Exception e) {
+                    System.err.println(" [Storage] Failed to decode image base64: " + e.getMessage());
+                }
+            }
 
             String alertLevel = dto.getCurrentAlertLevel();
             if (alertLevel == null || alertLevel.isEmpty()) {
@@ -195,7 +203,10 @@ public class SensorDataService {
         dto.setImageRiseRateMps(sensorData.getImageRiseRateMps());
         dto.setSensorRiseRate(sensorData.getSensorRiseRate());
         dto.setCurrentAlertLevel(sensorData.getCurrentAlertLevel());
-        dto.setSnapshotBase64(sensorData.getImageBase64());
+        
+        if (sensorData.getImageBytes() != null) {
+            dto.setSnapshotBase64(java.util.Base64.getEncoder().encodeToString(sensorData.getImageBytes()));
+        }
 
         // Return Prediction Data
         dto.setPredictedLevel(sensorData.getPredictedLevel());

@@ -194,7 +194,7 @@ class DatabaseManager:
                       weather_data["Mar_3hr_Sum"], weather_data["Mar_6hr_Sum"], weather_data["Mar_24hr_Sum"],
                       weather_data["Pressure_hPa"], weather_data["Press_Trend"], 
                       weather_data["Wind_Speed"], weather_data["Wind_Sin"], weather_data["Wind_Cos"],
-                      weather_data["Soil_Moisture_pct"], pred_class, raw_vectors_json))
+                      weather_data["Soil_Moisture"], pred_class, raw_vectors_json))
                 inserted_id = cursor.lastrowid
                 conn.commit()
                 return inserted_id
@@ -227,7 +227,7 @@ class DatabaseManager:
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (timestamp, weather_data["QC_Rain_mm"], weather_data["Marulas_Rain_mm"], 
                       weather_data["Mar_24hr_Sum"], weather_data["Pressure_hPa"], 
-                      weather_data["Wind_Speed"], weather_data["Soil_Moisture_pct"]))
+                      weather_data["Wind_Speed"], weather_data["Soil_Moisture"]))
                 conn.commit()
         except Exception as e:
             print(f" [DB] Error logging weather metrics: {e}")
@@ -253,7 +253,7 @@ class DatabaseManager:
                       weather_data["Mar_3hr_Sum"], weather_data["Mar_6hr_Sum"], weather_data["Mar_24hr_Sum"],
                       weather_data["Pressure_hPa"], weather_data["Press_Trend"], 
                       weather_data["Wind_Speed"], weather_data["Wind_Sin"], weather_data["Wind_Cos"],
-                      weather_data["Soil_Moisture_pct"], pred_class))
+                      weather_data["Soil_Moisture"], pred_class))
                 conn.commit()
         except Exception as e:
             print(f" [DB] Error logging ML features: {e}")

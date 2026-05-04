@@ -40,8 +40,8 @@ public class SensorData {
     private String predictedAlertLevel;
 
     @Lob
-    @Column(name = "image_base64", columnDefinition = "TEXT")
-    private String imageBase64;
+    @Column(name = "image_bytes", columnDefinition = "bytea")
+    private byte[] imageBytes;
 
     @PrePersist
     protected void onCreate() {
@@ -79,8 +79,8 @@ public class SensorData {
     public String getPredictedAlertLevel() { return predictedAlertLevel; }
     public void setPredictedAlertLevel(String predictedAlertLevel) { this.predictedAlertLevel = predictedAlertLevel; }
 
-    public String getImageBase64() { return imageBase64; }
-    public void setImageBase64(String imageBase64) { this.imageBase64 = imageBase64; }
+    public byte[] getImageBytes() { return imageBytes; }
+    public void setImageBytes(byte[] imageBytes) { this.imageBytes = imageBytes; }
 
     public Double getSensorRiseRate() { return sensorRiseRate; }
     public void setSensorRiseRate(Double sensorRiseRate) { this.sensorRiseRate = sensorRiseRate; }
