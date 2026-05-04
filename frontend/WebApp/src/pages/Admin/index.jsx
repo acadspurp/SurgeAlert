@@ -166,7 +166,14 @@ export default function Admin() {
             
             // 2. Get the latest detailed telemetry for environmental cards
             const latestRecords = await fetchSensorData(1); // Get last 1 hour of data
-            const latest = latestRecords.length > 0 ? latestRecords[latestRecords.length - 1] : null;
+            // Backend returns DESC (newest first), so index 0 is latest.
+            const latest = latestRecords.length > 0 ? latestRecords[0] : null;
+            
+            if (statusData && statusData.lastUpdated) {
+                setLastMqttAt(new Date(statusData.lastUpdated).getTime());
+            } else if (latest && latest.timestamp) {
+                setLastMqttAt(new Date(latest.timestamp).getTime());
+            }
             
             let subCount;
             try {
@@ -428,7 +435,7 @@ export default function Admin() {
             loadChartData(telemetryTime, 'TELEMETRY');
             loadChartData(cvTime, 'CV');
         }
-    }, [mqttData, demoMode]); // Removed hardwareOnline from here for now to avoid initialization issues
+    }, [mqttData, demoMode]);
 
     useEffect(() => {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;

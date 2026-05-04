@@ -207,9 +207,51 @@ public class SensorDataService {
 
     public List<SensorDataDTO> getRecentSensorData(int hours) {
         LocalDateTime since = LocalDateTime.now().minusHours(hours);
-        return sensorDataRepository.findRecentData(since).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+        List<SensorData> coreData = sensorDataRepository.findRecentData(since);
+
+        // Fetch metrics for the same range to optimize joins
+        List<TideMetrics> tideList = tideMetricsRepository.findAllByTimestampAfter(since);
+        List<WeatherMetrics> weatherList = weatherMetricsRepository.findAllByTimestampAfter(since);
+        List<MLFeaturesRealtime> mlList = mlFeaturesRealtimeRepository.findAllByTimestampAfter(since);
+
+        return coreData.stream().map(sd -> {
+            SensorDataDTO dto = convertToDTO(sd);
+            LocalDateTime ts = sd.getTimestamp();
+
+            // Find closest match (within 30 seconds) for environmental data
+            tideList.stream()
+                .filter(t -> Math.abs(java.time.Duration.between(t.getTimestamp(), ts).getSeconds()) < 30)
+                .findFirst().ifPresent(t -> {
+                    dto.setTideHeightM(t.getTideHeightM());
+                    dto.setTideTrend(t.getTideTrend());
+                });
+
+            weatherList.stream()
+                .filter(w -> Math.abs(java.time.Duration.between(w.getTimestamp(), ts).getSeconds()) < 30)
+                .findFirst().ifPresent(w -> {
+                    dto.setRainMm(w.getQcRainMm());
+                    dto.setMarulasRainMm(w.getMarulasRainMm());
+                    dto.setMar24hrSum(w.getMar24hrSum());
+                    dto.setPressureHpa(w.getPressureHpa());
+                    dto.setWindSpeedKph(w.getWindSpeed());
+                    dto.setSoilMoisturePct(w.getSoilMoisture());
+                });
+
+            mlList.stream()
+                .filter(m -> Math.abs(java.time.Duration.between(m.getTimestamp(), ts).getSeconds()) < 30)
+                .findFirst().ifPresent(m -> {
+                    dto.setPredictedAlertClass(m.getPredictedAlertClass());
+                    dto.setQcLag1(m.getQcLag1Mm());
+                    dto.setQcLag2(m.getQcLag2Mm());
+                    dto.setMarLag1(m.getMarLag1Mm());
+                    dto.setMarLag2(m.getMarLag2Mm());
+                    dto.setMar3hrSum(m.getMar3hrSum());
+                    dto.setMar6hrSum(m.getMar6hrSum());
+                    dto.setPressTrend(m.getPressTrend());
+                });
+
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     private SensorDataDTO convertToDTO(SensorData sensorData) {

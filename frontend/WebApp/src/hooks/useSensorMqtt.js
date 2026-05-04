@@ -28,8 +28,8 @@ export function useSensorMqtt() {
         // Fetch immediately
         fetchData();
 
-        // Poll every 10 minutes (600,000 ms)
-        const intervalId = setInterval(fetchData, 600000);
+        // Poll every 10 seconds (10,000 ms) to ensure real-time health checks
+        const intervalId = setInterval(fetchData, 10000);
 
         return () => {
             isMounted = false;
