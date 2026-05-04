@@ -11,7 +11,7 @@ function ensureApiPathSuffix(url) {
 
 const envApiBaseUrl = ensureApiPathSuffix(import.meta.env.VITE_API_BASE_URL || "");
 
-const PRODUCTION_URL = "https://surgealert-web.pages.dev"; // <-- PUT YOUR LINK HERE
+const PRODUCTION_URL = "https://surgealert-backend-fxqk.onrender.com"; // <-- PUT YOUR BACKEND LINK HERE
 
 function defaultApiBaseUrl() {
   const originFallback = (import.meta.env.VITE_BACKEND_ORIGIN || "").trim().replace(/\/+$/, "");
