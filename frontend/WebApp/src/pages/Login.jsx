@@ -17,6 +17,11 @@ export default function Login() {
             setLoading(true);
 
             const session = await loginUser(username.trim(), password);
+            
+            if (!session || !session.accessToken) {
+                throw new Error("Invalid response from server.");
+            }
+
             const user = {
                 id: session.id,
                 username: session.username,
@@ -34,10 +39,7 @@ export default function Login() {
             const rawRole = session.role || "";
             const normalizedRole = String(rawRole).toUpperCase().trim();
 
-            console.log("Detected Role:", normalizedRole);
-
             if (normalizedRole === 'ADMIN' || normalizedRole === 'HEAD_ADMIN') {
-                console.log("Admin detected. Redirecting to Dashboard...");
                 alert('Login successful! Redirecting to Admin Dashboard.');
                 navigate('/admin');
             } else {
@@ -46,10 +48,13 @@ export default function Login() {
             }
 
         } catch (error) {
-            alert('Login failed: ' + error.message);
+            console.error("Login process error:", error);
+            const message = error.message?.includes('401') || error.message?.includes('403') 
+                ? 'Incorrect username or password.' 
+                : error.message || 'An unexpected error occurred.';
+            alert('Login failed: ' + message);
         } finally {
             setLoading(false);
-            setUsername('');
             setPassword('');
         }
     };

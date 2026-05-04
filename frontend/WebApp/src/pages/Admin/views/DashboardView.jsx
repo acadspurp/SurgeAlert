@@ -5,7 +5,7 @@ import HealthRow from '../components/HealthRow';
 import TelemetryCard from '../components/TelemetryCard';
 
 export default function DashboardView(props) {
-    const { demoMode, setDemoMode, hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
+    const { hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
         openCreateUserModal, openEditUserModal, saveUserModal,
         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
         handleDeleteAdminUser,
@@ -66,7 +66,7 @@ export default function DashboardView(props) {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                     <DashboardCard title="Water Level" value={dashData.waterLevel} icon="fa-water" color="blue" trend={trendIndicators.waterLevel} subtitle={`${getWaterLevelContext()}`} />
                     <DashboardCard title="Current Flow Speed" value={dashData.flowRate} icon="fa-gauge-high" color="indigo" trend={trendIndicators.flowRate} subtitle={`${getFlowContext()}`} />
-                    <DashboardCard title="Estimated Time to Danger" value={getETRText()} icon="fa-hourglass-half" color="teal" subtitle="Based on current flow + distance to 18m." />
+                    <DashboardCard title="Estimated Time to Danger" value={getETRText()} icon="fa-hourglass-half" color="teal" subtitle="Time remaining until 5.5m threshold." />
                     <DashboardCard title="ML Forecast Trajectory (+1h)" value={dashData.prediction} icon="fa-brain" color="purple" subtitle="Where the water level is heading." />
                     <DashboardCard title="Active Warning Subscribers" value={dashData.subscriberCount} icon="fa-users" color="teal" subtitle="Residents currently receiving texts." />
                 </div>
@@ -99,7 +99,7 @@ export default function DashboardView(props) {
                         </div>
 
                         <div className="mt-4 text-xs text-slate-200">
-                            {demoMode ? 'Mocked as online for presentations.' : 'Online if receiving telemetry in the last ~12 seconds.'}
+                            Monitoring connectivity to the Edge System.
                         </div>
                     </div>
 

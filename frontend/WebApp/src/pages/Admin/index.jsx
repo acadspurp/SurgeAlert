@@ -462,10 +462,8 @@ export default function Admin() {
         };
     }, []);
 
-    // Poll alert status so overrides / shared state show up on every admin device without refresh (demo stream uses simulated dash).
     useEffect(() => {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
-        if (demoMode) return;
 
         const pollMs = 10000;
         const id = setInterval(() => {
@@ -473,7 +471,7 @@ export default function Admin() {
         }, pollMs);
 
         return () => clearInterval(id);
-    }, [user, role, demoMode]);
+    }, [user, role]);
 
     // Telemetry time changer
     useEffect(() => {
@@ -483,72 +481,6 @@ export default function Admin() {
     useEffect(() => {
         if (user) loadChartData(cvTime, 'CV');
     }, [cvTime]);
-
-    // Demo Mode logic
-    useEffect(() => {
-        let interval;
-        if (demoMode) {
-            setLastMqttAt(Date.now());
-            interval = setInterval(() => {
-                const randomFlow = Math.random() * (1.5 - 0.5) + 0.5;
-                const prevWl = prevReadings.current.waterLevel || 5.5;
-                const drift = (Math.random() - 0.35) * 0.08; // slightly biased upward for demos
-                const newWl = Math.max(4.0, Math.min(10.0, prevWl + (randomFlow * 0.08) + drift));
-
-                setDashData(prev => ({
-                    ...prev,
-                    waterLevel: newWl.toFixed(2) + ' m',
-                    flowRate: randomFlow.toFixed(2) + ' m/s',
-                    status: newWl >= 5.5 ? 'RED' : newWl >= 4.0 ? 'ORANGE' : newWl >= 2.5 ? 'YELLOW' : 'GREEN',
-                    statusColor: newWl >= 5.5 ? 'text-red-600' : newWl >= 4.0 ? 'text-orange-500' : newWl >= 2.5 ? 'text-yellow-500' : 'text-green-600',
-                    prediction: (newWl + 0.5).toFixed(2) + ' m'
-                }));
-
-                setCameraLastUpdated(new Date().toLocaleTimeString());
-
-                setTrendIndicators(prev => ({
-                    waterLevel: newWl > prevWl ? '↑' : newWl < prevWl ? '↓' : '-',
-                    flowRate: randomFlow > (prevReadings.current.flowRate ?? randomFlow) ? '↑' : '↓'
-                }));
-
-                prevReadings.current.waterLevel = newWl;
-                prevReadings.current.flowRate = randomFlow;
-                setLastMqttAt(Date.now());
-
-                // Mock "real-time" chart flow by appending to the series.
-                const ts = new Date().toISOString();
-                const imageFlow = Math.max(0, randomFlow - 0.15 + (Math.random() * 0.2));
-                const predicted = Math.min(25, newWl + (0.2 + Math.random() * 0.6));
-
-                const newData = {
-                    timestamp: ts,
-                    waterLevelM: newWl,
-                    sensorFlowRateMps: randomFlow,
-                    imageFlowRateMps: imageFlow,
-                    predictedLevel: predicted
-                };
-
-                setRawSensorData(prev => [...(Array.isArray(prev) ? prev : []).slice(-89), newData]);
-                setCvSensorData(prev => [...(Array.isArray(prev) ? prev : []).slice(-89), newData]);
-            }, 3000);
-        } else if (user) {
-            // When Demo OFF: Immediately purge simulated data. Clear all graphs.
-            setRawSensorData([]);
-            setDashData(prev => ({
-                ...prev,
-                waterLevel: '-- m', flowRate: '-- m/s', status: 'OFFLINE', statusColor: 'text-slate-400',
-                prediction: '-- m', predColor: 'text-slate-400'
-            }));
-            setTrendIndicators({ waterLevel: '-', flowRate: '-' });
-
-            // If hardware is disconnected, it will stay blank.
-            // If it is connected, loadDashboardData/loadChartData will fetch real data.
-            loadDashboardData();
-            loadChartData(telemetryTime, 'TELEMETRY');
-            loadChartData(cvTime, 'CV');
-        }
-        return () => clearInterval(interval);
-    }, [demoMode]);
 
     // "Last updated" ticker
     useEffect(() => {
@@ -796,8 +728,8 @@ export default function Admin() {
         const predVal = parseFloat(predStr);
         if (isNaN(predVal)) return 'NORMAL';
         if (predVal >= 5.5) return 'RED';
-        if (predVal >= 4.0) return 'ORANGE';
-        if (predVal >= 2.5) return 'YELLOW';
+        if (predVal >= 4.5) return 'ORANGE';
+        if (predVal >= 3.5) return 'YELLOW';
         return 'NORMAL';
     };
 
@@ -923,10 +855,10 @@ export default function Admin() {
             ...baseTelemetryOptions.plugins,
             annotation: {
                 annotations: {
-                    box1: { type: 'box', yMin: 0, yMax: 15, backgroundColor: 'rgba(74, 222, 128, 0.1)', drawTime: 'beforeDraw', borderWidth: 0 },
-                    box2: { type: 'box', yMin: 15, yMax: 16, backgroundColor: 'rgba(250, 204, 21, 0.1)', drawTime: 'beforeDraw', borderWidth: 0 },
-                    box3: { type: 'box', yMin: 16, yMax: 18, backgroundColor: 'rgba(251, 146, 60, 0.1)', drawTime: 'beforeDraw', borderWidth: 0 },
-                    box4: { type: 'box', yMin: 18, yMax: 25, backgroundColor: 'rgba(248, 113, 113, 0.1)', drawTime: 'beforeDraw', borderWidth: 0 },
+                    box1: { type: 'box', yMin: 0, yMax: 3.5, backgroundColor: 'rgba(74, 222, 128, 0.1)', drawTime: 'beforeDraw', borderWidth: 0 },
+                    box2: { type: 'box', yMin: 3.5, yMax: 4.5, backgroundColor: 'rgba(250, 204, 21, 0.1)', drawTime: 'beforeDraw', borderWidth: 0 },
+                    box3: { type: 'box', yMin: 4.5, yMax: 5.5, backgroundColor: 'rgba(251, 146, 60, 0.1)', drawTime: 'beforeDraw', borderWidth: 0 },
+                    box4: { type: 'box', yMin: 5.5, yMax: 10, backgroundColor: 'rgba(248, 113, 113, 0.1)', drawTime: 'beforeDraw', borderWidth: 0 },
                 }
             }
         },
@@ -1040,10 +972,6 @@ export default function Admin() {
             >
                 {/* Desktop: demo + collapse toggles */}
                 <div className="absolute top-2 right-[-40px] z-50 hidden md:flex flex-col">
-                    <button type="button" onClick={() => setDemoMode((v) => !v)} className={`p-2 rounded-r-lg shadow-md ${demoMode ? 'bg-orange-500 hover:bg-orange-600' : 'bg-slate-600 hover:bg-gray-400'} transition tooltip-parent`}>
-                        <i className={`fa-solid ${demoMode ? 'fa-vial-circle-check text-white' : 'fa-vial text-white'}`}></i>
-                        <span className="tooltip-text whitespace-nowrap bg-black text-white text-xs px-2 py-1 rounded absolute top-full left-0 mt-1 pointer-events-none">Demo Mode</span>
-                    </button>
                     <button type="button" onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 rounded-r-lg shadow-md bg-blue-600 hover:bg-blue-700 text-white mt-1 transition" aria-expanded={isSidebarOpen} aria-label="Toggle sidebar width">
                         <i className={`fa-solid ${isSidebarOpen ? 'fa-chevron-left' : 'fa-bars'}`}></i>
                     </button>
