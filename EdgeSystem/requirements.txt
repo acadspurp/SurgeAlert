@@ -7,3 +7,6 @@ requests
 python-dotenv
 joblib
 xgboost
+pyserial
+cv2
+paho-mqtt
