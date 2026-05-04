@@ -72,20 +72,52 @@ public class ExternalApiService {
     public WeatherResponse fetchWeatherForecast() {
         try {
             // Merged forecast for the dashboard (Primary site: Marulas)
-            JsonNode marData = fetchWeatherAt(MARULAS_LAT, MARULAS_LON);
+            URI uri = UriComponentsBuilder.fromHttpUrl("https://api.open-meteo.com/v1/forecast")
+                    .queryParam("latitude", MARULAS_LAT)
+                    .queryParam("longitude", MARULAS_LON)
+                    .queryParam("hourly", "precipitation,surface_pressure,wind_speed_10m")
+                    .queryParam("daily", "weathercode,apparent_temperature_max,apparent_temperature_min")
+                    .queryParam("timezone", "Asia/Manila")
+                    .queryParam("forecast_days", 7)
+                    .build()
+                    .toUri();
+            
+            JsonNode marData = restTemplate.getForObject(uri, JsonNode.class);
             if (marData == null) return null;
 
             WeatherResponse response = new WeatherResponse();
             response.setLatitude(MARULAS_LAT);
             response.setLongitude(MARULAS_LON);
             
-            // Map JSON to WeatherResponse DTO
-            // (Assuming WeatherResponse has appropriate fields for the frontend)
-            // For now, return a basic structure derived from the JSON
             int hour = LocalDateTime.now().getHour();
-            response.setRainMm(marData.get("hourly").get("precipitation").get(hour).asDouble());
-            response.setPressureHpa(marData.get("hourly").get("surface_pressure").get(hour).asDouble());
-            response.setWindSpeed(marData.get("hourly").get("wind_speed_10m").get(hour).asDouble());
+            if (marData.has("hourly")) {
+                JsonNode hourly = marData.get("hourly");
+                if (hourly.has("precipitation")) response.setRainMm(hourly.get("precipitation").get(hour).asDouble());
+                if (hourly.has("surface_pressure")) response.setPressureHpa(hourly.get("surface_pressure").get(hour).asDouble());
+                if (hourly.has("wind_speed_10m")) response.setWindSpeed(hourly.get("wind_speed_10m").get(hour).asDouble());
+            }
+
+            // Map Daily Forecast
+            if (marData.has("daily")) {
+                JsonNode dailyNode = marData.get("daily");
+                WeatherResponse.Daily daily = new WeatherResponse.Daily();
+                
+                List<String> times = new ArrayList<>();
+                List<Integer> codes = new ArrayList<>();
+                List<Double> maxTemps = new ArrayList<>();
+                List<Double> minTemps = new ArrayList<>();
+
+                dailyNode.get("time").forEach(t -> times.add(t.asText()));
+                dailyNode.get("weathercode").forEach(c -> codes.add(c.asInt()));
+                dailyNode.get("apparent_temperature_max").forEach(m -> maxTemps.add(m.asDouble()));
+                dailyNode.get("apparent_temperature_min").forEach(m -> minTemps.add(m.asDouble()));
+
+                daily.setTime(times);
+                daily.setWeathercode(codes);
+                daily.setTemperatureMax(maxTemps);
+                daily.setTemperatureMin(minTemps);
+                response.setDaily(daily);
+            }
             
             return response;
         } catch (Exception e) {
