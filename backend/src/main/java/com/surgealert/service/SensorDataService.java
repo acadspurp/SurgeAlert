@@ -24,7 +24,8 @@ public class SensorDataService {
     private final WeatherMetricsRepository weatherMetricsRepository;
     private final MLFeaturesRealtimeRepository mlFeaturesRealtimeRepository;
 
-    // Reads from application.properties → surgealert.sensor.depth-m → SENSOR_DEPTH_M in .env
+    // Reads from application.properties → surgealert.sensor.depth-m →
+    // SENSOR_DEPTH_M in .env
     @Value("${surgealert.sensor.depth-m:6.1}")
     private double sensorDepthM;
 
@@ -37,13 +38,10 @@ public class SensorDataService {
     @Value("${surgealert.thresholds.red:5.50}")
     private double redThreshold;
 
-    @Value("${surgealert.thresholds.critical:6.00}")
-    private double criticalThreshold;
-
     public SensorDataService(SensorDataRepository sensorDataRepository,
-                             TideMetricsRepository tideMetricsRepository,
-                             WeatherMetricsRepository weatherMetricsRepository,
-                             MLFeaturesRealtimeRepository mlFeaturesRealtimeRepository) {
+            TideMetricsRepository tideMetricsRepository,
+            WeatherMetricsRepository weatherMetricsRepository,
+            MLFeaturesRealtimeRepository mlFeaturesRealtimeRepository) {
         this.sensorDataRepository = sensorDataRepository;
         this.tideMetricsRepository = tideMetricsRepository;
         this.weatherMetricsRepository = weatherMetricsRepository;
@@ -54,7 +52,7 @@ public class SensorDataService {
         // --- DATA GUARD: REJECT GHOST VALUES / NOISE ---
         if (dto.getWaterLevelM() != null && dto.getWaterLevelM() < 0.30) {
             System.out.println(" [DATA GUARD] Blocking ghost value: " + dto.getWaterLevelM() + "m");
-            return null; 
+            return null;
         }
 
         LocalDateTime now = dto.getTimestamp() != null ? dto.getTimestamp() : LocalDateTime.now();
@@ -99,11 +97,12 @@ public class SensorDataService {
             } else {
                 sensorData.setPredictedAlertLevel(calculateFallbackAlertLevel(sensorData.getPredictedLevel()));
             }
-            
+
             savedSensor = sensorDataRepository.save(sensorData);
         }
 
-        // 2. SAVE TIDE METRICS (Only if not recently saved by Scheduler to avoid duplicates)
+        // 2. SAVE TIDE METRICS (Only if not recently saved by Scheduler to avoid
+        // duplicates)
         if (dto.getTideHeightM() != null) {
             boolean exists = tideMetricsRepository.findFirstByOrderByTimestampDesc()
                     .map(t -> t.getTimestamp().isAfter(now.minusMinutes(1))).orElse(false);
@@ -139,7 +138,7 @@ public class SensorDataService {
         ml.setWaterLevel(dto.getWaterLevelM());
         ml.setRiseRate(dto.getImageRiseRateMps());
         ml.setSensorRiseRate(dto.getSensorRiseRate());
-        
+
         ml.setTideHeightM(dto.getTideHeightM());
         ml.setTideTrend(dto.getTideTrend());
 
@@ -174,12 +173,12 @@ public class SensorDataService {
         return sensorDataRepository.findFirstByOrderByTimestampDesc()
                 .map(sd -> {
                     SensorDataDTO dto = convertToDTO(sd);
-                    
+
                     // Merge latest Tide info
                     tideMetricsRepository.findFirstByOrderByTimestampDesc().ifPresent(t -> {
                         dto.setTideHeightM(t.getTideHeightM());
                     });
-                    
+
                     // Merge latest Weather info
                     weatherMetricsRepository.findFirstByOrderByTimestampDesc().ifPresent(w -> {
                         dto.setRainMm(w.getQcRainMm());
@@ -200,7 +199,7 @@ public class SensorDataService {
                         dto.setMar3hrSum(m.getMar3hrSum());
                         dto.setMar6hrSum(m.getMar6hrSum());
                     });
-                    
+
                     return dto;
                 })
                 .orElse(null);
@@ -223,7 +222,7 @@ public class SensorDataService {
         dto.setImageRiseRateMps(sensorData.getImageRiseRateMps());
         dto.setSensorRiseRate(sensorData.getSensorRiseRate());
         dto.setCurrentAlertLevel(sensorData.getCurrentAlertLevel());
-        
+
         if (sensorData.getImageBytes() != null) {
             dto.setSnapshotBase64(java.util.Base64.getEncoder().encodeToString(sensorData.getImageBytes()));
         }
@@ -236,14 +235,19 @@ public class SensorDataService {
     }
 
     // Fallback alert classifier — used only when the Edge system is offline.
-    // Thresholds are derived from sensorDepthM which comes from SENSOR_DEPTH_M in .env.
-    // Mirrors the ratios in: EdgeSystem/config/settings.py and ConfigController.java
+    // Thresholds are derived from sensorDepthM which comes from SENSOR_DEPTH_M in
+    // .env.
+    // Mirrors the ratios in: EdgeSystem/config/settings.py and
+    // ConfigController.java
     private String calculateFallbackAlertLevel(Double waterLevel) {
-        if (waterLevel == null) return "GREEN";
-        if (waterLevel >= criticalThreshold) return "CRITICAL";
-        if (waterLevel >= redThreshold) return "RED";
-        if (waterLevel >= orangeThreshold) return "ORANGE";
-        if (waterLevel >= yellowThreshold) return "YELLOW";
+        if (waterLevel == null)
+            return "GREEN";
+        if (waterLevel >= redThreshold)
+            return "RED";
+        if (waterLevel >= orangeThreshold)
+            return "ORANGE";
+        if (waterLevel >= yellowThreshold)
+            return "YELLOW";
         return "GREEN";
     }
 }

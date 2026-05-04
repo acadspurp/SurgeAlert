@@ -44,7 +44,6 @@ public class AlertService {
         descriptions.put("YELLOW", "MONITORING: Water is rising past halfway. Stay vigilant.");
         descriptions.put("ORANGE", "PREPARATION: High water level. Residents in low-lying areas should prepare.");
         descriptions.put("RED", "HIGH RISK: Dangerously high. Evacuation centers are opening. Be ready to leave.");
-        descriptions.put("CRITICAL", "MANDATORY EVACUATION: River is overflowing or imminent. Leave immediately!");
         return descriptions.getOrDefault(alertLevel, "Unknown status");
     }
 }

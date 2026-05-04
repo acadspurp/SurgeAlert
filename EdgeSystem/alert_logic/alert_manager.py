@@ -10,8 +10,7 @@ from config.settings import (
     MODEL_PATH, 
     WATER_LEVEL_YELLOW_THRESHOLD, 
     WATER_LEVEL_ORANGE_THRESHOLD, 
-    WATER_LEVEL_RED_THRESHOLD,
-    WATER_LEVEL_CRITICAL_THRESHOLD
+    WATER_LEVEL_RED_THRESHOLD
 )
 
 class AlertManager:
@@ -47,18 +46,13 @@ class AlertManager:
         if water_level is None:
             return "GREEN"
             
-        # --- LEVEL 5: CRITICAL ---
-        # Immediate overflow OR Predicted overflow in 1 hour (includes tide)
-        if water_level >= WATER_LEVEL_CRITICAL_THRESHOLD:
-            return "CRITICAL"
-        
-        if predicted_level is not None and predicted_level >= 6.0: 
-             return "CRITICAL"
-
         # --- LEVEL 4: RED ---
         # High Risk stage.
         if water_level >= WATER_LEVEL_RED_THRESHOLD:
             return "RED"
+        
+        if predicted_level is not None and predicted_level >= 5.5: 
+             return "RED"
         
         # --- FLASH FLOOD & TIDE MOMENTUM ESCALATION ---
         # If water is rising very fast (>0.5m per hour) and we are already at Orange, jump to Red.
