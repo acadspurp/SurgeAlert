@@ -134,4 +134,8 @@ public class ResidentService {
                 resident.getRegistrationDate()
         );
     }
+
+    public Map<String, String> getActiveOtps() {
+        return new java.util.HashMap<>(otpStorage);
+    }
 }

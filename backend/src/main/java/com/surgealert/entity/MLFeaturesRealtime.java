@@ -62,6 +62,9 @@ public class MLFeaturesRealtime {
     @Column(name = "Mar_3hr_Sum", nullable = true)
     private Double mar3hrSum;
 
+    @Column(name = "Mar_6hr_Sum", nullable = true)
+    private Double mar6hrSum;
+
     @Column(name = "Mar_24hr_Sum", nullable = true)
     private Double mar24hrSum;
 
@@ -130,6 +133,8 @@ public class MLFeaturesRealtime {
     public void setMarLag2Mm(Double marLag2Mm) { this.marLag2Mm = marLag2Mm; }
     public Double getMar3hrSum() { return mar3hrSum; }
     public void setMar3hrSum(Double mar3hrSum) { this.mar3hrSum = mar3hrSum; }
+    public Double getMar6hrSum() { return mar6hrSum; }
+    public void setMar6hrSum(Double mar6hrSum) { this.mar6hrSum = mar6hrSum; }
     public Double getMar24hrSum() { return mar24hrSum; }
     public void setMar24hrSum(Double mar24hrSum) { this.mar24hrSum = mar24hrSum; }
     public Double getPressureHpa() { return pressureHpa; }

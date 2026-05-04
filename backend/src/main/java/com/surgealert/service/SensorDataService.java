@@ -28,6 +28,18 @@ public class SensorDataService {
     @Value("${surgealert.sensor.depth-m:6.1}")
     private double sensorDepthM;
 
+    @Value("${surgealert.thresholds.yellow:2.50}")
+    private double yellowThreshold;
+
+    @Value("${surgealert.thresholds.orange:4.00}")
+    private double orangeThreshold;
+
+    @Value("${surgealert.thresholds.red:5.50}")
+    private double redThreshold;
+
+    @Value("${surgealert.thresholds.critical:6.00}")
+    private double criticalThreshold;
+
     public SensorDataService(SensorDataRepository sensorDataRepository,
                              TideMetricsRepository tideMetricsRepository,
                              WeatherMetricsRepository weatherMetricsRepository,
@@ -91,26 +103,34 @@ public class SensorDataService {
             savedSensor = sensorDataRepository.save(sensorData);
         }
 
-        // 2. SAVE TIDE METRICS (Raw only + Trend as requested)
+        // 2. SAVE TIDE METRICS (Only if not recently saved by Scheduler to avoid duplicates)
         if (dto.getTideHeightM() != null) {
-            TideMetrics tide = new TideMetrics();
-            tide.setTimestamp(now);
-            tide.setTideHeightM(dto.getTideHeightM());
-            tide.setTideTrend(dto.getTideTrend());
-            tideMetricsRepository.save(tide);
+            boolean exists = tideMetricsRepository.findFirstByOrderByTimestampDesc()
+                    .map(t -> t.getTimestamp().isAfter(now.minusMinutes(1))).orElse(false);
+            if (!exists) {
+                TideMetrics tide = new TideMetrics();
+                tide.setTimestamp(now);
+                tide.setTideHeightM(dto.getTideHeightM());
+                tide.setTideTrend(dto.getTideTrend());
+                tideMetricsRepository.save(tide);
+            }
         }
 
-        // 3. SAVE WEATHER METRICS (Raw only)
+        // 3. SAVE WEATHER METRICS (Only if not recently saved by Scheduler)
         if (dto.getRainMm() != null || dto.getMarulasRainMm() != null) {
-            WeatherMetrics weather = new WeatherMetrics();
-            weather.setTimestamp(now);
-            weather.setQcRainMm(dto.getRainMm());
-            weather.setMarulasRainMm(dto.getMarulasRainMm());
-            weather.setMar24hrSum(dto.getMar24hrSum());
-            weather.setPressureHpa(dto.getPressureHpa());
-            weather.setWindSpeed(dto.getWindSpeedKph());
-            weather.setSoilMoisture(dto.getSoilMoisturePct());
-            weatherMetricsRepository.save(weather);
+            boolean exists = weatherMetricsRepository.findFirstByTimestampBeforeOrderByTimestampDesc(now.plusMinutes(1))
+                    .map(w -> w.getTimestamp().isAfter(now.minusMinutes(1))).orElse(false);
+            if (!exists) {
+                WeatherMetrics weather = new WeatherMetrics();
+                weather.setTimestamp(now);
+                weather.setQcRainMm(dto.getRainMm());
+                weather.setMarulasRainMm(dto.getMarulasRainMm());
+                weather.setMar24hrSum(dto.getMar24hrSum());
+                weather.setPressureHpa(dto.getPressureHpa());
+                weather.setWindSpeed(dto.getWindSpeedKph());
+                weather.setSoilMoisture(dto.getSoilMoisturePct());
+                weatherMetricsRepository.save(weather);
+            }
         }
 
         // 4. SAVE ML FEATURES REALTIME (All calculated features)
@@ -220,10 +240,10 @@ public class SensorDataService {
     // Mirrors the ratios in: EdgeSystem/config/settings.py and ConfigController.java
     private String calculateFallbackAlertLevel(Double waterLevel) {
         if (waterLevel == null) return "GREEN";
-        if (waterLevel >= 6.00) return "CRITICAL"; // Synchronized with Edge
-        if (waterLevel >= 5.50) return "RED";      // Synchronized with Edge
-        if (waterLevel >= 4.00) return "ORANGE";   // Synchronized with Edge
-        if (waterLevel >= 2.50) return "YELLOW";   // Synchronized with Edge
+        if (waterLevel >= criticalThreshold) return "CRITICAL";
+        if (waterLevel >= redThreshold) return "RED";
+        if (waterLevel >= orangeThreshold) return "ORANGE";
+        if (waterLevel >= yellowThreshold) return "YELLOW";
         return "GREEN";
     }
 }

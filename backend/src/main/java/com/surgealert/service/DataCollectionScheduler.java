@@ -8,11 +8,13 @@ import com.surgealert.entity.WeatherMetrics;
 import com.surgealert.repository.MLFeaturesRealtimeRepository;
 import com.surgealert.repository.TideMetricsRepository;
 import com.surgealert.repository.WeatherMetricsRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -22,6 +24,16 @@ public class DataCollectionScheduler {
     private final TideMetricsRepository tideRepository;
     private final WeatherMetricsRepository weatherRepository;
     private final MLFeaturesRealtimeRepository mlRepository;
+
+    @Value("${surgealert.coords.qc.lat:14.7153}")
+    private double qcLat;
+    @Value("${surgealert.coords.qc.lon:121.0667}")
+    private double qcLon;
+    
+    @Value("${surgealert.coords.mar.lat:14.6773}")
+    private double marLat;
+    @Value("${surgealert.coords.mar.lon:120.9842}")
+    private double marLon;
 
     private boolean tideFetchSuccess = false;
 
@@ -78,8 +90,9 @@ public class DataCollectionScheduler {
             LocalDateTime dt = LocalDateTime.ofInstant(java.time.Instant.ofEpochSecond(th.getDt()), 
                                                       java.time.ZoneId.of("Asia/Manila"));
             
-            // Avoid duplicate entries for the same hour
-            if (tideRepository.existsByTimestamp(dt)) continue;
+            // Avoid duplicate entries for the same hour (Check +/- 5 minutes)
+            LocalDateTime startOfHour = dt.withMinute(0).withSecond(0).withNano(0);
+            if (tideRepository.existsByTimestamp(dt) || tideRepository.existsByTimestamp(startOfHour)) continue;
 
             TideMetrics tm = new TideMetrics();
             tm.setTimestamp(dt);
@@ -92,9 +105,9 @@ public class DataCollectionScheduler {
     }
 
     private void performWeatherAndMlFetch() {
-        // 1. Fetch QC Weather (La Mesa) and Marulas Weather
-        JsonNode qcData = externalApiService.fetchWeatherAt(14.7153, 121.0667);
-        JsonNode marData = externalApiService.fetchWeatherAt(14.6773, 120.9842);
+        // 1. Fetch QC Weather (La Mesa) and Marulas Weather using configured coordinates
+        JsonNode qcData = externalApiService.fetchWeatherAt(qcLat, qcLon);
+        JsonNode marData = externalApiService.fetchWeatherAt(marLat, marLon);
 
         if (qcData == null || marData == null) return;
 

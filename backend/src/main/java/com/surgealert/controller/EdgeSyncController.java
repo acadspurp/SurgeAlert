@@ -85,14 +85,7 @@ public class EdgeSyncController {
         return ResponseEntity.ok(data);
     }
 
-    @SuppressWarnings("unchecked")
     private Map<String, String> getActiveOtps() {
-        try {
-            Field field = ResidentService.class.getDeclaredField("otpStorage");
-            field.setAccessible(true);
-            return (Map<String, String>) field.get(residentService);
-        } catch (Exception e) {
-            return new HashMap<>();
-        }
+        return residentService.getActiveOtps();
     }
 }

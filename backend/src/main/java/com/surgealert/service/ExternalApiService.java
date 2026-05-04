@@ -69,6 +69,31 @@ public class ExternalApiService {
         }
     }
 
+    public WeatherResponse fetchWeatherForecast() {
+        try {
+            // Merged forecast for the dashboard (Primary site: Marulas)
+            JsonNode marData = fetchWeatherAt(MARULAS_LAT, MARULAS_LON);
+            if (marData == null) return null;
+
+            WeatherResponse response = new WeatherResponse();
+            response.setLatitude(MARULAS_LAT);
+            response.setLongitude(MARULAS_LON);
+            
+            // Map JSON to WeatherResponse DTO
+            // (Assuming WeatherResponse has appropriate fields for the frontend)
+            // For now, return a basic structure derived from the JSON
+            int hour = LocalDateTime.now().getHour();
+            response.setRainMm(marData.get("hourly").get("precipitation").get(hour).asDouble());
+            response.setPressureHpa(marData.get("hourly").get("surface_pressure").get(hour).asDouble());
+            response.setWindSpeed(marData.get("hourly").get("wind_speed_10m").get(hour).asDouble());
+            
+            return response;
+        } catch (Exception e) {
+            System.err.println("Weather forecast mapping failed: " + e.getMessage());
+            return null;
+        }
+    }
+
     public TideResponse fetchTideData() {
         LocalDate today = LocalDate.now();
 
