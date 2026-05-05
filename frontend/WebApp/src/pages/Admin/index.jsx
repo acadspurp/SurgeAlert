@@ -39,7 +39,6 @@ import AdminUsersView from './views/AdminUsersView';
 import CanaryView from './views/CanaryView';
 
 const DISPLAY_TIMEZONE = 'Asia/Manila';
-const TIDE_DISPLAY_TIMEZONE = 'UTC';
 const CAMERA_DELAY_MS = 10 * 60 * 60 * 1000;
 
 export default function Admin() {
@@ -1102,17 +1101,29 @@ export default function Admin() {
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
         .slice(0, 5);
 
-    const formatTideDateUtc = (value) => new Date(value).toLocaleDateString('en-US', {
+    const toDelayedTideDate = (value) => new Date(new Date(value).getTime() - CAMERA_DELAY_MS);
+
+    const formatTideDateDelayed = (value) => toDelayedTideDate(value).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
-        timeZone: TIDE_DISPLAY_TIMEZONE
+        timeZone: DISPLAY_TIMEZONE
     });
 
-    const formatTideTimeUtc = (value) => new Date(value).toLocaleTimeString('en-US', {
+    const formatTideTimeDelayed = (value) => toDelayedTideDate(value).toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
-        timeZone: TIDE_DISPLAY_TIMEZONE
+        timeZone: DISPLAY_TIMEZONE
+    });
+
+    const formatTideDateTimeDelayed = (value) => toDelayedTideDate(value).toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: DISPLAY_TIMEZONE
     });
 
     const filteredResidents = (Array.isArray(residents) ? residents : []).filter(r => {
@@ -1269,7 +1280,7 @@ export default function Admin() {
                         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
                         handleDeleteAdminUser,
                         handleUpdateDatasetStatus, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert, canaryState, handleAdvanceCanaryPhase, handleRollbackCanaryPhase, handleUpdateCanaryConfig,
-                        formatTideDateUtc, formatTideTimeUtc
+                        formatTideDateDelayed, formatTideTimeDelayed, formatTideDateTimeDelayed
                     }; return (<>
 
 
