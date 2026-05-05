@@ -24,7 +24,7 @@ function DashboardCard({ title, value, icon, color, subtitle, trend }) {
             </div>
             <div>
                 <div className="flex items-baseline gap-2">
-                    <h3 className={`text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight ${textColor} whitespace-normal break-words`}>{value}</h3>
+                    <h3 className={`text-xl sm:text-2xl lg:text-3xl font-black tracking-tight leading-tight ${textColor} whitespace-normal break-words`}>{value}</h3>
                     {trend && trend !== '-' && (
                         <span className={`text-xl font-black ${trend === '↑' ? 'text-green-500' : 'text-green-500'}`} title="Trend vs previous tick">
                             {trend}

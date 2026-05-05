@@ -1134,7 +1134,6 @@ export default function Admin() {
         { key: 'templates', label: 'Message Templates', icon: 'fa-comment-sms' },
         { key: 'datasets', label: 'Data Requests', icon: 'fa-database' },
         { key: 'reports', label: 'Download Reports', icon: 'fa-file-export' },
-        { key: 'canary', label: 'System Update Testing', icon: 'fa-code-branch' },
     ];
     if (isHeadAdmin) navItems.push({ key: 'admin_users', label: 'User Management', icon: 'fa-user-shield' });
 

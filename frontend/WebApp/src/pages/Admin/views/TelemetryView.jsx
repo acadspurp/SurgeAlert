@@ -10,19 +10,6 @@ export default function TelemetryView(props) {
     beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
     handleDeleteAdminUser,
     approveDatasetRequest } = props;
-  const opticalFlowChartData = {
-    datasets: [
-      {
-        label: 'Optical Flow (image_flow_rate_mps)',
-        data: rawSensorData.map((d) => ({ x: d.timestamp, y: d.imageFlowRateMps })),
-        borderColor: '#10b981',
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-        fill: true,
-        tension: 0.3
-      }
-    ]
-  };
-
   return (
 <>
 {/* 2. TELEMETRY & ANALYTICS */}
@@ -100,7 +87,7 @@ export default function TelemetryView(props) {
                                     </select>
                                 </div>
                                 <div className="relative h-64 w-full min-w-0 sm:h-80">
-                                    <Line data={opticalFlowChartData} options={{ ...commonChartOptions, scales: { ...commonChartOptions.scales, y: { type: 'linear', display: true, position: 'left', title: {display: true, text: 'Flow (m/s)'} } } }} />
+                                    <Line data={cvChartData} options={{ ...commonChartOptions, scales: { ...commonChartOptions.scales, y: { type: 'linear', display: true, position: 'left', title: {display: true, text: 'Flow (m/s)'} } } }} />
                                 </div>
                             </div>
                         </div>
