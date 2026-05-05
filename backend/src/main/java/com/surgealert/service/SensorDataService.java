@@ -140,6 +140,8 @@ public class SensorDataService {
         // 4. SAVE ML FEATURES REALTIME (All calculated features)
         MLFeaturesRealtime ml = new MLFeaturesRealtime();
         ml.setTimestamp(now);
+        ml.setMonth(now.getMonthValue());
+        ml.setHour(now.getHour());
         ml.setWaterLevel(dto.getWaterLevelM());
         ml.setRiseRate(dto.getImageRiseRateMps());
         ml.setSensorRiseRate(dto.getSensorRiseRate());

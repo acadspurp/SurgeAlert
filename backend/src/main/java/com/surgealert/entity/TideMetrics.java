@@ -11,7 +11,7 @@ public class TideMetrics {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(name = "time", nullable = false)
     private LocalDateTime timestamp;
 
     @Column(name = "tide_height_m", nullable = false)

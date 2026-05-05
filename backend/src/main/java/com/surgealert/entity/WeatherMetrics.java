@@ -11,7 +11,7 @@ public class WeatherMetrics {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(name = "time", nullable = false)
     private LocalDateTime timestamp;
 
     @Column(name = "qc_rain_mm", nullable = true)

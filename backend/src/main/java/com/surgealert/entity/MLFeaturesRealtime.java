@@ -11,7 +11,7 @@ public class MLFeaturesRealtime {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(name = "time", nullable = false)
     private LocalDateTime timestamp;
 
     @Column(name = "Month", nullable = true)
@@ -35,19 +35,19 @@ public class MLFeaturesRealtime {
     @Column(name = "Tide_Trend", nullable = true)
     private Double tideTrend;
 
-    @Column(name = "QC_Rain_mm", nullable = true)
+    @Column(name = "Rain_mm", nullable = true)
     private Double qcRainMm;
 
-    @Column(name = "QC_Rain_Lag1", nullable = true)
+    @Column(name = "Rain_Lag1", nullable = true)
     private Double qcLag1Mm;
 
-    @Column(name = "QC_Rain_Lag2", nullable = true)
+    @Column(name = "Rain_Lag2", nullable = true)
     private Double qcLag2Mm;
 
-    @Column(name = "QC_3hr_Sum", nullable = true)
+    @Column(name = "Rain_3hr_Sum", nullable = true)
     private Double qc3hrSum;
 
-    @Column(name = "QC_6hr_Sum", nullable = true)
+    @Column(name = "Rain_6hr_Sum", nullable = true)
     private Double qc6hrSum;
 
     @Column(name = "Marulas_Rain_mm", nullable = true)
@@ -74,7 +74,7 @@ public class MLFeaturesRealtime {
     @Column(name = "Press_Trend", nullable = true)
     private Double pressTrend;
 
-    @Column(name = "Wind_speed", nullable = true)
+    @Column(name = "Wind_Speed", nullable = true)
     private Double windSpeed;
 
     @Column(name = "Wind_Sin", nullable = true)
