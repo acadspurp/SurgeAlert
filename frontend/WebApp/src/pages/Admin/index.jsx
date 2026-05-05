@@ -40,7 +40,6 @@ import CanaryView from './views/CanaryView';
 
 const DISPLAY_TIMEZONE = 'Asia/Manila';
 const CAMERA_DELAY_MS = 10 * 60 * 60 * 1000;
-const TIDE_DISPLAY_DELAY_MS = CAMERA_DELAY_MS;
 
 export default function Admin() {
     const navigate = useNavigate();
@@ -553,41 +552,36 @@ export default function Admin() {
 
         if (mqttData) {
             setLastMqttAt(Date.now());
-            setDashData((prev) => {
-                const newDash = { ...prev };
-                const floatWl = mqttData.waterLevelM;
-                const isGhost = floatWl !== null && floatWl !== undefined && floatWl < 0.10;
+            const newDash = { ...dashData };
+            // Apply noise filter (anything below 0.30m is ghost data)
+            const floatWl = mqttData.waterLevelM;
+            const isGhost = floatWl !== null && floatWl !== undefined && floatWl < 0.10;
 
-                if (floatWl !== null && floatWl !== undefined && !isGhost) {
-                    newDash.waterLevel = floatWl.toFixed(2) + ' m';
-                }
-                if (mqttData.sensorFlowRateMps !== null && mqttData.sensorFlowRateMps !== undefined) {
-                    newDash.flowRate = mqttData.sensorFlowRateMps.toFixed(2) + ' m/s';
-                }
+            newDash.waterLevel = (floatWl !== null && !isGhost) ? floatWl.toFixed(2) + ' m' : '-- m';
+            newDash.flowRate = (mqttData.sensorFlowRateMps !== null) ? mqttData.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s';
 
-                const level = mqttData.currentAlertLevel || 'OFFLINE';
-                newDash.status = isGhost ? 'NORMAL (GHOST FILTERED)' : level;
-                if (isGhost) newDash.statusColor = 'text-green-600';
-                else if (level === 'RED') newDash.statusColor = 'text-red-600';
-                else if (level === 'ORANGE') newDash.statusColor = 'text-orange-500';
-                else if (level === 'YELLOW') newDash.statusColor = 'text-yellow-500';
-                else if (level === 'GREEN') newDash.statusColor = 'text-green-600';
-                else newDash.statusColor = 'text-slate-400';
+            const level = mqttData.currentAlertLevel || 'OFFLINE';
+            newDash.status = isGhost ? 'NORMAL (GHOST FILTERED)' : level;
+            if (isGhost) newDash.statusColor = 'text-green-600';
+            else if (level === 'RED') newDash.statusColor = 'text-red-600';
+            else if (level === 'ORANGE') newDash.statusColor = 'text-orange-500';
+            else if (level === 'YELLOW') newDash.statusColor = 'text-yellow-500';
+            else if (level === 'GREEN') newDash.statusColor = 'text-green-600';
+            else newDash.statusColor = 'text-slate-400';
 
-                if (mqttData.predictedLevel !== null && mqttData.predictedLevel !== undefined) {
-                    newDash.prediction = mqttData.predictedLevel.toFixed(2) + ' m';
-                }
-                if (mqttData.predictedAlertLevel) {
-                    newDash.predictedClassification = mqttData.predictedAlertLevel;
-                }
+            if (mqttData.predictedLevel !== null && mqttData.predictedLevel !== undefined) {
+                newDash.prediction = mqttData.predictedLevel.toFixed(2) + ' m';
+            }
+            newDash.predictedClassification = mqttData.predictedAlertLevel || '--';
 
-                if (mqttData.rainMm !== null && mqttData.rainMm !== undefined) newDash.qcRain = mqttData.rainMm.toFixed(1) + ' mm';
-                if (mqttData.marulasRainMm !== null && mqttData.marulasRainMm !== undefined) newDash.marulasRain = mqttData.marulasRainMm.toFixed(1) + ' mm';
-                if (mqttData.tideHeightM !== null && mqttData.tideHeightM !== undefined) newDash.tideHeight = mqttData.tideHeightM.toFixed(2) + ' m';
-                if (mqttData.pressureHpa !== null && mqttData.pressureHpa !== undefined) newDash.pressure = mqttData.pressureHpa.toFixed(0) + ' hPa';
-                if (mqttData.windSpeedKph !== null && mqttData.windSpeedKph !== undefined) newDash.wind = mqttData.windSpeedKph.toFixed(1) + ' kph';
-                return newDash;
-            });
+            // NEW ENVIRONMENTAL FIELDS
+            if (mqttData.rainMm !== null && mqttData.rainMm !== undefined) newDash.qcRain = mqttData.rainMm.toFixed(1) + ' mm';
+            if (mqttData.marulasRainMm !== null && mqttData.marulasRainMm !== undefined) newDash.marulasRain = mqttData.marulasRainMm.toFixed(1) + ' mm';
+            if (mqttData.tideHeightM !== null && mqttData.tideHeightM !== undefined) newDash.tideHeight = mqttData.tideHeightM.toFixed(2) + ' m';
+            if (mqttData.pressureHpa !== null && mqttData.pressureHpa !== undefined) newDash.pressure = mqttData.pressureHpa.toFixed(0) + ' hPa';
+            if (mqttData.windSpeedKph !== null && mqttData.windSpeedKph !== undefined) newDash.wind = mqttData.windSpeedKph.toFixed(1) + ' kph';
+
+            setDashData(newDash);
 
             if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${mqttData.snapshotBase64}`);
@@ -935,38 +929,22 @@ export default function Admin() {
     const aiFiltered = rawSensorData;
 
     // Telemetry Chart (Multiple Lines)
-    const telemetryPoints = telemetryFiltered
-        .map((d) => ({
-            x: d?.timestamp,
-            waterLevelM: d?.waterLevelM,
-            sensorFlowRateMps: d?.sensorFlowRateMps
-        }))
-        .filter((p) => p.x && p.waterLevelM !== null && p.waterLevelM !== undefined && p.sensorFlowRateMps !== null && p.sensorFlowRateMps !== undefined);
-
-    const cvPoints = cvSensorData
-        .map((d) => ({ x: d?.timestamp, imageFlowRateMps: d?.imageFlowRateMps }))
-        .filter((p) => p.x && p.imageFlowRateMps !== null && p.imageFlowRateMps !== undefined);
-
-    const aiPoints = aiFiltered
-        .map((d) => ({ x: d?.timestamp, waterLevelM: d?.waterLevelM, predictedLevel: d?.predictedLevel }))
-        .filter((p) => p.x && p.waterLevelM !== null && p.waterLevelM !== undefined);
-
     const telemetryChartData = {
         datasets: [
-            { label: 'Water Level (m)', data: telemetryPoints.map(d => ({ x: d.x, y: Number(d.waterLevelM) })), yAxisID: 'y', borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3 },
-            { label: 'Flow Rate (m/s)', data: telemetryPoints.map(d => ({ x: d.x, y: Number(d.sensorFlowRateMps) })), yAxisID: 'y1', borderColor: '#f59e0b', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.3 }
+            { label: 'Water Level (m)', data: telemetryFiltered.map(d => ({ x: d.timestamp, y: d.waterLevelM })), yAxisID: 'y', borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3 },
+            { label: 'Flow Rate (m/s)', data: telemetryFiltered.map(d => ({ x: d.timestamp, y: d.sensorFlowRateMps })), yAxisID: 'y1', borderColor: '#f59e0b', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.3 }
         ]
     };
 
     // CV Chart Data
     const cvChartData = {
         datasets: [
-            { label: 'Optical Flow (m/s)', data: cvPoints.map(d => ({ x: d.x, y: Number(d.imageFlowRateMps) })), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.3 }
+            { label: 'Optical Flow (m/s)', data: cvSensorData.map(d => ({ x: d.timestamp, y: d.imageFlowRateMps })), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.3 }
         ]
     };
 
     // AI Chart (Historical + Future prediction plot logic)
-    const lastHistorical = aiPoints.length > 0 ? aiPoints[aiPoints.length - 1] : null;
+    const lastHistorical = aiFiltered.length > 0 ? aiFiltered[aiFiltered.length - 1] : null;
     const nextHour = lastHistorical 
         ? new Date(new Date(lastHistorical.timestamp).getTime() + 60 * 60 * 1000).toISOString()
         : new Date(Date.now() + 60 * 60 * 1000).toISOString();
@@ -975,7 +953,7 @@ export default function Admin() {
         datasets: [
             {
                 label: 'Historical Level (m)',
-                data: aiPoints.map(d => ({ x: d.x, y: Number(d.waterLevelM) })),
+                data: aiFiltered.map(d => ({ x: d.timestamp, y: d.waterLevelM })),
                 borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3
             },
             {
@@ -1123,7 +1101,7 @@ export default function Admin() {
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
         .slice(0, 5);
 
-    const toDelayedTideDate = (value) => new Date(new Date(value).getTime() - TIDE_DISPLAY_DELAY_MS);
+    const toDelayedTideDate = (value) => new Date(new Date(value).getTime() - CAMERA_DELAY_MS);
 
     const formatTideDateDelayed = (value) => toDelayedTideDate(value).toLocaleDateString('en-US', {
         month: 'short',

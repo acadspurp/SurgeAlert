@@ -21,13 +21,6 @@ export default function AIView(props) {
         acc[key].push(t);
         return acc;
     }, {});
-    const tideNow = Date.now();
-    const nextHigh = (Array.isArray(tides) ? tides : [])
-        .filter((t) => String(t?.type).toLowerCase() === 'high' && (t.dt * 1000) > tideNow)
-        .sort((a, b) => a.dt - b.dt)[0];
-    const nextLow = (Array.isArray(tides) ? tides : [])
-        .filter((t) => String(t?.type).toLowerCase() === 'low' && (t.dt * 1000) > tideNow)
-        .sort((a, b) => a.dt - b.dt)[0];
 
     const getCurrentTideSummary = (events) => {
         if (!Array.isArray(events) || events.length === 0) return { status: 'Normal' };
@@ -116,14 +109,14 @@ export default function AIView(props) {
                                 </div>
                                 <div className="bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-slate-200">
                                     <span className="text-slate-400 mr-2">Next High:</span>
-                                    {nextHigh
-                                        ? formatTideDateTime(nextHigh.dt * 1000)
+                                    {tides.find(t => t.type === 'High')
+                                        ? formatTideDateTime(tides.find(t => t.type === 'High').dt * 1000)
                                         : 'N/A'}
                                 </div>
                                 <div className="bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-slate-200">
                                     <span className="text-slate-400 mr-2">Next Low:</span>
-                                    {nextLow
-                                        ? formatTideDateTime(nextLow.dt * 1000)
+                                    {tides.find(t => t.type === 'Low')
+                                        ? formatTideDateTime(tides.find(t => t.type === 'Low').dt * 1000)
                                         : 'N/A'}
                                 </div>
                             </div>

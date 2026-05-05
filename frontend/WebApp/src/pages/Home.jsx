@@ -7,7 +7,6 @@ import { classifyAlertLevel, gaugeFillPercent, gaugeMarkers } from '../config/al
 let CACHED_GUIDE = null;
 const DISPLAY_TIMEZONE = 'Asia/Manila';
 const CAMERA_DELAY_MS = 10 * 60 * 60 * 1000;
-const TIDE_DISPLAY_DELAY_MS = CAMERA_DELAY_MS;
 
 /** How often to poll GET /public/alerts/status (includes manual override). Keeps all browsers in sync without refresh. */
 const ALERT_STATUS_POLL_MS = 10000;
@@ -398,7 +397,7 @@ export default function Home() {
     const tideSummary = getCurrentTideSummary(tides);
     // Compute gauge markers fresh from fetched config — no hardcoded percentages
     const GAUGE_MARKS = gaugeMarkers(sensorConfig.thresholds, sensorConfig.sensorDepthM);
-    const toDelayedTideDate = (value) => new Date((value * 1000) - TIDE_DISPLAY_DELAY_MS);
+    const toDelayedTideDate = (value) => new Date((value * 1000) - CAMERA_DELAY_MS);
     const formatTideDate = (value) =>
         value ? toDelayedTideDate(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: DISPLAY_TIMEZONE }) : 'N/A';
     const formatTideTime = (value) =>
