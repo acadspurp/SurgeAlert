@@ -62,6 +62,7 @@ public class ResidentController {
     }
 
     @PostMapping("/register")
+    public ResponseEntity<?> registerResident(@RequestBody ResidentRequest request) {
         try {
             residentService.registerResident(request);
             
