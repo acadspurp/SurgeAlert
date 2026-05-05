@@ -352,11 +352,22 @@ export async function fetchLatestEnvironmental() {
 
 // --- ADMIN: SENSOR DATA (for chart) ---
 export async function fetchSensorData(hours = 24) {
-    // Temporary hard bypass for deployments where /recent is returning 403.
-    // Keeps KPIs/charts alive using the latest sensor_data row until backend route is healthy.
+    const url = `${API_BASE_URL}/sensor-data/recent?hours=${hours}`;
+    try {
+        let response = await fetch(url);
+        if (response.status === 401 || response.status === 403) {
+            response = await apiFetch(url);
+        }
+        if (response.ok) {
+            const data = await response.json();
+            if (Array.isArray(data) && data.length > 0) return data;
+        }
+    } catch {
+        // Fallback below keeps UI alive even if /recent is blocked.
+    }
+
     const latest = await fetchLatestSensorReading();
-    if (latest) return [latest];
-    return [];
+    return latest ? [latest] : [];
 }
 
 // --- ADMIN: REPORTS ---
