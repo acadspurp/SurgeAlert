@@ -298,16 +298,22 @@ export default function Admin() {
 
                 // Environmental Metrics — PRIMARY source is ml_features_realtime via /admin/environmental/latest
                 if (latest) {
-                    newDash.flowRate = latest.sensorFlowRateMps !== null ? latest.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s';
-                    newDash.prediction = latest.predictedLevel !== null ? latest.predictedLevel.toFixed(2) + ' m' : '-- m';
-                    newDash.predictedClassification = latest.predictedAlertLevel || '--';
+                    if (latest.sensorFlowRateMps !== null && latest.sensorFlowRateMps !== undefined) {
+                        newDash.flowRate = latest.sensorFlowRateMps.toFixed(2) + ' m/s';
+                    }
+                    if (latest.predictedLevel !== null && latest.predictedLevel !== undefined) {
+                        newDash.prediction = latest.predictedLevel.toFixed(2) + ' m';
+                    }
+                    if (latest.predictedAlertLevel) {
+                        newDash.predictedClassification = latest.predictedAlertLevel;
+                    }
                     // Keep legacy latest-record fallback only when ml_features_realtime is empty.
                     if (!envData) {
-                        newDash.qcRain = (latest.rainMm !== null && latest.rainMm !== undefined) ? latest.rainMm.toFixed(1) + ' mm' : '-- mm';
-                        newDash.marulasRain = (latest.marulasRainMm !== null && latest.marulasRainMm !== undefined) ? latest.marulasRainMm.toFixed(1) + ' mm' : '-- mm';
-                        newDash.tideHeight = (latest.tideHeightM !== null && latest.tideHeightM !== undefined) ? latest.tideHeightM.toFixed(2) + ' m' : '-- m';
-                        newDash.pressure = (latest.pressureHpa !== null && latest.pressureHpa !== undefined) ? latest.pressureHpa.toFixed(0) + ' hPa' : '-- hPa';
-                        newDash.wind = (latest.windSpeedKph !== null && latest.windSpeedKph !== undefined) ? latest.windSpeedKph.toFixed(1) + ' kph' : '-- kph';
+                        if (latest.rainMm !== null && latest.rainMm !== undefined) newDash.qcRain = latest.rainMm.toFixed(1) + ' mm';
+                        if (latest.marulasRainMm !== null && latest.marulasRainMm !== undefined) newDash.marulasRain = latest.marulasRainMm.toFixed(1) + ' mm';
+                        if (latest.tideHeightM !== null && latest.tideHeightM !== undefined) newDash.tideHeight = latest.tideHeightM.toFixed(2) + ' m';
+                        if (latest.pressureHpa !== null && latest.pressureHpa !== undefined) newDash.pressure = latest.pressureHpa.toFixed(0) + ' hPa';
+                        if (latest.windSpeedKph !== null && latest.windSpeedKph !== undefined) newDash.wind = latest.windSpeedKph.toFixed(1) + ' kph';
                     }
                 }
 
@@ -341,7 +347,7 @@ export default function Admin() {
                         if (newDash.wind === '-- kph' && cw.windspeed !== undefined)
                             newDash.wind = cw.windspeed.toFixed(1) + ' kph';
                     }
-                    if (tideFallback !== null && newDash.tideHeight === '-- m')
+                    if (tideFallback !== null)
                         newDash.tideHeight = tideFallback.toFixed(2) + ' m (tide)';
                 }
 
@@ -388,22 +394,39 @@ export default function Admin() {
 
     const loadChartData = async (hours, type = 'TELEMETRY') => {
         try {
-            const data = await fetchSensorData(hours);
-            data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            const incoming = await fetchSensorData(hours);
+            const byTimestamp = new Map();
+            const maxPoints = Math.max(24, Math.min(720, hours * 12)); // up to 5-min cadence window
+
+            const mergeSeries = (prev, next) => {
+                [...(prev || []), ...(next || [])].forEach((row) => {
+                    const key = row?.timestamp ? String(row.timestamp) : null;
+                    if (key) byTimestamp.set(key, row);
+                });
+                const merged = Array.from(byTimestamp.values()).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                return merged.slice(-maxPoints);
+            };
 
             if (type === 'TELEMETRY') {
-                setRawSensorData(data);
-                if (data.length > 0) {
-                    const latest = data[data.length - 1];
-                    setDashData(prev => ({
-                        ...prev,
-                        flowRate: latest.sensorFlowRateMps !== null ? latest.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s',
-                        prediction: latest.predictedLevel !== null ? latest.predictedLevel.toFixed(2) + ' m' : '-- m',
-                        predictedClassification: latest.predictedAlertLevel || '--',
-                    }));
-                }
+                setRawSensorData((prev) => {
+                    const merged = mergeSeries(prev, incoming);
+                    if (merged.length > 0) {
+                        const latest = merged[merged.length - 1];
+                        setDashData((prevDash) => ({
+                            ...prevDash,
+                            flowRate: (latest.sensorFlowRateMps !== null && latest.sensorFlowRateMps !== undefined)
+                                ? latest.sensorFlowRateMps.toFixed(2) + ' m/s'
+                                : prevDash.flowRate,
+                            prediction: (latest.predictedLevel !== null && latest.predictedLevel !== undefined)
+                                ? latest.predictedLevel.toFixed(2) + ' m'
+                                : prevDash.prediction,
+                            predictedClassification: latest.predictedAlertLevel || prevDash.predictedClassification || '--',
+                        }));
+                    }
+                    return merged;
+                });
             } else if (type === 'CV') {
-                setCvSensorData(data);
+                setCvSensorData((prev) => mergeSeries(prev, incoming));
             }
         } catch (e) { console.error("Failed to update chart:", e); }
     };
@@ -547,11 +570,11 @@ export default function Admin() {
             newDash.predictedClassification = mqttData.predictedAlertLevel || '--';
 
             // NEW ENVIRONMENTAL FIELDS
-            newDash.qcRain = (mqttData.rainMm !== null && mqttData.rainMm !== undefined) ? mqttData.rainMm.toFixed(1) + ' mm' : '-- mm';
-            newDash.marulasRain = (mqttData.marulasRainMm !== null && mqttData.marulasRainMm !== undefined) ? mqttData.marulasRainMm.toFixed(1) + ' mm' : '-- mm';
-            newDash.tideHeight = (mqttData.tideHeightM !== null && mqttData.tideHeightM !== undefined) ? mqttData.tideHeightM.toFixed(2) + ' m' : '-- m';
-            newDash.pressure = (mqttData.pressureHpa !== null && mqttData.pressureHpa !== undefined) ? mqttData.pressureHpa.toFixed(0) + ' hPa' : '-- hPa';
-            newDash.wind = (mqttData.windSpeedKph !== null && mqttData.windSpeedKph !== undefined) ? mqttData.windSpeedKph.toFixed(1) + ' kph' : '-- kph';
+            if (mqttData.rainMm !== null && mqttData.rainMm !== undefined) newDash.qcRain = mqttData.rainMm.toFixed(1) + ' mm';
+            if (mqttData.marulasRainMm !== null && mqttData.marulasRainMm !== undefined) newDash.marulasRain = mqttData.marulasRainMm.toFixed(1) + ' mm';
+            if (mqttData.tideHeightM !== null && mqttData.tideHeightM !== undefined) newDash.tideHeight = mqttData.tideHeightM.toFixed(2) + ' m';
+            if (mqttData.pressureHpa !== null && mqttData.pressureHpa !== undefined) newDash.pressure = mqttData.pressureHpa.toFixed(0) + ' hPa';
+            if (mqttData.windSpeedKph !== null && mqttData.windSpeedKph !== undefined) newDash.wind = mqttData.windSpeedKph.toFixed(1) + ' kph';
 
             setDashData(newDash);
 
