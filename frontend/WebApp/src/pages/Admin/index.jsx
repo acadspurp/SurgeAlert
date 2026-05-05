@@ -401,16 +401,21 @@ export default function Admin() {
     const loadChartData = async (hours, type = 'TELEMETRY') => {
         try {
             const incoming = await fetchSensorData(hours);
-            const byTimestamp = new Map();
-            const maxPoints = Math.max(24, Math.min(720, hours * 12)); // up to 5-min cadence window
+            const cutoffMs = Date.now() - hours * 60 * 60 * 1000;
+            /** Hard cap so very fast ingest (e.g. 1 Hz) cannot freeze the dashboard; Chart.js still decimates. */
+            const maxPointsSafety = 20000;
 
             const mergeSeries = (prev, next) => {
+                const byTimestamp = new Map();
                 [...(prev || []), ...(next || [])].forEach((row) => {
                     const key = row?.timestamp ? String(row.timestamp) : null;
-                    if (key) byTimestamp.set(key, row);
+                    if (!key) return;
+                    const t = new Date(row.timestamp).getTime();
+                    if (Number.isFinite(t) && t >= cutoffMs) byTimestamp.set(key, row);
                 });
-                const merged = Array.from(byTimestamp.values()).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                return merged.slice(-maxPoints);
+                let merged = Array.from(byTimestamp.values()).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                if (merged.length > maxPointsSafety) merged = merged.slice(-maxPointsSafety);
+                return merged;
             };
 
             if (type === 'TELEMETRY') {
@@ -605,7 +610,7 @@ export default function Admin() {
             prevReadings.current.waterLevel = mqttData.waterLevelM;
             prevReadings.current.flowRate = mqttData.sensorFlowRateMps;
 
-            loadChartData(telemetryTime, 'TELEMETRY');
+            loadChartData(Math.max(telemetryTime, aiTime), 'TELEMETRY');
             loadChartData(cvTime, 'CV');
         }
     }, [mqttData]);
@@ -931,9 +936,17 @@ export default function Admin() {
     const sortedCv = [...(cvSensorData || [])].sort(
         (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
     );
-    const aiFiltered = sortedTelemetry;
-
-    const telemetryFiltered = sortedTelemetry;
+    const cutoffMsForHours = (hours) => Date.now() - hours * 60 * 60 * 1000;
+    const sensorRowsThrough = (rows, hours) => {
+        const cutoff = cutoffMsForHours(hours);
+        return (rows || []).filter((r) => {
+            const t = new Date(r.timestamp).getTime();
+            return Number.isFinite(t) && t >= cutoff;
+        });
+    };
+    const telemetryForChart = sensorRowsThrough(sortedTelemetry, telemetryTime);
+    const cvForChart = sensorRowsThrough(sortedCv, cvTime);
+    const aiForChart = sensorRowsThrough(sortedTelemetry, aiTime);
 
     const lineDatasetOpts = {
         borderWidth: 2,
@@ -945,20 +958,20 @@ export default function Admin() {
     // Telemetry Chart (Multiple Lines) — sensor_data: water_level, sensor_flow_rate_mps
     const telemetryChartData = {
         datasets: [
-            { ...lineDatasetOpts, label: 'Water Level (m)', data: telemetryFiltered.map(d => ({ x: d.timestamp, y: d.waterLevelM })), yAxisID: 'y', borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.25 },
-            { ...lineDatasetOpts, label: 'Flow Rate (m/s)', data: telemetryFiltered.map(d => ({ x: d.timestamp, y: d.sensorFlowRateMps })), yAxisID: 'y1', borderColor: '#f59e0b', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.25, fill: false }
+            { ...lineDatasetOpts, label: 'Water Level (m)', data: telemetryForChart.map(d => ({ x: d.timestamp, y: d.waterLevelM })), yAxisID: 'y', borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.25 },
+            { ...lineDatasetOpts, label: 'Flow Rate (m/s)', data: telemetryForChart.map(d => ({ x: d.timestamp, y: d.sensorFlowRateMps })), yAxisID: 'y1', borderColor: '#f59e0b', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.25, fill: false }
         ]
     };
 
     // CV Chart — sensor_data: image_flow_rate_mps
     const cvChartData = {
         datasets: [
-            { ...lineDatasetOpts, label: 'Optical Flow (m/s)', data: sortedCv.map(d => ({ x: d.timestamp, y: d.imageFlowRateMps })), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.25 }
+            { ...lineDatasetOpts, label: 'Optical Flow (m/s)', data: cvForChart.map(d => ({ x: d.timestamp, y: d.imageFlowRateMps })), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.25 }
         ]
     };
 
     // AI Chart — sensor_data: water_level + predicted_level (segment to +1h)
-    const lastHistorical = aiFiltered.length > 0 ? aiFiltered[aiFiltered.length - 1] : null;
+    const lastHistorical = aiForChart.length > 0 ? aiForChart[aiForChart.length - 1] : null;
     const nextHour = lastHistorical 
         ? new Date(new Date(lastHistorical.timestamp).getTime() + 60 * 60 * 1000).toISOString()
         : new Date(Date.now() + 60 * 60 * 1000).toISOString();
@@ -968,7 +981,7 @@ export default function Admin() {
             {
                 ...lineDatasetOpts,
                 label: 'Historical Level (m)',
-                data: aiFiltered.map(d => ({ x: d.timestamp, y: d.waterLevelM })),
+                data: aiForChart.map(d => ({ x: d.timestamp, y: d.waterLevelM })),
                 borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.25
             },
             {

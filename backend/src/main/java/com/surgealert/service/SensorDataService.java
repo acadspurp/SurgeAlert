@@ -210,22 +210,17 @@ public class SensorDataService {
     }
 
     public List<SensorDataDTO> getRecentSensorData(int hours) {
-        LocalDateTime now = LocalDateTime.now(MANILA_ZONE).minusHours(CAMERA_DELAY_HOURS);
-        LocalDateTime since = now.minusHours(hours);
-        
-        List<SensorData> coreData = sensorDataRepository.findByTimestampBetween(since, now);
-        if (coreData.isEmpty()) {
-            LocalDateTime liveNow = LocalDateTime.now(MANILA_ZONE);
-            coreData = sensorDataRepository.findByTimestampBetween(liveNow.minusHours(hours), liveNow);
-        }
+        // Charts must reflect rows in sensor_data up to wall-clock "now".
+        // Camera delay applies only to getLatestSensorData() (align live image with telemetry).
+        LocalDateTime liveNow = LocalDateTime.now(MANILA_ZONE);
+        LocalDateTime since = liveNow.minusHours(hours);
+
+        List<SensorData> coreData = sensorDataRepository.findByTimestampBetween(since, liveNow);
         coreData.sort((a, b) -> b.getTimestamp().compareTo(a.getTimestamp()));
 
         // Optimization: Fetch all potentially relevant ML features in one go (with 1h buffer)
-        List<MLFeaturesRealtime> mlList = mlFeaturesRealtimeRepository.findByTimestampBetween(since.minusHours(1), now.plusMinutes(1));
-        if (mlList.isEmpty()) {
-            LocalDateTime liveNow = LocalDateTime.now(MANILA_ZONE);
-            mlList = mlFeaturesRealtimeRepository.findByTimestampBetween(liveNow.minusHours(hours + 1), liveNow.plusMinutes(1));
-        }
+        List<MLFeaturesRealtime> mlList = mlFeaturesRealtimeRepository
+                .findByTimestampBetween(since.minusHours(1), liveNow.plusMinutes(1));
         final List<MLFeaturesRealtime> mlCandidates = mlList;
 
         return coreData.stream().map(sd -> {
