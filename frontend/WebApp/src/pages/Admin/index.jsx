@@ -151,8 +151,9 @@ export default function Admin() {
     const [canaryState, setCanaryState] = useState(null);
     const evacuationSitesRef = useRef([]);
 
-    // Derived State for Hardware Health (Must be before useEffects that use it)
-    const hardwareOnline = (secondsSinceUpdate !== null ? secondsSinceUpdate <= 12 : false);
+    // Derived State for Hardware Health: In simulation mode (5-min heartbeat), 
+    // we use a 6-minute threshold (360s) to keep the indicator green between records.
+    const hardwareOnline = (secondsSinceUpdate !== null ? secondsSinceUpdate <= 360 : false);
 
     const displayName = (user && (user.fullName || user.username)) || 'Admin';
 

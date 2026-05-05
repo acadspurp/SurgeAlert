@@ -211,24 +211,33 @@ public class SensorDataService {
 
     public List<SensorDataDTO> getRecentSensorData(int hours) {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime since = now.minusHours(hours);
         
-        // Filter out future data for simulation realism
-        List<SensorData> coreData = sensorDataRepository.findRecentData(since).stream()
-                .filter(d -> !d.getTimestamp().isAfter(now))
-                .collect(Collectors.toList());
+        // --- HYBRID SIMULATION LOGIC ---
+        // 1. Find the "Simulated Now" (the latest record in DB that is not in the future)
+        Optional<SensorData> latestSim = sensorDataRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(now);
+        
+        if (latestSim.isEmpty()) {
+            return Collections.emptyList();
+        }
 
-        List<MLFeaturesRealtime> mlList = mlFeaturesRealtimeRepository.findByTimestampAfter(since).stream()
-                .filter(m -> !m.getTimestamp().isAfter(now))
-                .collect(Collectors.toList());
+        LocalDateTime simulatedNow = latestSim.get().getTimestamp();
+        LocalDateTime simulatedSince = simulatedNow.minusHours(hours);
+
+        // 2. Fetch the window of data relative to our simulated "now"
+        List<SensorData> coreData = sensorDataRepository.findByTimestampBetween(simulatedSince, simulatedNow);
+        
+        // Sort DESC to match frontend expectations (or ASC if your chart prefers it)
+        coreData.sort((a, b) -> b.getTimestamp().compareTo(a.getTimestamp()));
+
+        List<MLFeaturesRealtime> mlList = mlFeaturesRealtimeRepository.findByTimestampBetween(simulatedSince, simulatedNow);
 
         return coreData.stream().map(sd -> {
             SensorDataDTO dto = convertToDTO(sd);
             LocalDateTime ts = sd.getTimestamp();
 
-            // Find closest match (within 30 seconds) for environmental data
+            // Find closest match (within 2.5 minutes for 5-min granularity) for environmental data
             mlList.stream()
-                .filter(m -> Math.abs(java.time.Duration.between(m.getTimestamp(), ts).getSeconds()) < 30)
+                .filter(m -> Math.abs(java.time.Duration.between(m.getTimestamp(), ts).getSeconds()) <= 150)
                 .findFirst().ifPresent(m -> {
                     dto.setTideHeightM(m.getTideHeightM());
                     dto.setTideTrend(m.getTideTrend());
