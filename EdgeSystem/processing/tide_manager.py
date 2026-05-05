@@ -55,7 +55,7 @@ class TideManager:
         # 2. Fallback to Open-Meteo Marine Model (No API key needed)
         try:
             print(" [Tides] Fetching from Open-Meteo Marine fallback...")
-            url = f"https://marine-api.open-meteo.com/v1/marine?latitude={self.lat}&longitude={self.lon}&hourly=sea_level_height_msl&forecast_days=3&timezone=Asia/Singapore"
+            url = f"https://marine-api.open-meteo.com/v1/marine?latitude={self.lat}&longitude={self.lon}&hourly=sea_level_height_msl&forecast_days=3&timezone=UTC"
             response = requests.get(url, timeout=10)
             if response.status_code == 200:
                 data = response.json()

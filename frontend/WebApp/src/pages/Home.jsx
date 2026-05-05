@@ -5,6 +5,7 @@ import { useSensorMqtt } from '../hooks/useSensorMqtt.js';
 import { classifyAlertLevel, gaugeFillPercent, gaugeMarkers } from '../config/alertConfig.js';
 
 let CACHED_GUIDE = null;
+const DISPLAY_TIMEZONE = 'UTC';
 
 /** How often to poll GET /public/alerts/status (includes manual override). Keeps all browsers in sync without refresh. */
 const ALERT_STATUS_POLL_MS = 10000;
@@ -67,26 +68,85 @@ export default function Home() {
         scrollToSafetyGuide();
     };
 
+    const formatUtcTime = (value) => new Date(value).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        timeZone: DISPLAY_TIMEZONE
+    });
+
+    const normalizeTideType = (type) => {
+        const value = String(type || '').toLowerCase();
+        if (value === 'high' || value === 'h') return 'High';
+        if (value === 'low' || value === 'l') return 'Low';
+        return null;
+    };
+
+    const buildTideEvents = (data) => {
+        const extremeEvents = Array.isArray(data?.extremes)
+            ? data.extremes
+                .map((event) => ({
+                    ...event,
+                    type: normalizeTideType(event?.type),
+                    dt: Number(event?.dt)
+                }))
+                .filter((event) => event.type && Number.isFinite(event.dt))
+            : [];
+
+        const hasHigh = extremeEvents.some((event) => event.type === 'High');
+        const hasLow = extremeEvents.some((event) => event.type === 'Low');
+        if (hasHigh && hasLow) return extremeEvents;
+
+        const heights = Array.isArray(data?.heights) ? data.heights : [];
+        const inferredExtremes = [];
+        for (let i = 1; i < heights.length - 1; i++) {
+            const prev = Number(heights[i - 1]?.height);
+            const curr = Number(heights[i]?.height);
+            const next = Number(heights[i + 1]?.height);
+            const dt = Number(heights[i]?.dt);
+            if (![prev, curr, next, dt].every(Number.isFinite)) continue;
+
+            if ((!hasHigh && curr > prev && curr > next) || (!hasLow && curr < prev && curr < next)) {
+                inferredExtremes.push({
+                    dt,
+                    height: curr,
+                    type: curr > prev && curr > next ? 'High' : 'Low'
+                });
+            }
+        }
+
+        const merged = [...extremeEvents];
+        for (const inferred of inferredExtremes) {
+            const duplicate = merged.some(
+                (existing) => existing.type === inferred.type && Math.abs(existing.dt - inferred.dt) <= 3600
+            );
+            if (!duplicate) merged.push(inferred);
+        }
+
+        return merged.sort((a, b) => a.dt - b.dt);
+    };
+
     const getCurrentTideSummary = (events) => {
         if (!Array.isArray(events) || events.length === 0) return { status: 'Normal', nextHigh: null, nextLow: null };
-        const now = new Date();
+        const nowMs = Date.now();
         const sorted = [...events].sort((a, b) => a.dt - b.dt);
-        const upcoming = sorted.filter(t => new Date(t.dt * 1000) > now);
-        const nextHigh = upcoming.find(t => String(t.type).toLowerCase() === 'high') || null;
-        const nextLow = upcoming.find(t => String(t.type).toLowerCase() === 'low') || null;
+        const upcoming = sorted.filter((t) => (t.dt * 1000) > nowMs);
+        const nextHigh = upcoming.find((t) => normalizeTideType(t.type) === 'High') || null;
+        const nextLow = upcoming.find((t) => normalizeTideType(t.type) === 'Low') || null;
 
         const closest = sorted.reduce((a, b) => {
-            return Math.abs(a.dt * 1000 - now.getTime()) < Math.abs(b.dt * 1000 - now.getTime()) ? a : b;
+            return Math.abs(a.dt * 1000 - nowMs) < Math.abs(b.dt * 1000 - nowMs) ? a : b;
         }, sorted[0]);
 
         let status = 'Normal';
-        const diffMins = Math.abs(closest.dt * 1000 - now.getTime()) / (1000 * 60);
+        const diffMins = Math.abs(closest.dt * 1000 - nowMs) / (1000 * 60);
 
         if (diffMins <= 15) {
-            status = String(closest.type).toLowerCase() === 'high' ? 'High Tide' : 'Low Tide';
+            status = normalizeTideType(closest.type) === 'High' ? 'High Tide' : 'Low Tide';
         } else {
             if (upcoming.length > 0) {
-                status = String(upcoming[0].type).toLowerCase() === 'high' ? 'Rising' : 'Falling';
+                status = normalizeTideType(upcoming[0].type) === 'High' ? 'Rising' : 'Falling';
             }
         }
 
@@ -201,7 +261,7 @@ export default function Home() {
             }
             if (latest?.snapshotBase64 && latest.snapshotBase64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${latest.snapshotBase64}`);
-                setCameraLastUpdated(new Date().toLocaleTimeString());
+                setCameraLastUpdated(formatUtcTime(latest.timestamp || Date.now()));
                 return;
             }
 
@@ -209,7 +269,7 @@ export default function Home() {
             const data = await fetchCameraFeed();
             if (data?.img_base64 && data.img_base64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${data.img_base64}`);
-                setCameraLastUpdated(new Date().toLocaleTimeString());
+                setCameraLastUpdated(formatUtcTime(data.timestamp || Date.now()));
             }
         } catch (error) {
             console.error("Camera fetch failed", error);
@@ -258,13 +318,23 @@ export default function Home() {
     const loadTides = async () => {
         setIsTidesLoading(true);
         try {
-            const data = await fetchTidesData();
-            if (data.error) {
+            const primary = await fetchTidesData();
+            let tideEvents = buildTideEvents(primary);
+            const hasFutureHigh = tideEvents.some((event) => event.type === 'High' && (event.dt * 1000) > Date.now());
+            const hasFutureLow = tideEvents.some((event) => event.type === 'Low' && (event.dt * 1000) > Date.now());
+
+            if ((!hasFutureHigh || !hasFutureLow) && !primary?.error) {
+                const refreshed = await fetchTidesData(true);
+                const refreshedEvents = buildTideEvents(refreshed);
+                if (refreshedEvents.length > 0) tideEvents = refreshedEvents;
+            }
+
+            if (primary.error && tideEvents.length === 0) {
                 setTidesError('Tide data is temporarily unavailable.');
                 setTides([]);
             } else {
                 setTidesError(null);
-                setTides(data.extremes || []);
+                setTides(tideEvents);
             }
         } catch (error) {
             console.error('Failed to fetch tide data:', error);
@@ -281,7 +351,7 @@ export default function Home() {
             loadAlertStatus();
             if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${mqttData.snapshotBase64}`);
-                setCameraLastUpdated(new Date().toLocaleTimeString());
+                setCameraLastUpdated(formatUtcTime(Date.now()));
             }
         }
     }, [mqttData]);
@@ -321,15 +391,15 @@ export default function Home() {
 
 
     const colors = getAlertColors(alertLevelKey);
-    const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: DISPLAY_TIMEZONE });
     const today = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
     const tideSummary = getCurrentTideSummary(tides);
     // Compute gauge markers fresh from fetched config — no hardcoded percentages
     const GAUGE_MARKS = gaugeMarkers(sensorConfig.thresholds, sensorConfig.sensorDepthM);
     const formatTideDate = (value) =>
-        value ? new Date(value * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
+        value ? new Date(value * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: DISPLAY_TIMEZONE }) : 'N/A';
     const formatTideTime = (value) =>
-        value ? new Date(value * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : 'N/A';
+        value ? new Date(value * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: DISPLAY_TIMEZONE }) : 'N/A';
 
     return (
         <div id="home-view" className="min-h-screen bg-[#0f172a] text-gray-200 px-1 sm:px-0 lg:p-6 pb-28 sm:pb-24 max-w-[100vw] overflow-x-hidden">

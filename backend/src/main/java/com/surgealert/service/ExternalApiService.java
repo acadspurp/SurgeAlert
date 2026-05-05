@@ -16,6 +16,7 @@ import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -58,7 +59,7 @@ public class ExternalApiService {
                     .queryParam("latitude", lat)
                     .queryParam("longitude", lon)
                     .queryParam("hourly", "precipitation,surface_pressure,wind_speed_10m,wind_direction_10m,soil_moisture_0_to_7cm")
-                    .queryParam("timezone", "Asia/Manila")
+                    .queryParam("timezone", "UTC")
                     .queryParam("forecast_days", 2)
                     .build()
                     .toUri();
@@ -77,7 +78,7 @@ public class ExternalApiService {
                     .queryParam("longitude", MARULAS_LON)
                     .queryParam("hourly", "precipitation,surface_pressure,wind_speed_10m")
                     .queryParam("daily", "weathercode,apparent_temperature_max,apparent_temperature_min")
-                    .queryParam("timezone", "Asia/Manila")
+                    .queryParam("timezone", "UTC")
                     .queryParam("forecast_days", 7)
                     .build()
                     .toUri();
@@ -89,7 +90,7 @@ public class ExternalApiService {
             response.setLatitude(MARULAS_LAT);
             response.setLongitude(MARULAS_LON);
             
-            int hour = LocalDateTime.now().getHour();
+            int hour = LocalDateTime.now(ZoneOffset.UTC).getHour();
             if (marData.has("hourly")) {
                 JsonNode hourly = marData.get("hourly");
                 if (hourly.has("precipitation")) response.setRainMm(hourly.get("precipitation").get(hour).asDouble());
@@ -127,40 +128,46 @@ public class ExternalApiService {
     }
 
     public TideResponse fetchTideData() {
-        LocalDate today = LocalDate.now();
+        return fetchTideData(false);
+    }
+
+    public TideResponse fetchTideData(boolean forceRefresh) {
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
 
         // Cache reads must not take down the endpoint if the DB is unavailable or the schema mismatches.
-        try {
-            Optional<TideCache> cacheOpt = tideCacheRepository.findByFetchDate(today);
+        if (!forceRefresh) {
+            try {
+                Optional<TideCache> cacheOpt = tideCacheRepository.findByFetchDate(today);
 
-            if (cacheOpt.isPresent()) {
-                try {
-                    TideResponse cachedResponse = objectMapper.readValue(cacheOpt.get().getJsonResponse(), TideResponse.class);
-                    if (hasFutureExtremes(cachedResponse)) {
-                        return cachedResponse;
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-
-            Optional<TideCache> latestOpt = tideCacheRepository.findTopByOrderByFetchDateDesc();
-            if (latestOpt.isPresent()) {
-                TideCache latest = latestOpt.get();
-                long age = Math.abs(ChronoUnit.DAYS.between(latest.getFetchDate(), today));
-                if (age <= Math.max(0, tideCacheMaxAgeDays)) {
+                if (cacheOpt.isPresent()) {
                     try {
-                        TideResponse cachedResponse = objectMapper.readValue(latest.getJsonResponse(), TideResponse.class);
-                        if (hasFutureExtremes(cachedResponse)) {
+                        TideResponse cachedResponse = objectMapper.readValue(cacheOpt.get().getJsonResponse(), TideResponse.class);
+                        if (hasFutureHighAndLowExtremes(cachedResponse)) {
                             return cachedResponse;
                         }
-                    } catch (Exception ignored) {
-                        // fall through to network refresh
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
                 }
+
+                Optional<TideCache> latestOpt = tideCacheRepository.findTopByOrderByFetchDateDesc();
+                if (latestOpt.isPresent()) {
+                    TideCache latest = latestOpt.get();
+                    long age = Math.abs(ChronoUnit.DAYS.between(latest.getFetchDate(), today));
+                    if (age <= Math.max(0, tideCacheMaxAgeDays)) {
+                        try {
+                            TideResponse cachedResponse = objectMapper.readValue(latest.getJsonResponse(), TideResponse.class);
+                            if (hasFutureHighAndLowExtremes(cachedResponse)) {
+                                return cachedResponse;
+                            }
+                        } catch (Exception ignored) {
+                            // fall through to network refresh
+                        }
+                    }
+                }
+            } catch (Exception db) {
+                System.err.println("Tide cache DB unavailable, skipping cache: " + db.getMessage());
             }
-        } catch (Exception db) {
-            System.err.println("Tide cache DB unavailable, skipping cache: " + db.getMessage());
         }
 
         String key = tideApiKey != null ? tideApiKey.trim() : "";
@@ -183,6 +190,23 @@ public class ExternalApiService {
                         && worldTides.getError() == null
                         && worldTides.getExtremes() != null
                         && !worldTides.getExtremes().isEmpty()) {
+                    if (!hasFutureHighAndLowExtremes(worldTides)) {
+                        // Retry with a longer horizon to recover missing next high/low events.
+                        URI retryUri = UriComponentsBuilder.fromHttpUrl("https://www.worldtides.info/api/v3")
+                                .queryParam("extremes", "")
+                                .queryParam("heights", "")
+                                .queryParam("resolution", "60")
+                                .queryParam("days", "5")
+                                .queryParam("lat", TIDE_LAT)
+                                .queryParam("lon", TIDE_LON)
+                                .queryParam("key", key)
+                                .build()
+                                .toUri();
+                        TideResponse retry = restTemplate.getForObject(retryUri, TideResponse.class);
+                        if (retry != null && retry.getError() == null && retry.getExtremes() != null && !retry.getExtremes().isEmpty()) {
+                            worldTides = retry;
+                        }
+                    }
                     try {
                         String json = objectMapper.writeValueAsString(worldTides);
                         tideCacheRepository.save(new TideCache(today, json));
@@ -221,7 +245,7 @@ public class ExternalApiService {
      */
     private TideResponse fetchTidesFromMarineModel() {
         String url = String.format(
-                "https://marine-api.open-meteo.com/v1/marine?latitude=%s&longitude=%s&hourly=sea_level_height_msl&forecast_days=4&timezone=Asia/Manila",
+                "https://marine-api.open-meteo.com/v1/marine?latitude=%s&longitude=%s&hourly=sea_level_height_msl&forecast_days=4&timezone=UTC",
                 TIDE_LAT, TIDE_LON);
         try {
             JsonNode root = restTemplate.getForObject(url, JsonNode.class);
@@ -236,7 +260,7 @@ public class ExternalApiService {
             }
 
             DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
-            ZoneId zone = ZoneId.of("Asia/Manila");
+            ZoneId zone = ZoneId.of("UTC");
             List<TideResponse.TideExtreme> extremes = new ArrayList<>();
             List<TideResponse.TideHeight> heightsList = new ArrayList<>();
 
@@ -287,13 +311,19 @@ public class ExternalApiService {
         }
     }
 
-    private boolean hasFutureExtremes(TideResponse response) {
+    private boolean hasFutureHighAndLowExtremes(TideResponse response) {
         if (response == null || response.getExtremes() == null || response.getExtremes().isEmpty()) {
             return false;
         }
         long nowSeconds = System.currentTimeMillis() / 1000;
+        boolean hasFutureHigh = false;
+        boolean hasFutureLow = false;
         for (TideResponse.TideExtreme extreme : response.getExtremes()) {
-            if (extreme.getDt() > nowSeconds) {
+            if (extreme.getDt() <= nowSeconds) continue;
+            String type = extreme.getType() != null ? extreme.getType().trim().toLowerCase() : "";
+            if ("high".equals(type) || "h".equals(type)) hasFutureHigh = true;
+            if ("low".equals(type) || "l".equals(type)) hasFutureLow = true;
+            if (hasFutureHigh && hasFutureLow) {
                 return true;
             }
         }

@@ -169,8 +169,11 @@ export async function fetchAlertGuide() {
 }
 
 // --- TIDES ---
-export async function fetchTidesData() {
-    const response = await fetch(`${API_BASE_URL}/external/tides`, { mode: 'cors' });
+export async function fetchTidesData(forceRefresh = false) {
+    const url = forceRefresh
+        ? `${API_BASE_URL}/external/tides?refresh=true`
+        : `${API_BASE_URL}/external/tides`;
+    const response = await fetch(url, { mode: 'cors' });
     if (!response.ok) {
         const detail = await response.text().catch(() => '');
         throw new Error(

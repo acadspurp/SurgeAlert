@@ -22,3 +22,7 @@ backend/target/
 *.pem
 *.key
 *.p12
+
+# Ignore Maven/Java build outputs
+target/
+*.class

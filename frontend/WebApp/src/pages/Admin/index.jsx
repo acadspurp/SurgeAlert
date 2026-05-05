@@ -38,6 +38,8 @@ import ReportsView from './views/ReportsView';
 import AdminUsersView from './views/AdminUsersView';
 import CanaryView from './views/CanaryView';
 
+const DISPLAY_TIMEZONE = 'UTC';
+
 export default function Admin() {
     const navigate = useNavigate();
     const mqttData = useSensorMqtt();
@@ -154,6 +156,72 @@ export default function Admin() {
     // Derived State for Hardware Health: Forced to TRUE for simulation/dataset testing mode
     const hardwareOnline = true;
 
+    const formatUtcClock = () => new Date().toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        timeZone: DISPLAY_TIMEZONE
+    });
+
+    const formatUtcClockAt = (value) => new Date(value).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        timeZone: DISPLAY_TIMEZONE
+    });
+
+    const normalizeTideType = (type) => {
+        const value = String(type || '').toLowerCase();
+        if (value === 'high' || value === 'h') return 'High';
+        if (value === 'low' || value === 'l') return 'Low';
+        return null;
+    };
+
+    const buildTideEvents = (data) => {
+        const extremeEvents = Array.isArray(data?.extremes)
+            ? data.extremes
+                .map((event) => ({
+                    ...event,
+                    type: normalizeTideType(event?.type),
+                    dt: Number(event?.dt)
+                }))
+                .filter((event) => event.type && Number.isFinite(event.dt))
+            : [];
+
+        const hasHigh = extremeEvents.some((event) => event.type === 'High');
+        const hasLow = extremeEvents.some((event) => event.type === 'Low');
+        if (hasHigh && hasLow) return extremeEvents.sort((a, b) => a.dt - b.dt);
+
+        const heights = Array.isArray(data?.heights) ? data.heights : [];
+        const inferred = [];
+        for (let i = 1; i < heights.length - 1; i++) {
+            const prev = Number(heights[i - 1]?.height);
+            const curr = Number(heights[i]?.height);
+            const next = Number(heights[i + 1]?.height);
+            const dt = Number(heights[i]?.dt);
+            if (![prev, curr, next, dt].every(Number.isFinite)) continue;
+
+            if ((!hasHigh && curr > prev && curr > next) || (!hasLow && curr < prev && curr < next)) {
+                inferred.push({
+                    dt,
+                    height: curr,
+                    type: curr > prev && curr > next ? 'High' : 'Low'
+                });
+            }
+        }
+
+        const merged = [...extremeEvents];
+        for (const event of inferred) {
+            const duplicate = merged.some(
+                (existing) => existing.type === event.type && Math.abs(existing.dt - event.dt) <= 3600
+            );
+            if (!duplicate) merged.push(event);
+        }
+        return merged.sort((a, b) => a.dt - b.dt);
+    };
+
     const displayName = (user && (user.fullName || user.username)) || 'Admin';
 
     // -------------------------------------------------------------
@@ -179,6 +247,9 @@ export default function Admin() {
             } else if (latest && latest.timestamp) {
                 setLastMqttAt(new Date(latest.timestamp).getTime());
             }
+            if (latest && latest.timestamp) {
+                setCameraLastUpdated(formatUtcClockAt(latest.timestamp));
+            }
             
             let subCount;
             try {
@@ -198,10 +269,17 @@ export default function Admin() {
                     weatherFallback = await fetchWeatherData();
                 } catch (e) { /* weather API unavailable */ }
                 try {
-                    const tideData = await fetchTidesData();
-                    if (tideData && tideData.extremes && tideData.extremes.length > 0) {
+                    let tideData = await fetchTidesData();
+                    let tideEvents = buildTideEvents(tideData);
+                    const hasFutureHigh = tideEvents.some((event) => event.type === 'High' && (event.dt * 1000) > Date.now());
+                    const hasFutureLow = tideEvents.some((event) => event.type === 'Low' && (event.dt * 1000) > Date.now());
+                    if ((!hasFutureHigh || !hasFutureLow) && !tideData?.error) {
+                        tideData = await fetchTidesData(true);
+                        tideEvents = buildTideEvents(tideData);
+                    }
+                    if (tideEvents.length > 0) {
                         const now = Date.now() / 1000;
-                        const closest = tideData.extremes.reduce((a, b) =>
+                        const closest = tideEvents.reduce((a, b) =>
                             Math.abs(a.dt - now) < Math.abs(b.dt - now) ? a : b
                         );
                         tideFallback = closest?.height ?? null;
@@ -277,18 +355,28 @@ export default function Admin() {
             const data = await fetchCameraAPI();
             if (data.img_base64 && data.img_base64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${data.img_base64}`);
-                setCameraLastUpdated(new Date().toLocaleTimeString());
+                setCameraLastUpdated(formatUtcClockAt(data.timestamp || Date.now()));
             }
         } catch (e) { console.error("Camera fetch error:", e); }
     };
 
     const loadTideData = async () => {
         try {
-            const data = await fetchTidesData();
-            if (data.extremes) {
-                setTides(data.extremes);
-                const now = new Date();
-                const futureTides = data.extremes.filter(t => new Date(t.dt * 1000) > now);
+            const primary = await fetchTidesData();
+            let tideEvents = buildTideEvents(primary);
+            const hasFutureHigh = tideEvents.some((event) => event.type === 'High' && (event.dt * 1000) > Date.now());
+            const hasFutureLow = tideEvents.some((event) => event.type === 'Low' && (event.dt * 1000) > Date.now());
+
+            if ((!hasFutureHigh || !hasFutureLow) && !primary?.error) {
+                const refreshed = await fetchTidesData(true);
+                const refreshedEvents = buildTideEvents(refreshed);
+                if (refreshedEvents.length > 0) tideEvents = refreshedEvents;
+            }
+
+            if (tideEvents.length > 0) {
+                setTides(tideEvents);
+                const now = Date.now();
+                const futureTides = tideEvents.filter((t) => (t.dt * 1000) > now);
                 if (futureTides.length > 0) setNextTide(futureTides[0]);
             }
         } catch (e) { console.error(e); }
@@ -462,10 +550,10 @@ export default function Admin() {
 
             if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${mqttData.snapshotBase64}`);
-                setCameraLastUpdated(new Date().toLocaleTimeString());
+                setCameraLastUpdated(formatUtcClock());
             } else {
                 // Keep the timestamp alive even if image doesn't update (shows system is polling)
-                if (!cameraLastUpdated) setCameraLastUpdated(new Date().toLocaleTimeString());
+                if (!cameraLastUpdated) setCameraLastUpdated(formatUtcClock());
             }
             // Trend Indicator calculations
             if (prevReadings.current.waterLevel !== null && mqttData.waterLevelM !== null) {

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/api/external")
@@ -32,8 +33,8 @@ public class ExternalApiController {
     }
 
     @GetMapping("/tides")
-    public ResponseEntity<TideResponse> getTides() {
-        TideResponse data = externalApiService.fetchTideData();
+    public ResponseEntity<TideResponse> getTides(@RequestParam(name = "refresh", defaultValue = "false") boolean refresh) {
+        TideResponse data = externalApiService.fetchTideData(refresh);
         if (data != null) {
             return ResponseEntity.ok(data);
         }

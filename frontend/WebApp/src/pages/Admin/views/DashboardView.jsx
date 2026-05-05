@@ -11,6 +11,19 @@ export default function DashboardView(props) {
         handleDeleteAdminUser,
         approveDatasetRequest } = props;
 
+    const formatUtcTime = (value) => new Date(value).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'UTC'
+    });
+
+    const formatUtcDate = (value) => new Date(value).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        timeZone: 'UTC'
+    });
+
     return (
         <>
             {/* 1. DASHBOARD */}
@@ -80,7 +93,7 @@ export default function DashboardView(props) {
                         <DashboardCard title="QC Rain (Upstream)" value={dashData.qcRain} icon="fa-cloud-showers-heavy" color="blue" subtitle="Quezon City area" />
                         <DashboardCard title="Marulas Rain (Site)" value={dashData.marulasRain} icon="fa-cloud-rain" color="indigo" subtitle="Local precipitation" />
                         <DashboardCard title="Tide Height" value={dashData.tideHeight} icon="fa-arrow-up-wide-short" color="cyan" subtitle="Current sea level" />
-                        <DashboardCard title="Air Pressure" value={dashData.pressure} icon="fa-compress" color="slate" subtitle="Atmospheric pressure" />
+                        <DashboardCard title="SeaLevel Pressure" value={dashData.pressure} icon="fa-compress" color="slate" subtitle="Sea-level atmospheric pressure" />
                         <DashboardCard title="Wind Speed" value={dashData.wind} icon="fa-wind" color="teal" subtitle="Local wind velocity" />
                     </div>
                 </div>
@@ -118,7 +131,7 @@ export default function DashboardView(props) {
                                         <span className="mt-1 inline-block w-2 h-2 rounded-full bg-blue-500"></span>
                                         <div className="flex-1">
                                             <div className="text-xs font-bold text-slate-200">
-                                                {log.timestamp ? new Date(log.timestamp).toLocaleString() : '—'}
+                                                {log.timestamp ? `${formatUtcDate(log.timestamp)} ${formatUtcTime(log.timestamp)}` : '—'}
                                             </div>
                                             <div className="text-sm font-semibold text-slate-200">
                                                 {log.message || '—'}
@@ -142,8 +155,8 @@ export default function DashboardView(props) {
                                         <i className={`fa-solid ${nextTide.type === 'High' ? 'fa-arrow-up text-blue-500' : 'fa-arrow-down text-teal-500'} text-3xl`}></i>
                                     </div>
                                     <h4 className="text-lg font-bold text-slate-100">Next {nextTide.type} Tide</h4>
-                                    <p className="text-3xl font-black text-cyan-300 my-2">{new Date(nextTide.dt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                                    <p className="text-xs font-semibold text-slate-300 mb-2">{new Date(nextTide.dt * 1000).toLocaleDateString()}</p>
+                                    <p className="text-3xl font-black text-cyan-300 my-2">{formatUtcTime(nextTide.dt * 1000)}</p>
+                                    <p className="text-xs font-semibold text-slate-300 mb-2">{formatUtcDate(nextTide.dt * 1000)}</p>
                                     <p className="text-xs text-slate-300">Source: WorldTides station estimate</p>
                                 </>
                             ) : (
