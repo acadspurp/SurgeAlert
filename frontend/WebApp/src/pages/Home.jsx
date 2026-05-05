@@ -114,8 +114,8 @@ export default function Home() {
         setIsOffline(false);
         const floatVal = parseFloat(currentLevel);
 
-        // NOISE FILTER: Anything below 0.30m is considered "Offline" ghost data in river mode
-        if (floatVal < 0.30 && !isOverride) {
+        // NOISE FILTER: Anything below 0.10m is considered "Offline" ghost data in river mode
+        if (floatVal < 0.10 && !isOverride) {
             setIsOffline(true);
             return;
         }

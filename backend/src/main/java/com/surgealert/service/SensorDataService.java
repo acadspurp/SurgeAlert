@@ -53,7 +53,9 @@ public class SensorDataService {
 
     public SensorData saveSensorData(SensorDataDTO dto) {
         // --- DATA GUARD: REJECT GHOST VALUES / NOISE ---
-        if (dto.getWaterLevelM() != null && dto.getWaterLevelM() < 0.30) {
+        // We relax this to 0.10m to allow for legitimate low-water readings 
+        // during dry seasons or low tides while still filtering absolute zeros.
+        if (dto.getWaterLevelM() != null && dto.getWaterLevelM() < 0.10) {
             System.out.println(" [DATA GUARD] Blocking ghost value: " + dto.getWaterLevelM() + "m");
             return null;
         }
@@ -175,29 +177,8 @@ public class SensorDataService {
     public SensorDataDTO getLatestSensorData() {
         LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Manila"));
         return sensorDataRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(now)
-                .map(sd -> {
-                    SensorDataDTO dto = convertToDTO(sd);
-
-                    // Merge latest ML classification and features
-                    mlFeaturesRealtimeRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(now).ifPresent(m -> {
-                        dto.setTideHeightM(m.getTideHeightM());
-                        dto.setTideTrend(m.getTideTrend());
-                        dto.setRainMm(m.getQcRainMm());
-                        dto.setMarulasRainMm(m.getMarulasRainMm());
-                        dto.setMar24hrSum(m.getMar24hrSum());
-                        dto.setPressureHpa(m.getPressureHpa());
-                        dto.setWindSpeedKph(m.getWindSpeed());
-                        dto.setSoilMoisturePct(m.getSoilMoisture());
-                        dto.setPredictedAlertClass(m.getPredictedAlertClass());
-                        dto.setQcLag1(m.getQcLag1Mm());
-                        dto.setQcLag2(m.getQcLag2Mm());
-                        dto.setMarLag1(m.getMarLag1Mm());
-                        dto.setMarLag2(m.getMarLag2Mm());
-                        dto.setMar3hrSum(m.getMar3hrSum());
-                        dto.setMar6hrSum(m.getMar6hrSum());
-                        dto.setPressTrend(m.getPressTrend());
-                    });
-
+                .map(this::convertToDTO)
+                .map(dto -> {
                     // Add simulated image fallback logic
                     if (dto.getSnapshotBase64() == null || dto.getSnapshotBase64().isEmpty() || dto.getSnapshotBase64().startsWith("b'0x")) {
                         String imgBase64 = loadSimulatedImage(dto.getCurrentAlertLevel());
@@ -205,7 +186,6 @@ public class SensorDataService {
                             dto.setSnapshotBase64(imgBase64);
                         }
                     }
-
                     return dto;
                 })
                 .orElse(null);
@@ -215,43 +195,15 @@ public class SensorDataService {
         LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Manila"));
         LocalDateTime since = now.minusHours(hours);
         
-        // 1. Fetch core sensor data in the last X hours, but exclude future simulation data
+        // Fetch core sensor data, excluding future data
         List<SensorData> coreData = sensorDataRepository.findByTimestampBetween(since, now);
         
         // Sort DESC for frontend
         coreData.sort((a, b) -> b.getTimestamp().compareTo(a.getTimestamp()));
 
-        // 2. Fetch environmental features for the same window
-        List<MLFeaturesRealtime> mlList = mlFeaturesRealtimeRepository.findByTimestampBetween(since, now);
-
-        return coreData.stream().map(sd -> {
-            SensorDataDTO dto = convertToDTO(sd);
-            LocalDateTime ts = sd.getTimestamp();
-
-            // Find closest match (within 30 seconds) for environmental data
-            mlList.stream()
-                .filter(m -> Math.abs(java.time.Duration.between(m.getTimestamp(), ts).getSeconds()) <= 30)
-                .findFirst().ifPresent(m -> {
-                    dto.setTideHeightM(m.getTideHeightM());
-                    dto.setTideTrend(m.getTideTrend());
-                    dto.setRainMm(m.getQcRainMm());
-                    dto.setMarulasRainMm(m.getMarulasRainMm());
-                    dto.setMar24hrSum(m.getMar24hrSum());
-                    dto.setPressureHpa(m.getPressureHpa());
-                    dto.setWindSpeedKph(m.getWindSpeed());
-                    dto.setSoilMoisturePct(m.getSoilMoisture());
-                    dto.setPredictedAlertClass(m.getPredictedAlertClass());
-                    dto.setQcLag1(m.getQcLag1Mm());
-                    dto.setQcLag2(m.getQcLag2Mm());
-                    dto.setMarLag1(m.getMarLag1Mm());
-                    dto.setMarLag2(m.getMarLag2Mm());
-                    dto.setMar3hrSum(m.getMar3hrSum());
-                    dto.setMar6hrSum(m.getMar6hrSum());
-                    dto.setPressTrend(m.getPressTrend());
-                });
-
-            return dto;
-        }).collect(Collectors.toList());
+        return coreData.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
     private SensorDataDTO convertToDTO(SensorData sensorData) {
@@ -264,16 +216,48 @@ public class SensorDataService {
         dto.setImageRiseRateMps(sensorData.getImageRiseRateMps());
         dto.setSensorRiseRate(sensorData.getSensorRiseRate());
         dto.setCurrentAlertLevel(sensorData.getCurrentAlertLevel());
+        dto.setPredictedLevel(sensorData.getPredictedLevel());
+        dto.setPredictedAlertLevel(sensorData.getPredictedAlertLevel());
 
         if (sensorData.getImageBytes() != null) {
             dto.setSnapshotBase64(java.util.Base64.getEncoder().encodeToString(sensorData.getImageBytes()));
         }
 
-        // Return Prediction Data
-        dto.setPredictedLevel(sensorData.getPredictedLevel());
-        dto.setPredictedAlertLevel(sensorData.getPredictedAlertLevel());
+        // --- ENVIROMENTAL JOIN (Nearest Neighbor) ---
+        // Look for the closest ML features record within a 65-minute window of the sensor record.
+        LocalDateTime ts = sensorData.getTimestamp();
+        mlFeaturesRealtimeRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(ts.plusSeconds(30))
+            .ifPresent(m -> {
+                long diffSeconds = Math.abs(java.time.Duration.between(m.getTimestamp(), ts).getSeconds());
+                if (diffSeconds < 3900) { // Approx 1 hour + margin
+                    mapEnvironmentalFields(dto, m);
+                }
+            });
 
         return dto;
+    }
+
+    private void mapEnvironmentalFields(SensorDataDTO dto, MLFeaturesRealtime m) {
+        dto.setTideHeightM(m.getTideHeightM());
+        dto.setTideTrend(m.getTideTrend());
+        dto.setRainMm(m.getQcRainMm());
+        dto.setMarulasRainMm(m.getMarulasRainMm());
+        dto.setMar24hrSum(m.getMar24hrSum());
+        dto.setPressureHpa(m.getPressureHpa());
+        dto.setWindSpeedKph(m.getWindSpeed());
+        dto.setSoilMoisturePct(m.getSoilMoisture());
+        dto.setPredictedAlertClass(m.getPredictedAlertClass());
+        dto.setQcLag1(m.getQcLag1Mm());
+        dto.setQcLag2(m.getQcLag2Mm());
+        dto.setMarLag1(m.getMarLag1Mm());
+        dto.setMarLag2(m.getMarLag2Mm());
+        dto.setMar3hrSum(m.getMar3hrSum());
+        dto.setMar6hrSum(m.getMar6hrSum());
+        dto.setPressTrend(m.getPressTrend());
+        dto.setQc3hrSum(m.getQc3hrSum());
+        dto.setQc6hrSum(m.getQc6hrSum());
+        dto.setWindSin(m.getWindSin());
+        dto.setWindCos(m.getWindCos());
     }
 
     // Fallback alert classifier — used only when the Edge system is offline.

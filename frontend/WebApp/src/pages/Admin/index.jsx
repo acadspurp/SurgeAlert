@@ -151,9 +151,11 @@ export default function Admin() {
     const [canaryState, setCanaryState] = useState(null);
     const evacuationSitesRef = useRef([]);
 
-    // Derived State for Hardware Health: In simulation mode (5-min heartbeat), 
-    // we use a 6-minute threshold (360s) to keep the indicator green between records.
-    const hardwareOnline = (secondsSinceUpdate !== null ? secondsSinceUpdate <= 360 : false);
+    // Derived State for Hardware Health: 
+    // In production, we expect a 5-10 min heartbeat.
+    // In simulation/historical mode, data may be hours old.
+    // We relax this to 2 hours (7200s) to keep the dashboard active during testing.
+    const hardwareOnline = (secondsSinceUpdate !== null ? secondsSinceUpdate <= 7200 : false);
 
     const displayName = (user && (user.fullName || user.username)) || 'Admin';
 
@@ -228,11 +230,11 @@ export default function Admin() {
                 if (latest) {
                     newDash.flowRate = latest.sensorFlowRateMps !== null ? latest.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s';
                     newDash.prediction = latest.predictedLevel !== null ? latest.predictedLevel.toFixed(2) + ' m' : '-- m';
-                    newDash.qcRain = (latest.QC_Rain_mm !== null && latest.QC_Rain_mm !== undefined) ? latest.QC_Rain_mm.toFixed(1) + ' mm' : '-- mm';
-                    newDash.marulasRain = (latest.Marulas_Rain_mm !== null && latest.Marulas_Rain_mm !== undefined) ? latest.Marulas_Rain_mm.toFixed(1) + ' mm' : '-- mm';
-                    newDash.tideHeight = (latest.Tide_Height_m !== null && latest.Tide_Height_m !== undefined) ? latest.Tide_Height_m.toFixed(2) + ' m' : '-- m';
-                    newDash.pressure = (latest.Pressure_hPa !== null && latest.Pressure_hPa !== undefined) ? latest.Pressure_hPa.toFixed(0) + ' hPa' : '-- hPa';
-                    newDash.wind = (latest.Wind_Speed !== null && latest.Wind_Speed !== undefined) ? latest.Wind_Speed.toFixed(1) + ' kph' : '-- kph';
+                    newDash.qcRain = (latest.rainMm !== null && latest.rainMm !== undefined) ? latest.rainMm.toFixed(1) + ' mm' : '-- mm';
+                    newDash.marulasRain = (latest.marulasRainMm !== null && latest.marulasRainMm !== undefined) ? latest.marulasRainMm.toFixed(1) + ' mm' : '-- mm';
+                    newDash.tideHeight = (latest.tideHeightM !== null && latest.tideHeightM !== undefined) ? latest.tideHeightM.toFixed(2) + ' m' : '-- m';
+                    newDash.pressure = (latest.pressureHpa !== null && latest.pressureHpa !== undefined) ? latest.pressureHpa.toFixed(0) + ' hPa' : '-- hPa';
+                    newDash.wind = (latest.windSpeedKph !== null && latest.windSpeedKph !== undefined) ? latest.windSpeedKph.toFixed(1) + ' kph' : '-- kph';
                 }
 
                 // Apply DB table values (tide_metrics + weather_metrics) where Pi data is missing
@@ -434,7 +436,7 @@ export default function Admin() {
             const newDash = { ...dashData };
             // Apply noise filter (anything below 0.30m is ghost data)
             const floatWl = mqttData.waterLevelM;
-            const isGhost = floatWl !== null && floatWl !== undefined && floatWl < 0.30;
+            const isGhost = floatWl !== null && floatWl !== undefined && floatWl < 0.10;
 
             newDash.waterLevel = (floatWl !== null && !isGhost) ? floatWl.toFixed(2) + ' m' : '-- m';
             newDash.flowRate = (mqttData.sensorFlowRateMps !== null) ? mqttData.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s';
@@ -453,11 +455,11 @@ export default function Admin() {
             }
 
             // NEW ENVIRONMENTAL FIELDS
-            newDash.qcRain = (mqttData.QC_Rain_mm !== null && mqttData.QC_Rain_mm !== undefined) ? mqttData.QC_Rain_mm.toFixed(1) + ' mm' : '-- mm';
-            newDash.marulasRain = (mqttData.Marulas_Rain_mm !== null && mqttData.Marulas_Rain_mm !== undefined) ? mqttData.Marulas_Rain_mm.toFixed(1) + ' mm' : '-- mm';
-            newDash.tideHeight = (mqttData.Tide_Height_m !== null && mqttData.Tide_Height_m !== undefined) ? mqttData.Tide_Height_m.toFixed(2) + ' m' : '-- m';
-            newDash.pressure = (mqttData.Pressure_hPa !== null && mqttData.Pressure_hPa !== undefined) ? mqttData.Pressure_hPa.toFixed(0) + ' hPa' : '-- hPa';
-            newDash.wind = (mqttData.Wind_Speed !== null && mqttData.Wind_Speed !== undefined) ? mqttData.Wind_Speed.toFixed(1) + ' kph' : '-- kph';
+            newDash.qcRain = (mqttData.rainMm !== null && mqttData.rainMm !== undefined) ? mqttData.rainMm.toFixed(1) + ' mm' : '-- mm';
+            newDash.marulasRain = (mqttData.marulasRainMm !== null && mqttData.marulasRainMm !== undefined) ? mqttData.marulasRainMm.toFixed(1) + ' mm' : '-- mm';
+            newDash.tideHeight = (mqttData.tideHeightM !== null && mqttData.tideHeightM !== undefined) ? mqttData.tideHeightM.toFixed(2) + ' m' : '-- m';
+            newDash.pressure = (mqttData.pressureHpa !== null && mqttData.pressureHpa !== undefined) ? mqttData.pressureHpa.toFixed(0) + ' hPa' : '-- hPa';
+            newDash.wind = (mqttData.windSpeedKph !== null && mqttData.windSpeedKph !== undefined) ? mqttData.windSpeedKph.toFixed(1) + ' kph' : '-- kph';
 
             setDashData(newDash);
 

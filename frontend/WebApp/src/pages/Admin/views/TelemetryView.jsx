@@ -32,9 +32,19 @@ export default function TelemetryView(props) {
                         <div className="mb-6 rounded-2xl border border-slate-700 bg-[#1e293b] bg-gradient-to-r from-[#0f172a] to-[#1e293b] p-4 text-center shadow-lg sm:mb-8 sm:p-8">
                             <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-300 sm:text-sm">Calculated Rate of Change</p>
                             <h2 className="text-xl font-black text-sky-100 sm:text-3xl">
-                                Water is <span className="text-cyan-300">Stable</span>
+                                {(() => {
+                                    if (rawSensorData.length === 0) return "Calculating...";
+                                    const latest = rawSensorData[rawSensorData.length-1];
+                                    const rate = latest.sensorRiseRate || 0; // m/s
+                                    const rateCmMin = rate * 100 * 60;
+                                    
+                                    if (rateCmMin > 2) return <><span className="text-red-500">Rising Fast</span> ({rateCmMin.toFixed(1)} cm/min)</>;
+                                    if (rateCmMin > 0.5) return <><span className="text-yellow-400">Rising</span> ({rateCmMin.toFixed(1)} cm/min)</>;
+                                    if (rateCmMin < -0.5) return <><span className="text-blue-400">Falling</span> ({Math.abs(rateCmMin).toFixed(1)} cm/min)</>;
+                                    return <><span className="text-cyan-300">Stable</span> (±0.5 cm/min)</>;
+                                })()}
                             </h2>
-                            <p className="text-xs mt-2 text-slate-300">Calculated over the last 15 minutes</p>
+                            <p className="text-xs mt-2 text-slate-300">Derived from the latest telemetry heartbeat</p>
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
