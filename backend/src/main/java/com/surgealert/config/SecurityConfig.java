@@ -4,7 +4,6 @@ import com.surgealert.security.AuthTokenFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -30,14 +29,19 @@ public class SecurityConfig {
     }
 
     /**
-     * Public external APIs (weather, tides, inbound SMS) must not run behind AuthTokenFilter.
+     * Public APIs used by the resident dashboard and external integrations must not run
+     * behind AuthTokenFilter. This avoids 403 regressions from stale Authorization headers.
      * Stale/invalid Bearer tokens on cross-origin browser requests can otherwise yield HTTP 403.
      */
     @Bean
     @Order(0)
-    public SecurityFilterChain externalApiSecurityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain publicApiSecurityFilterChain(HttpSecurity http) throws Exception {
         http
-                .securityMatcher("/api/external/**")
+                .securityMatcher(
+                        "/api/public/**",
+                        "/api/external/**",
+                        "/api/sensor-data/latest"
+                )
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
