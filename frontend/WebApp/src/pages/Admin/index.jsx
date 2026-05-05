@@ -248,7 +248,9 @@ export default function Admin() {
             try {
                 const res = await fetchActiveResidents();
                 subCount = res.length;
-            } catch (e) { /* keep previous count */ }
+            } catch (e) {
+                subCount = Array.isArray(residents) ? residents.length : 0;
+            }
 
             // 3. Fetch environmental data DIRECTLY from tide_metrics + weather_metrics tables
             const envData = await fetchLatestEnvironmental().catch(() => null);

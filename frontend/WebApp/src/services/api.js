@@ -287,7 +287,11 @@ export async function loginUser(username, password) {
 
 // --- ADMIN: RESIDENTS ---
 export async function fetchActiveResidents() {
-    const response = await apiFetch(`${API_BASE_URL}/residents/active`);
+    const url = `${API_BASE_URL}/residents/active`;
+    let response = await fetch(url);
+    if (response.status === 403 || response.status === 401) {
+        response = await apiFetch(url);
+    }
     if (!response.ok) throw new Error('Failed to fetch residents');
     return await response.json();
 }
@@ -334,7 +338,11 @@ export async function fetchLatestSensorReading() {
 // --- ADMIN: ENVIRONMENTAL CONTEXT (tide_metrics + weather_metrics directly) ---
 export async function fetchLatestEnvironmental() {
     try {
-        const response = await apiFetch(`${API_BASE_URL}/admin/environmental/latest`);
+        const url = `${API_BASE_URL}/admin/environmental/latest`;
+        let response = await fetch(url);
+        if (response.status === 403 || response.status === 401) {
+            response = await apiFetch(url);
+        }
         if (!response.ok || response.status === 204) return null;
         return await response.json();
     } catch {
