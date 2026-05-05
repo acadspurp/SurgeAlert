@@ -241,9 +241,9 @@ public class SensorDataService {
             dto.setPredictedLevel(sd.getPredictedLevel());
             dto.setPredictedAlertLevel(sd.getPredictedAlertLevel());
 
-            // Do not embed snapshot blobs in historical /recent responses.
-            // Charts only need numeric series; including per-row images creates huge payloads
-            // and causes slow loads/timeouts on the admin dashboard.
+            if (sd.getImageBytes() != null) {
+                dto.setSnapshotBase64(java.util.Base64.getEncoder().encodeToString(sd.getImageBytes()));
+            }
 
             // Memory-efficient Nearest Neighbor join
             LocalDateTime ts = sd.getTimestamp();
