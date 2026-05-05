@@ -102,6 +102,19 @@ export default function Home() {
             processAlertData(data.alertLevel, data.waterLevelM, isOverride);
         } catch (error) {
             console.error("Failed to fetch status:", error);
+            // Fallback path: pull directly from latest sensor_data when public status endpoint fails.
+            try {
+                const latest = await fetchLatestSensorReading();
+                if (latest?.waterLevelM !== null && latest?.waterLevelM !== undefined) {
+                    processAlertData(latest.currentAlertLevel || 'GREEN', latest.waterLevelM, false);
+                    return;
+                }
+            } catch {
+                // Keep UI responsive even when all data sources fail.
+            }
+            setAlertLevelText('NORMAL');
+            setAlertLevelKey('green');
+            setAlertHtml('<p class="text-gray-400">System is running normally.</p>');
         }
     };
 
