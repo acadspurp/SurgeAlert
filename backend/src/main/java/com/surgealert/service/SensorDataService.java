@@ -115,7 +115,7 @@ public class SensorDataService {
                     .map(t -> t.getTimestamp().isAfter(now.minusMinutes(1))).orElse(false);
             if (!exists) {
                 TideMetrics tide = new TideMetrics();
-                tide.setTimestamp(now);
+                tide.setTimestamp(now != null ? now : LocalDateTime.now(MANILA_ZONE));
                 tide.setTideHeightM(dto.getTideHeightM());
                 tide.setTideTrend(dto.getTideTrend());
                 tideMetricsRepository.save(tide);

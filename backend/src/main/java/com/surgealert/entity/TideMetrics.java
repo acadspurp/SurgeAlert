@@ -11,7 +11,7 @@ public class TideMetrics {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "time", nullable = false)
+    @Column(name = "timestamp", nullable = false)
     private LocalDateTime timestamp;
 
     @Column(name = "tide_height_m", nullable = false)
@@ -32,7 +32,9 @@ public class TideMetrics {
     public void setId(Long id) { this.id = id; }
 
     public LocalDateTime getTimestamp() { return timestamp; }
-    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+    public void setTimestamp(LocalDateTime timestamp) {
+        this.timestamp = (timestamp != null) ? timestamp : LocalDateTime.now();
+    }
 
     public Double getTideHeightM() { return tideHeightM; }
     public void setTideHeightM(Double tideHeightM) { this.tideHeightM = tideHeightM; }

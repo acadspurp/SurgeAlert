@@ -116,15 +116,16 @@ public class DataCollectionScheduler {
 
         double prevHeight = 0.0;
         for (TideResponse.TideHeight th : response.getHeights()) {
-            LocalDateTime dt = LocalDateTime.ofInstant(java.time.Instant.ofEpochSecond(th.getDt()), 
-                                                      java.time.ZoneId.of("Asia/Manila"));
+            if (th == null) continue;
+            LocalDateTime dt = LocalDateTime.ofInstant(java.time.Instant.ofEpochSecond(th.getDt()),
+                    java.time.ZoneId.of("Asia/Manila"));
             
             // Avoid duplicate entries for the same hour (Check +/- 5 minutes)
             LocalDateTime startOfHour = dt.withMinute(0).withSecond(0).withNano(0);
             if (tideRepository.existsByTimestamp(dt) || tideRepository.existsByTimestamp(startOfHour)) continue;
 
             TideMetrics tm = new TideMetrics();
-            tm.setTimestamp(dt);
+            tm.setTimestamp(dt != null ? dt : LocalDateTime.now(java.time.ZoneId.of("Asia/Manila")));
             tm.setTideHeightM(th.getHeight());
             tm.setTideTrend(th.getHeight() - prevHeight);
             tideRepository.save(tm);
