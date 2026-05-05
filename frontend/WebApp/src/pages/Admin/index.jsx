@@ -22,7 +22,7 @@ import Papa from 'papaparse';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { logoUrl } from '../../branding/logo.js';
-import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE, CAMERA_DELAY_MS } from '../../constants/displayTime.js';
+import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE, formatManilaWallClockFromMs } from '../../constants/displayTime.js';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend, TimeScale, TimeSeriesScale, annotationPlugin);
 
@@ -71,7 +71,7 @@ export default function Admin() {
         pressure: '-- hPa', wind: '-- kph'
     });
     const [cameraImg, setCameraImg] = useState(null);
-    const [cameraLastUpdated, setCameraLastUpdated] = useState(null);
+    const [cameraLastUpdated, setCameraLastUpdated] = useState(() => formatManilaWallClockFromMs(Date.now()));
     const [tides, setTides] = useState([]);
     const [nextTide, setNextTide] = useState(null);
 
@@ -155,14 +155,6 @@ export default function Admin() {
     // Derived State for Hardware Health: Forced to TRUE for simulation/dataset testing mode
     const hardwareOnline = true;
 
-    const formatDelayedCameraClock = () => new Date(Date.now() - CAMERA_DELAY_MS).toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true,
-        timeZone: DISPLAY_TIMEZONE
-    });
-
     const normalizeTideType = (type) => {
         const value = String(type || '').toLowerCase();
         if (value === 'high' || value === 'h') return 'High';
@@ -238,10 +230,6 @@ export default function Admin() {
             } else if (latest && latest.timestamp) {
                 setLastMqttAt(new Date(latest.timestamp).getTime());
             }
-            if (latest && latest.timestamp) {
-                setCameraLastUpdated(formatDelayedCameraClock());
-            }
-            
             let subCount;
             try {
                 const res = await fetchActiveResidents();
@@ -368,7 +356,6 @@ export default function Admin() {
             const data = await fetchCameraAPI();
             if (data.img_base64 && data.img_base64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${data.img_base64}`);
-                setCameraLastUpdated(formatDelayedCameraClock());
             }
         } catch (e) { console.error("Camera fetch error:", e); }
     };
@@ -588,10 +575,6 @@ export default function Admin() {
 
             if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${mqttData.snapshotBase64}`);
-                setCameraLastUpdated(formatDelayedCameraClock());
-            } else {
-                // Keep the timestamp alive even if image doesn't update (shows system is polling)
-                if (!cameraLastUpdated) setCameraLastUpdated(formatDelayedCameraClock());
             }
             // Trend Indicator calculations
             if (prevReadings.current.waterLevel !== null && mqttData.waterLevelM !== null) {
@@ -664,6 +647,15 @@ export default function Admin() {
     useEffect(() => {
         if (user) loadChartData(cvTime, 'CV');
     }, [cvTime]);
+
+    // Manila wall clock (camera overlay + Quick Tides) — tick every second so user/admin match.
+    useEffect(() => {
+        if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
+        const tick = () => setCameraLastUpdated(formatManilaWallClockFromMs(Date.now()));
+        tick();
+        const id = setInterval(tick, 1000);
+        return () => clearInterval(id);
+    }, [user, role]);
 
     // "Last updated" ticker
     useEffect(() => {

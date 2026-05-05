@@ -4,7 +4,7 @@ import { fetchAlertStatus, fetchAlertGuide, fetchCameraFeed, fetchWeatherData, f
 import { useSensorMqtt } from '../hooks/useSensorMqtt.js';
 import { classifyAlertLevel, gaugeFillPercent, gaugeMarkers } from '../config/alertConfig.js';
 
-import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE, CAMERA_DELAY_MS } from '../constants/displayTime.js';
+import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE, formatManilaWallClockFromMs, formatManilaWallDateFromMs } from '../constants/displayTime.js';
 
 let CACHED_GUIDE = null;
 
@@ -29,7 +29,7 @@ export default function Home() {
     const [alertLevelKey, setAlertLevelKey] = useState('green');
     const [alertHtml, setAlertHtml] = useState('<p class="text-gray-400">System is running normally.</p>');
     const [cameraImg, setCameraImg] = useState(null);
-    const [cameraLastUpdated, setCameraLastUpdated] = useState(null);
+    const [cameraLastUpdated, setCameraLastUpdated] = useState(() => formatManilaWallClockFromMs(Date.now()));
     const [weatherCards, setWeatherCards] = useState([]);
     const [weatherError, setWeatherError] = useState(null);
     const [isWeatherLoading, setIsWeatherLoading] = useState(true);
@@ -68,14 +68,6 @@ export default function Home() {
         if (!isCompactLayout) return;
         scrollToSafetyGuide();
     };
-
-    const formatCameraDisplayTime = () => new Date(Date.now() - CAMERA_DELAY_MS).toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true,
-        timeZone: DISPLAY_TIMEZONE
-    });
 
     const normalizeTideType = (type) => {
         const value = String(type || '').toLowerCase();
@@ -262,7 +254,6 @@ export default function Home() {
             }
             if (latest?.snapshotBase64 && latest.snapshotBase64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${latest.snapshotBase64}`);
-                setCameraLastUpdated(formatCameraDisplayTime());
                 return;
             }
 
@@ -270,7 +261,6 @@ export default function Home() {
             const data = await fetchCameraFeed();
             if (data?.img_base64 && data.img_base64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${data.img_base64}`);
-                setCameraLastUpdated(formatCameraDisplayTime());
             }
         } catch (error) {
             console.error("Camera fetch failed", error);
@@ -354,10 +344,16 @@ export default function Home() {
             loadAlertStatus();
             if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${mqttData.snapshotBase64}`);
-                setCameraLastUpdated(formatCameraDisplayTime());
             }
         }
     }, [mqttData]);
+
+    useEffect(() => {
+        const tick = () => setCameraLastUpdated(formatManilaWallClockFromMs(Date.now()));
+        tick();
+        const id = setInterval(tick, 1000);
+        return () => clearInterval(id);
+    }, []);
 
     useEffect(() => {
         loadAlertStatus();
@@ -513,10 +509,10 @@ export default function Home() {
                     <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center mb-4 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 min-w-0">
                             <h2 className="text-xs sm:text-sm font-bold text-slate-100 tracking-widest uppercase">Camera Feed</h2>
-                            {cameraLastUpdated && <span className="text-xs font-bold text-cyan-400 hidden sm:inline ml-2">(Last updated: {cameraLastUpdated})</span>}
+                            {cameraLastUpdated && <span className="text-xs font-bold text-cyan-400 hidden sm:inline ml-2">(Manila: {cameraLastUpdated})</span>}
                         </div>
                         <span className="text-xs text-slate-300 flex items-center gap-2">
-                            {cameraLastUpdated && <span className="text-xs font-bold text-cyan-400 sm:hidden mr-1">Updated: {cameraLastUpdated}</span>}
+                            {cameraLastUpdated && <span className="text-xs font-bold text-cyan-400 sm:hidden mr-1">Manila: {cameraLastUpdated}</span>}
                             <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span> Snapshot
                         </span>
                     </div>
@@ -569,6 +565,11 @@ export default function Home() {
                             <div className="text-center text-gray-500">No tide data available for today.</div>
                         ) : (
                             <div className="grid grid-cols-1 gap-4">
+                                <div className="bg-gray-800/40 p-3 rounded-xl border border-cyan-900/40 flex flex-col items-center justify-center text-center">
+                                    <span className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Philippines (Manila)</span>
+                                    <p className="text-2xl font-black text-cyan-300 font-mono leading-tight">{cameraLastUpdated}</p>
+                                    <p className="text-[11px] text-gray-400 mt-1">{formatManilaWallDateFromMs(Date.now())}</p>
+                                </div>
                                 <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50 flex flex-col items-center justify-center">
                                     <span className="text-xs text-gray-400 uppercase tracking-wider mb-1">Current Tide</span>
                                     <div className="flex items-center gap-2">

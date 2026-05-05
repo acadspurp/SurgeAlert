@@ -1,5 +1,6 @@
 import React from 'react';
 import { Line } from 'react-chartjs-2';
+import { formatManilaWallDateFromMs } from '../../../constants/displayTime.js';
 import DashboardCard from '../components/DashboardCard';
 import HealthRow from '../components/HealthRow';
 import TelemetryCard from '../components/TelemetryCard';
@@ -154,10 +155,18 @@ export default function DashboardView(props) {
                                     <div className="w-20 h-20 mx-auto bg-[#1e293b] rounded-full flex items-center justify-center shadow-md mb-4 border border-blue-900/50">
                                         <i className={`fa-solid ${nextTide.type === 'High' ? 'fa-arrow-up text-blue-500' : 'fa-arrow-down text-teal-500'} text-3xl`}></i>
                                     </div>
-                                    <h4 className="text-lg font-bold text-slate-100">Next {nextTide.type} Tide</h4>
-                                    <p className="text-3xl font-black text-cyan-300 my-2">{formatManilaTime(nextTide.dt * 1000)}</p>
-                                    <p className="text-xs font-semibold text-slate-300 mb-2">{formatManilaDate(nextTide.dt * 1000)}</p>
-                                    <p className="text-xs text-slate-300">Source: WorldTides station estimate</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Philippines (Manila)</p>
+                                    <p className="text-3xl font-black text-cyan-300 my-1 font-mono">{cameraLastUpdated}</p>
+                                    <p className="text-xs font-semibold text-slate-300 mb-4">{formatManilaWallDateFromMs(Date.now())}</p>
+                                    <div className="rounded-lg border border-slate-600/80 bg-black/25 px-3 py-2 text-xs text-slate-200">
+                                        <span className="text-slate-400">Next </span>
+                                        <span className="font-bold text-slate-100">{nextTide.type}</span>
+                                        <span className="text-slate-400"> tide · </span>
+                                        <span className="font-mono font-semibold text-cyan-200/90">{formatManilaTime(nextTide.dt * 1000)}</span>
+                                        <span className="text-slate-500"> · </span>
+                                        <span className="text-slate-400">{formatManilaDate(nextTide.dt * 1000)}</span>
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-3">Tide times: WorldTides · Clock: device time in Manila</p>
                                 </>
                             ) : (
                                 <p className="text-slate-400">Loading tide data...</p>
@@ -174,7 +183,7 @@ export default function DashboardView(props) {
                                 <i className="fa-solid fa-camera mr-2 shrink-0 text-blue-500"></i>
                                 <span className="min-w-0">Media Center (Camera Feed)</span>
                             </div>
-                            {cameraLastUpdated && <span className="shrink-0 text-xs font-bold text-cyan-400 sm:text-sm">Last updated: {cameraLastUpdated}</span>}
+                            {cameraLastUpdated && <span className="shrink-0 text-xs font-bold text-cyan-400 sm:text-sm">Manila: {cameraLastUpdated}</span>}
                         </h3>
                         <div className="relative flex-1 overflow-hidden rounded-xl bg-black min-h-[220px] sm:min-h-[320px] md:min-h-[400px]">
                             {cameraImg ? (
