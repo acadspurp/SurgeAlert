@@ -1,12 +1,11 @@
 import React from 'react';
 import { Line } from 'react-chartjs-2';
-import { formatManilaWallDateFromMs } from '../../../constants/displayTime.js';
 import DashboardCard from '../components/DashboardCard';
 import HealthRow from '../components/HealthRow';
 import TelemetryCard from '../components/TelemetryCard';
 
 export default function DashboardView(props) {
-    const { hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, formatTideDateUtc, formatTideTimeUtc,
+    const { hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, cameraClockDate, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, formatTideDateUtc, formatTideTimeUtc,
         openCreateUserModal, openEditUserModal, saveUserModal,
         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
         handleDeleteAdminUser,
@@ -157,7 +156,7 @@ export default function DashboardView(props) {
                                     </div>
                                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Philippines (Manila)</p>
                                     <p className="text-3xl font-black text-cyan-300 my-1 font-mono">{cameraLastUpdated}</p>
-                                    <p className="text-xs font-semibold text-slate-300 mb-4">{formatManilaWallDateFromMs(Date.now())}</p>
+                                    <p className="text-xs font-semibold text-slate-300 mb-4">{cameraClockDate}</p>
                                     <div className="rounded-lg border border-slate-600/80 bg-black/25 px-3 py-2 text-xs text-slate-200">
                                         <span className="text-slate-400">Next </span>
                                         <span className="font-bold text-slate-100">{nextTide.type}</span>
@@ -166,7 +165,7 @@ export default function DashboardView(props) {
                                         <span className="text-slate-500"> · </span>
                                         <span className="text-slate-400">{formatManilaDate(nextTide.dt * 1000)}</span>
                                     </div>
-                                    <p className="text-xs text-slate-400 mt-3">Tide times: WorldTides · Clock: device time in Manila</p>
+                                    <p className="text-xs text-slate-400 mt-3">Tide times: WorldTides · Demo clock starts at 5:27 PM Manila, then ticks forward</p>
                                 </>
                             ) : (
                                 <p className="text-slate-400">Loading tide data...</p>

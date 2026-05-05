@@ -22,7 +22,8 @@ import Papa from 'papaparse';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { logoUrl } from '../../branding/logo.js';
-import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE, formatManilaWallClockFromMs } from '../../constants/displayTime.js';
+import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE } from '../../constants/displayTime.js';
+import { useAnchored527Clock } from '../../hooks/useAnchored527Clock.js';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend, TimeScale, TimeSeriesScale, annotationPlugin);
 
@@ -71,7 +72,7 @@ export default function Admin() {
         pressure: '-- hPa', wind: '-- kph'
     });
     const [cameraImg, setCameraImg] = useState(null);
-    const [cameraLastUpdated, setCameraLastUpdated] = useState(() => formatManilaWallClockFromMs(Date.now()));
+    const { clockLabel: cameraLastUpdated, dateLabel: cameraClockDate } = useAnchored527Clock();
     const [tides, setTides] = useState([]);
     const [nextTide, setNextTide] = useState(null);
 
@@ -647,15 +648,6 @@ export default function Admin() {
     useEffect(() => {
         if (user) loadChartData(cvTime, 'CV');
     }, [cvTime]);
-
-    // Manila wall clock (camera overlay + Quick Tides) — tick every second so user/admin match.
-    useEffect(() => {
-        if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
-        const tick = () => setCameraLastUpdated(formatManilaWallClockFromMs(Date.now()));
-        tick();
-        const id = setInterval(tick, 1000);
-        return () => clearInterval(id);
-    }, [user, role]);
 
     // "Last updated" ticker
     useEffect(() => {
@@ -1259,7 +1251,7 @@ export default function Admin() {
                 </div>
                 {(() => {
                     const viewProps = {
-                        hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, 
+                        hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, cameraClockDate, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, 
                         reportRaw, setReportRaw, reportCalculated, setReportCalculated, reportAlerts, setReportAlerts,
                         reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, editingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
                         openCreateUserModal, openEditUserModal, saveUserModal,

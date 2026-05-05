@@ -4,7 +4,8 @@ import { fetchAlertStatus, fetchAlertGuide, fetchCameraFeed, fetchWeatherData, f
 import { useSensorMqtt } from '../hooks/useSensorMqtt.js';
 import { classifyAlertLevel, gaugeFillPercent, gaugeMarkers } from '../config/alertConfig.js';
 
-import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE, formatManilaWallClockFromMs, formatManilaWallDateFromMs } from '../constants/displayTime.js';
+import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE } from '../constants/displayTime.js';
+import { useAnchored527Clock } from '../hooks/useAnchored527Clock.js';
 
 let CACHED_GUIDE = null;
 
@@ -29,7 +30,7 @@ export default function Home() {
     const [alertLevelKey, setAlertLevelKey] = useState('green');
     const [alertHtml, setAlertHtml] = useState('<p class="text-gray-400">System is running normally.</p>');
     const [cameraImg, setCameraImg] = useState(null);
-    const [cameraLastUpdated, setCameraLastUpdated] = useState(() => formatManilaWallClockFromMs(Date.now()));
+    const { clockLabel: cameraLastUpdated, dateLabel: cameraClockDate } = useAnchored527Clock();
     const [weatherCards, setWeatherCards] = useState([]);
     const [weatherError, setWeatherError] = useState(null);
     const [isWeatherLoading, setIsWeatherLoading] = useState(true);
@@ -349,13 +350,6 @@ export default function Home() {
     }, [mqttData]);
 
     useEffect(() => {
-        const tick = () => setCameraLastUpdated(formatManilaWallClockFromMs(Date.now()));
-        tick();
-        const id = setInterval(tick, 1000);
-        return () => clearInterval(id);
-    }, []);
-
-    useEffect(() => {
         loadAlertStatus();
         loadWeather();
         loadTides();
@@ -568,7 +562,7 @@ export default function Home() {
                                 <div className="bg-gray-800/40 p-3 rounded-xl border border-cyan-900/40 flex flex-col items-center justify-center text-center">
                                     <span className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Philippines (Manila)</span>
                                     <p className="text-2xl font-black text-cyan-300 font-mono leading-tight">{cameraLastUpdated}</p>
-                                    <p className="text-[11px] text-gray-400 mt-1">{formatManilaWallDateFromMs(Date.now())}</p>
+                                    <p className="text-[11px] text-gray-400 mt-1">{cameraClockDate}</p>
                                 </div>
                                 <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50 flex flex-col items-center justify-center">
                                     <span className="text-xs text-gray-400 uppercase tracking-wider mb-1">Current Tide</span>
