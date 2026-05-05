@@ -169,8 +169,6 @@ public class DataCollectionScheduler {
             // --- ML FEATURES REALTIME (Targeted Columns Only) ---
             MLFeaturesRealtime ml = new MLFeaturesRealtime();
             ml.setTimestamp(now);
-            ml.setMonth(now.getMonthValue());
-            ml.setHour(now.getHour());
 
             ml.setQcRainMm(qcRain);
             ml.setQcLag1Mm(getRainfallAt(now.minusHours(1), "QC"));

@@ -140,11 +140,6 @@ public class SensorDataService {
         // 4. SAVE ML FEATURES REALTIME (All calculated features)
         MLFeaturesRealtime ml = new MLFeaturesRealtime();
         ml.setTimestamp(now);
-        ml.setMonth(now.getMonthValue());
-        ml.setHour(now.getHour());
-        ml.setWaterLevel(dto.getWaterLevelM());
-        ml.setRiseRate(dto.getImageRiseRateMps());
-        ml.setSensorRiseRate(dto.getSensorRiseRate());
 
         ml.setTideHeightM(dto.getTideHeightM());
         ml.setTideTrend(dto.getTideTrend());
@@ -159,7 +154,6 @@ public class SensorDataService {
         ml.setMarLag1Mm(dto.getMarLag1());
         ml.setMarLag2Mm(dto.getMarLag2());
         ml.setMar3hrSum(dto.getMar3hrSum());
-        ml.setMar6hrSum(dto.getMar6hrSum());
         ml.setMar24hrSum(dto.getMar24hrSum());
 
         ml.setPressureHpa(dto.getPressureHpa());
@@ -284,7 +278,6 @@ public class SensorDataService {
         dto.setMarLag1(m.getMarLag1Mm());
         dto.setMarLag2(m.getMarLag2Mm());
         dto.setMar3hrSum(m.getMar3hrSum());
-        dto.setMar6hrSum(m.getMar6hrSum());
         dto.setPressTrend(m.getPressTrend());
         dto.setQc3hrSum(m.getQc3hrSum());
         dto.setQc6hrSum(m.getQc6hrSum());
