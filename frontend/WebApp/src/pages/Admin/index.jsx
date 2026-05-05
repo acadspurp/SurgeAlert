@@ -313,21 +313,21 @@ export default function Admin() {
 
                 // Apply ml_features_realtime values (authoritative for Environmental Context cards)
                 if (envData) {
-                    newDash.qcRain = (envData.qcRainMm !== null && envData.qcRainMm !== undefined)
-                        ? envData.qcRainMm.toFixed(1) + ' mm'
-                        : '-- mm';
-                    newDash.marulasRain = (envData.marulasRainMm !== null && envData.marulasRainMm !== undefined)
-                        ? envData.marulasRainMm.toFixed(1) + ' mm'
-                        : '-- mm';
-                    newDash.tideHeight = (envData.tideHeightM !== null && envData.tideHeightM !== undefined)
-                        ? envData.tideHeightM.toFixed(2) + ' m'
-                        : '-- m';
-                    newDash.pressure = (envData.pressureHpa !== null && envData.pressureHpa !== undefined)
-                        ? envData.pressureHpa.toFixed(0) + ' hPa'
-                        : '-- hPa';
-                    newDash.wind = (envData.windSpeed !== null && envData.windSpeed !== undefined)
-                        ? envData.windSpeed.toFixed(1) + ' kph'
-                        : '-- kph';
+                    if (envData.qcRainMm !== null && envData.qcRainMm !== undefined) {
+                        newDash.qcRain = envData.qcRainMm.toFixed(1) + ' mm';
+                    }
+                    if (envData.marulasRainMm !== null && envData.marulasRainMm !== undefined) {
+                        newDash.marulasRain = envData.marulasRainMm.toFixed(1) + ' mm';
+                    }
+                    if (envData.tideHeightM !== null && envData.tideHeightM !== undefined) {
+                        newDash.tideHeight = envData.tideHeightM.toFixed(2) + ' m';
+                    }
+                    if (envData.pressureHpa !== null && envData.pressureHpa !== undefined) {
+                        newDash.pressure = envData.pressureHpa.toFixed(0) + ' hPa';
+                    }
+                    if (envData.windSpeed !== null && envData.windSpeed !== undefined) {
+                        newDash.wind = envData.windSpeed.toFixed(1) + ' kph';
+                    }
                 }
 
                 // Last resort: live external APIs

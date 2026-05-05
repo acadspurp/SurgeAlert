@@ -352,22 +352,11 @@ export async function fetchLatestEnvironmental() {
 
 // --- ADMIN: SENSOR DATA (for chart) ---
 export async function fetchSensorData(hours = 24) {
-    const url = `${API_BASE_URL}/sensor-data/recent?hours=${hours}`;
-
-    // Prefer public fetch first to avoid stale Bearer-token 403 regressions.
-    let response = await fetch(url);
-    if (response.status === 403 || response.status === 401) {
-        // Retry with auth token for deployments that enforce auth on this endpoint.
-        response = await apiFetch(url);
-    }
-    if (!response.ok) {
-        // Last-resort fallback: use latest row endpoint so UI remains interactive
-        // even while /recent is still blocked in a stale deployment.
-        const latest = await fetchLatestSensorReading();
-        if (latest) return [latest];
-        return [];
-    }
-    return await response.json();
+    // Temporary hard bypass for deployments where /recent is returning 403.
+    // Keeps KPIs/charts alive using the latest sensor_data row until backend route is healthy.
+    const latest = await fetchLatestSensorReading();
+    if (latest) return [latest];
+    return [];
 }
 
 // --- ADMIN: REPORTS ---
