@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
+import jakarta.annotation.PostConstruct;
 
 @Service
 public class DataCollectionScheduler {
@@ -45,6 +46,34 @@ public class DataCollectionScheduler {
         this.tideRepository = tideRepository;
         this.weatherRepository = weatherRepository;
         this.mlRepository = mlRepository;
+    }
+
+    /**
+     * STARTUP TASK — Runs once immediately when the backend boots.
+     *
+     * Always fetches weather data (hourly, so always stale on restart).
+     * For tides: checks if TODAY's data already exists in the DB.
+     *   - If missing → fetch immediately (covers missed schedules / Render sleep).
+     *   - If present → skip to avoid redundant API calls.
+     */
+    @PostConstruct
+    public void onStartup() {
+        System.out.println("[Scheduler] Backend started — checking tide + weather data.");
+
+        // Always refresh weather (it's hourly, so it's always stale after a restart)
+        performWeatherAndMlFetch();
+
+        // Fetch tides if today's data is absent or the last fetch was unsuccessful
+        LocalDateTime todayStart = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
+        boolean hasTodayData = tideRepository.existsByTimestamp(todayStart)
+                || tideRepository.findByTimestampAfter(todayStart).size() > 0;
+
+        if (!hasTodayData || !tideFetchSuccess) {
+            System.out.println("[Scheduler] Tide data missing or stale — fetching now.");
+            tideFetchSuccess = performTideFetch();
+        } else {
+            System.out.println("[Scheduler] Tide data already present for today — skipping startup fetch.");
+        }
     }
 
     /**
