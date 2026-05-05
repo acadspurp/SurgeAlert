@@ -52,7 +52,7 @@ public class ConfigController {
         return ResponseEntity.ok(response);
     }
 
-    private double round2(double value) {
-        return Math.round(value * 100.0) / 100.0;
-    }
+    //private double round2(double value) {
+     //   return Math.round(value * 100.0) / 100.0;
+   // }
 }

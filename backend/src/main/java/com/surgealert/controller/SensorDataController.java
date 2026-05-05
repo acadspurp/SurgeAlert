@@ -30,7 +30,6 @@ public class SensorDataController {
     private final SensorDataService sensorDataService;
     private final NotificationService notificationService;
     private final ResidentService residentService;
-    private final EmailService emailService;
     private final CanaryRolloutService canaryRolloutService;
     private final CriticalAlertApprovalService criticalAlertApprovalService;
     private final AlertConfidenceService alertConfidenceService;
@@ -55,7 +54,6 @@ public class SensorDataController {
         this.sensorDataService = sensorDataService;
         this.notificationService = notificationService;
         this.residentService = residentService;
-        this.emailService = emailService;
         this.canaryRolloutService = canaryRolloutService;
         this.criticalAlertApprovalService = criticalAlertApprovalService;
         this.alertConfidenceService = alertConfidenceService;

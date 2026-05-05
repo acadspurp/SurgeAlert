@@ -19,6 +19,7 @@ export default function ResidentsView(props) {
   const [sortOrder, setSortOrder] = useState('DESC'); // DESC = Newest first, ASC = Oldest first
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const SUBSCRIBER_DATE_OFFSET_DAYS = 5;
 
   // 1. Apply Filtering (Search + Priority)
   const filteredData = useMemo(() => {
@@ -60,6 +61,7 @@ export default function ResidentsView(props) {
   const formatDate = (dateStr) => {
     if (!dateStr) return '—';
     const d = new Date(dateStr);
+    d.setDate(d.getDate() - SUBSCRIBER_DATE_OFFSET_DAYS);
     return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
