@@ -320,12 +320,14 @@ export default function Home() {
     const loadTides = async () => {
         setIsTidesLoading(true);
         try {
-            const primary = await fetchTidesData(true);
+            // Prefer cached backend response first to avoid exhausting WorldTides credits.
+            const primary = await fetchTidesData(false);
             let tideEvents = buildTideEvents(primary);
             const hasFutureHigh = tideEvents.some((event) => event.type === 'High' && (event.dt * 1000) > Date.now());
             const hasFutureLow = tideEvents.some((event) => event.type === 'Low' && (event.dt * 1000) > Date.now());
 
             if ((!hasFutureHigh || !hasFutureLow) && !primary?.error) {
+                // Force-refresh only when the cached response lacks upcoming high/low events.
                 const refreshed = await fetchTidesData(true);
                 const refreshedEvents = buildTideEvents(refreshed);
                 if (refreshedEvents.length > 0) tideEvents = refreshedEvents;

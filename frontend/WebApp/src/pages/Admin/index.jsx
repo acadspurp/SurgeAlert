@@ -270,7 +270,7 @@ export default function Admin() {
                     weatherFallback = await fetchWeatherData();
                 } catch (e) { /* weather API unavailable */ }
                 try {
-                    let tideData = await fetchTidesData(true);
+                    let tideData = await fetchTidesData(false);
                     let tideEvents = buildTideEvents(tideData);
                     const hasFutureHigh = tideEvents.some((event) => event.type === 'High' && (event.dt * 1000) > Date.now());
                     const hasFutureLow = tideEvents.some((event) => event.type === 'Low' && (event.dt * 1000) > Date.now());
@@ -378,7 +378,7 @@ export default function Admin() {
 
     const loadTideData = async () => {
         try {
-            const primary = await fetchTidesData(true);
+            const primary = await fetchTidesData(false);
             let tideEvents = buildTideEvents(primary);
             const hasFutureHigh = tideEvents.some((event) => event.type === 'High' && (event.dt * 1000) > Date.now());
             const hasFutureLow = tideEvents.some((event) => event.type === 'Low' && (event.dt * 1000) > Date.now());
