@@ -352,7 +352,13 @@ export async function fetchSensorData(hours = 24) {
         // Retry with auth token for deployments that enforce auth on this endpoint.
         response = await apiFetch(url);
     }
-    if (!response.ok) throw new Error(`Failed to fetch sensor data (HTTP ${response.status})`);
+    if (!response.ok) {
+        // Last-resort fallback: use latest row endpoint so UI remains interactive
+        // even while /recent is still blocked in a stale deployment.
+        const latest = await fetchLatestSensorReading();
+        if (latest) return [latest];
+        return [];
+    }
     return await response.json();
 }
 

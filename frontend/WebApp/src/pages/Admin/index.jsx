@@ -766,12 +766,14 @@ export default function Admin() {
     const openCreateUserModal = () => {
         setEditingUser(null);
         setUserForm({ fullName: '', username: '', password: '', role: 'ADMIN' });
+        setMobileNavOpen(false);
         setShowUserModal(true);
     };
 
     const openEditUserModal = (user) => {
         setEditingUser(user.id);
         setUserForm({ fullName: user.fullName, username: user.username, password: '', role: user.role });
+        setMobileNavOpen(false);
         setShowUserModal(true);
     };
 
@@ -792,6 +794,7 @@ export default function Admin() {
                 alert("User created.");
             }
             setShowUserModal(false);
+            setMobileNavOpen(false);
             loadAdminUsersData();
         } catch (e) {
             alert("Failed to save user.");

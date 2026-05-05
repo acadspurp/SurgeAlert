@@ -98,8 +98,8 @@ export default function AdminUsersView(props) {
         
         {/* USER MODAL */}
         {showUserModal && (
-            <div className="fixed inset-0 flex items-center justify-center z-[100] animate-fade-in bg-black/60 backdrop-blur-sm p-4">
-                <div className="bg-[#1e293b] rounded-3xl shadow-2xl p-5 max-w-sm w-full border border-slate-700 ring-1 ring-white/10 overflow-hidden">
+            <div className="fixed inset-0 flex items-center justify-center z-[100] animate-fade-in bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowUserModal(false)}>
+                <div className="bg-[#1e293b] rounded-3xl shadow-2xl p-5 max-w-sm w-full border border-slate-700 ring-1 ring-white/10 overflow-hidden" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-3 mb-5">
                         <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white text-lg shadow-lg ${editingUser ? 'bg-blue-600' : 'bg-indigo-600'}`}>
                             <i className={`fa-solid ${editingUser ? 'fa-user-pen' : 'fa-user-plus'}`}></i>
