@@ -67,7 +67,7 @@ export default function Admin() {
     const [activeView, setActiveView] = useState('dashboard');
     const [dashData, setDashData] = useState({
         waterLevel: '-- m', flowRate: '-- m/s', status: 'Normal', statusColor: 'text-green-600',
-        prediction: '-- m', predColor: 'text-slate-400', subscriberCount: 0,
+        prediction: '-- m', predictedClassification: '--', predColor: 'text-slate-400', subscriberCount: 0,
         batteryLevel: '--',
         qcRain: '-- mm', marulasRain: '-- mm', tideHeight: '-- m', 
         pressure: '-- hPa', wind: '-- kph'
@@ -298,6 +298,7 @@ export default function Admin() {
                 if (latest) {
                     newDash.flowRate = latest.sensorFlowRateMps !== null ? latest.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s';
                     newDash.prediction = latest.predictedLevel !== null ? latest.predictedLevel.toFixed(2) + ' m' : '-- m';
+                    newDash.predictedClassification = latest.predictedAlertLevel || '--';
                     // Keep legacy latest-record fallback only when ml_features_realtime is empty.
                     if (!envData) {
                         newDash.qcRain = (latest.rainMm !== null && latest.rainMm !== undefined) ? latest.rainMm.toFixed(1) + ' mm' : '-- mm';
@@ -396,6 +397,7 @@ export default function Admin() {
                         ...prev,
                         flowRate: latest.sensorFlowRateMps !== null ? latest.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s',
                         prediction: latest.predictedLevel !== null ? latest.predictedLevel.toFixed(2) + ' m' : '-- m',
+                        predictedClassification: latest.predictedAlertLevel || '--',
                     }));
                 }
             } else if (type === 'CV') {
@@ -512,7 +514,8 @@ export default function Admin() {
                 flowRate: '-- m/s',
                 status: 'OFFLINE',
                 statusColor: 'text-slate-400',
-                prediction: '-- m'
+                prediction: '-- m',
+                predictedClassification: '--'
             }));
             return;
         }
@@ -539,6 +542,7 @@ export default function Admin() {
             if (mqttData.predictedLevel !== null && mqttData.predictedLevel !== undefined) {
                 newDash.prediction = mqttData.predictedLevel.toFixed(2) + ' m';
             }
+            newDash.predictedClassification = mqttData.predictedAlertLevel || '--';
 
             // NEW ENVIRONMENTAL FIELDS
             newDash.qcRain = (mqttData.rainMm !== null && mqttData.rainMm !== undefined) ? mqttData.rainMm.toFixed(1) + ' mm' : '-- mm';

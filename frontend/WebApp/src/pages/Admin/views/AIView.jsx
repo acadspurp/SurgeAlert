@@ -79,7 +79,7 @@ export default function AIView(props) {
                                     </div>
                                     <div>
                                         <p className="text-indigo-200 text-xs font-bold uppercase tracking-wider mb-1">Predicted Classification</p>
-                                        <div className="text-2xl font-bold opacity-90">Currently Unavailable</div>
+                                        <div className="text-2xl font-bold opacity-90">{dashData.predictedClassification || '--'}</div>
                                     </div>
                                 </div>
                                 <div className="pt-2">
