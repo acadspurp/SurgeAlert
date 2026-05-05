@@ -320,7 +320,8 @@ export async function fetchLatestSensorReading() {
     try {
         const response = await apiFetch(`${API_BASE_URL}/sensor-data/latest`);
         if (!response.ok || response.status === 204) return null;
-        return await response.json();
+        const data = await response.json();
+        return data;
     } catch {
         return null;
     }

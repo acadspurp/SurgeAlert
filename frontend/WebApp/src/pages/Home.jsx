@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchAlertStatus, fetchAlertGuide, fetchCameraFeed, fetchWeatherData, fetchTidesData, getWeatherInfo, fetchSystemThresholds } from '../services/api.js';
+import { fetchAlertStatus, fetchAlertGuide, fetchCameraFeed, fetchWeatherData, fetchTidesData, getWeatherInfo, fetchSystemThresholds, fetchLatestSensorReading } from '../services/api.js';
 import { useSensorMqtt } from '../hooks/useSensorMqtt.js';
 import { classifyAlertLevel, gaugeFillPercent, gaugeMarkers } from '../config/alertConfig.js';
 
@@ -181,8 +181,20 @@ export default function Home() {
 
     const loadCamera = async () => {
         try {
+            // Prefer the latest persisted DB record so Render restarts still show image + level.
+            const latest = await fetchLatestSensorReading();
+            if (latest?.waterLevelM !== null && latest?.waterLevelM !== undefined) {
+                processAlertData(latest.currentAlertLevel || alertLevelKey, latest.waterLevelM);
+            }
+            if (latest?.snapshotBase64 && latest.snapshotBase64 !== "") {
+                setCameraImg(`data:image/jpeg;base64,${latest.snapshotBase64}`);
+                setCameraLastUpdated(new Date().toLocaleTimeString());
+                return;
+            }
+
+            // Fallback to existing camera endpoint if latest DB image is unavailable.
             const data = await fetchCameraFeed();
-            if (data.img_base64 && data.img_base64 !== "") {
+            if (data?.img_base64 && data.img_base64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${data.img_base64}`);
                 setCameraLastUpdated(new Date().toLocaleTimeString());
             }
