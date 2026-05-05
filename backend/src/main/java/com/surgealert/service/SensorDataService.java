@@ -197,15 +197,45 @@ public class SensorDataService {
         LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Manila"));
         LocalDateTime since = now.minusHours(hours);
         
-        // Fetch core sensor data, excluding future data
         List<SensorData> coreData = sensorDataRepository.findByTimestampBetween(since, now);
-        
-        // Sort DESC for frontend
         coreData.sort((a, b) -> b.getTimestamp().compareTo(a.getTimestamp()));
 
-        return coreData.stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+        // Optimization: Fetch all potentially relevant ML features in one go (with 1h buffer)
+        List<MLFeaturesRealtime> mlList = mlFeaturesRealtimeRepository.findByTimestampBetween(since.minusHours(1), now.plusMinutes(1));
+
+        return coreData.stream().map(sd -> {
+            SensorDataDTO dto = new SensorDataDTO();
+            dto.setId(sd.getId());
+            dto.setTimestamp(sd.getTimestamp());
+            dto.setWaterLevelM(sd.getWaterLevelM());
+            dto.setSensorFlowRateMps(sd.getSensorFlowRateMps());
+            dto.setImageFlowRateMps(sd.getImageFlowRateMps());
+            dto.setImageRiseRateMps(sd.getImageRiseRateMps());
+            dto.setSensorRiseRate(sd.getSensorRiseRate());
+            dto.setCurrentAlertLevel(sd.getCurrentAlertLevel());
+            dto.setPredictedLevel(sd.getPredictedLevel());
+            dto.setPredictedAlertLevel(sd.getPredictedAlertLevel());
+
+            if (sd.getImageBytes() != null) {
+                dto.setSnapshotBase64(java.util.Base64.getEncoder().encodeToString(sd.getImageBytes()));
+            }
+
+            // Memory-efficient Nearest Neighbor join
+            LocalDateTime ts = sd.getTimestamp();
+            mlList.stream()
+                .filter(m -> {
+                    long diff = Math.abs(java.time.Duration.between(m.getTimestamp(), ts).getSeconds());
+                    return diff < 3900; // 65 minutes
+                })
+                .min((m1, m2) -> {
+                    long diff1 = Math.abs(java.time.Duration.between(m1.getTimestamp(), ts).getSeconds());
+                    long diff2 = Math.abs(java.time.Duration.between(m2.getTimestamp(), ts).getSeconds());
+                    return Long.compare(diff1, diff2);
+                })
+                .ifPresent(m -> mapEnvironmentalFields(dto, m));
+
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     private SensorDataDTO convertToDTO(SensorData sensorData) {
