@@ -93,6 +93,12 @@ public class NotificationService {
                 .orElse("Your OTP is: " + otpCode);
     }
     
+    public String getRegistrationSuccessMessage() {
+        return templateRepository.findByAlertType("REGISTER")
+                .map(AlertTemplate::getTemplate)
+                .orElse("SurgeAlert: Welcome! Matagumpay ang iyong pag-subscribe sa Marulas Flood Alert System. Makakatanggap ka na ng mga SMS alerts kung may banta ng baha.");
+    }
+
     public String getManualMessage(String customMessage) {
         return templateRepository.findByAlertType("MANUAL")
                 .map(t -> {

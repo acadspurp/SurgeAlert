@@ -62,9 +62,17 @@ public class ResidentController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> registerResident(@RequestBody ResidentRequest request) {
         try {
             residentService.registerResident(request);
+            
+            // Send Success SMS
+            String successMsg = notificationService.getRegistrationSuccessMessage();
+            String phone = request.getPhoneNumber();
+            OtpDeliveryService.DeliveryResult delivery = otpDeliveryService.deliverOtp(phone, successMsg);
+            if ("GSM_FALLBACK".equals(delivery.channel())) {
+                mqttSubscriberService.publishSmsToGsm(phone, successMsg);
+            }
+            
             return ResponseEntity.status(HttpStatus.CREATED).body("Resident registered successfully");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
