@@ -5,7 +5,8 @@ import { useSensorMqtt } from '../hooks/useSensorMqtt.js';
 import { classifyAlertLevel, gaugeFillPercent, gaugeMarkers } from '../config/alertConfig.js';
 
 let CACHED_GUIDE = null;
-const DISPLAY_TIMEZONE = 'UTC';
+const DISPLAY_TIMEZONE = 'Asia/Manila';
+const CAMERA_DELAY_MS = 10 * 60 * 60 * 1000;
 
 /** How often to poll GET /public/alerts/status (includes manual override). Keeps all browsers in sync without refresh. */
 const ALERT_STATUS_POLL_MS = 10000;
@@ -68,7 +69,7 @@ export default function Home() {
         scrollToSafetyGuide();
     };
 
-    const formatUtcTime = (value) => new Date(value).toLocaleTimeString('en-US', {
+    const formatCameraDisplayTime = () => new Date(Date.now() - CAMERA_DELAY_MS).toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit',
         second: '2-digit',
@@ -261,7 +262,7 @@ export default function Home() {
             }
             if (latest?.snapshotBase64 && latest.snapshotBase64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${latest.snapshotBase64}`);
-                setCameraLastUpdated(formatUtcTime(latest.timestamp || Date.now()));
+                setCameraLastUpdated(formatCameraDisplayTime());
                 return;
             }
 
@@ -269,7 +270,7 @@ export default function Home() {
             const data = await fetchCameraFeed();
             if (data?.img_base64 && data.img_base64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${data.img_base64}`);
-                setCameraLastUpdated(formatUtcTime(data.timestamp || Date.now()));
+                setCameraLastUpdated(formatCameraDisplayTime());
             }
         } catch (error) {
             console.error("Camera fetch failed", error);
@@ -318,7 +319,7 @@ export default function Home() {
     const loadTides = async () => {
         setIsTidesLoading(true);
         try {
-            const primary = await fetchTidesData();
+            const primary = await fetchTidesData(true);
             let tideEvents = buildTideEvents(primary);
             const hasFutureHigh = tideEvents.some((event) => event.type === 'High' && (event.dt * 1000) > Date.now());
             const hasFutureLow = tideEvents.some((event) => event.type === 'Low' && (event.dt * 1000) > Date.now());
@@ -351,7 +352,7 @@ export default function Home() {
             loadAlertStatus();
             if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
                 setCameraImg(`data:image/jpeg;base64,${mqttData.snapshotBase64}`);
-                setCameraLastUpdated(formatUtcTime(Date.now()));
+                setCameraLastUpdated(formatCameraDisplayTime());
             }
         }
     }, [mqttData]);

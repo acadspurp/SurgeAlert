@@ -11,9 +11,12 @@ export default function AIView(props) {
         handleDeleteAdminUser,
         approveDatasetRequest, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert } = props;
 
+    const formatTideDateTime = (value) => new Date(value).toLocaleString('en-US', { timeZone: 'Asia/Manila' });
+    const formatTideTime = (value) => new Date(value).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Manila' });
+    const formatTideDate = (value) => new Date(value).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' });
+
     const groupedTides = (Array.isArray(tides) ? tides : []).reduce((acc, t) => {
-        const d = new Date(t.dt * 1000);
-        const key = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        const key = formatTideDate(t.dt * 1000);
         if (!acc[key]) acc[key] = [];
         acc[key].push(t);
         return acc;
@@ -107,13 +110,13 @@ export default function AIView(props) {
                                 <div className="bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-slate-200">
                                     <span className="text-slate-400 mr-2">Next High:</span>
                                     {tides.find(t => t.type === 'High')
-                                        ? new Date(tides.find(t => t.type === 'High').dt * 1000).toLocaleString()
+                                        ? formatTideDateTime(tides.find(t => t.type === 'High').dt * 1000)
                                         : 'N/A'}
                                 </div>
                                 <div className="bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-slate-200">
                                     <span className="text-slate-400 mr-2">Next Low:</span>
                                     {tides.find(t => t.type === 'Low')
-                                        ? new Date(tides.find(t => t.type === 'Low').dt * 1000).toLocaleString()
+                                        ? formatTideDateTime(tides.find(t => t.type === 'Low').dt * 1000)
                                         : 'N/A'}
                                 </div>
                             </div>
@@ -127,7 +130,7 @@ export default function AIView(props) {
                                             <div className="space-y-2">
                                                 {items.map((t, i) => (
                                                     <div key={`${day}-${i}`} className="text-sm text-slate-200 flex justify-between gap-4">
-                                                        <span>{new Date(t.dt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {t.type} Tide</span>
+                                                        <span>{formatTideTime(t.dt * 1000)} {t.type} Tide</span>
                                                     </div>
                                                 ))}
                                             </div>

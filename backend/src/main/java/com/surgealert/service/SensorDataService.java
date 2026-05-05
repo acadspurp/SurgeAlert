@@ -21,6 +21,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class SensorDataService {
+    private static final java.time.ZoneId MANILA_ZONE = java.time.ZoneId.of("Asia/Manila");
+    private static final long CAMERA_DELAY_HOURS = 10;
 
     private final SensorDataRepository sensorDataRepository;
     private final TideMetricsRepository tideMetricsRepository;
@@ -171,7 +173,7 @@ public class SensorDataService {
     }
 
     public SensorDataDTO getLatestSensorData() {
-        LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Manila"));
+        LocalDateTime now = LocalDateTime.now(MANILA_ZONE).minusHours(CAMERA_DELAY_HOURS);
         // Use projection to avoid hydrating image_bytes BLOB directly.
         // Some deployed DB rows have incompatible large-object values that can crash reads.
         return sensorDataRepository.findLatestProjectionBefore(now)
@@ -205,7 +207,7 @@ public class SensorDataService {
     }
 
     public List<SensorDataDTO> getRecentSensorData(int hours) {
-        LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Manila"));
+        LocalDateTime now = LocalDateTime.now(MANILA_ZONE).minusHours(CAMERA_DELAY_HOURS);
         LocalDateTime since = now.minusHours(hours);
         
         List<SensorData> coreData = sensorDataRepository.findByTimestampBetween(since, now);

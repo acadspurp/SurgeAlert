@@ -27,10 +27,10 @@ public class SurgeAlertApplication {
                 System.getenv("JDBC_DATABASE_URL")
         );
         if (raw == null) {
-            String fallback = "jdbc:mysql://localhost:3306/surgealert_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
+            String fallback = "jdbc:postgresql://localhost:5432/surgealert_db";
             System.setProperty("spring.datasource.url", fallback);
             if (System.getProperty("spring.datasource.driver-class-name") == null) {
-                System.setProperty("spring.datasource.driver-class-name", "com.mysql.cj.jdbc.Driver");
+                System.setProperty("spring.datasource.driver-class-name", "org.postgresql.Driver");
             }
             return;
         }

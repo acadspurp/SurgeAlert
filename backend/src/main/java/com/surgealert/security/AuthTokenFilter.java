@@ -26,7 +26,8 @@ public class AuthTokenFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         return path.startsWith("/api/public/")
                 || path.startsWith("/api/external/")
-                || path.equals("/api/sensor-data/latest");
+                || path.equals("/api/sensor-data/latest")
+                || path.equals("/api/sensor-data/recent");
     }
 
     @Override

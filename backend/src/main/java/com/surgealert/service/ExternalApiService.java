@@ -16,7 +16,6 @@ import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -59,7 +58,7 @@ public class ExternalApiService {
                     .queryParam("latitude", lat)
                     .queryParam("longitude", lon)
                     .queryParam("hourly", "precipitation,surface_pressure,wind_speed_10m,wind_direction_10m,soil_moisture_0_to_7cm")
-                    .queryParam("timezone", "UTC")
+                    .queryParam("timezone", "Asia/Manila")
                     .queryParam("forecast_days", 2)
                     .build()
                     .toUri();
@@ -78,7 +77,7 @@ public class ExternalApiService {
                     .queryParam("longitude", MARULAS_LON)
                     .queryParam("hourly", "precipitation,surface_pressure,wind_speed_10m")
                     .queryParam("daily", "weathercode,apparent_temperature_max,apparent_temperature_min")
-                    .queryParam("timezone", "UTC")
+                    .queryParam("timezone", "Asia/Manila")
                     .queryParam("forecast_days", 7)
                     .build()
                     .toUri();
@@ -90,7 +89,7 @@ public class ExternalApiService {
             response.setLatitude(MARULAS_LAT);
             response.setLongitude(MARULAS_LON);
             
-            int hour = LocalDateTime.now(ZoneOffset.UTC).getHour();
+            int hour = LocalDateTime.now(ZoneId.of("Asia/Manila")).getHour();
             if (marData.has("hourly")) {
                 JsonNode hourly = marData.get("hourly");
                 if (hourly.has("precipitation")) response.setRainMm(hourly.get("precipitation").get(hour).asDouble());
@@ -132,7 +131,7 @@ public class ExternalApiService {
     }
 
     public TideResponse fetchTideData(boolean forceRefresh) {
-        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Manila"));
 
         // Cache reads must not take down the endpoint if the DB is unavailable or the schema mismatches.
         if (!forceRefresh) {
@@ -245,7 +244,7 @@ public class ExternalApiService {
      */
     private TideResponse fetchTidesFromMarineModel() {
         String url = String.format(
-                "https://marine-api.open-meteo.com/v1/marine?latitude=%s&longitude=%s&hourly=sea_level_height_msl&forecast_days=4&timezone=UTC",
+                "https://marine-api.open-meteo.com/v1/marine?latitude=%s&longitude=%s&hourly=sea_level_height_msl&forecast_days=4&timezone=Asia/Manila",
                 TIDE_LAT, TIDE_LON);
         try {
             JsonNode root = restTemplate.getForObject(url, JsonNode.class);
@@ -260,7 +259,7 @@ public class ExternalApiService {
             }
 
             DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
-            ZoneId zone = ZoneId.of("UTC");
+            ZoneId zone = ZoneId.of("Asia/Manila");
             List<TideResponse.TideExtreme> extremes = new ArrayList<>();
             List<TideResponse.TideHeight> heightsList = new ArrayList<>();
 

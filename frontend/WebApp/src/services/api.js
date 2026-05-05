@@ -344,8 +344,15 @@ export async function fetchLatestEnvironmental() {
 
 // --- ADMIN: SENSOR DATA (for chart) ---
 export async function fetchSensorData(hours = 24) {
-    const response = await apiFetch(`${API_BASE_URL}/sensor-data/recent?hours=${hours}`);
-    if (!response.ok) throw new Error('Failed to fetch sensor data');
+    const url = `${API_BASE_URL}/sensor-data/recent?hours=${hours}`;
+
+    // Prefer public fetch first to avoid stale Bearer-token 403 regressions.
+    let response = await fetch(url);
+    if (response.status === 403 || response.status === 401) {
+        // Retry with auth token for deployments that enforce auth on this endpoint.
+        response = await apiFetch(url);
+    }
+    if (!response.ok) throw new Error(`Failed to fetch sensor data (HTTP ${response.status})`);
     return await response.json();
 }
 

@@ -40,7 +40,8 @@ public class SecurityConfig {
                 .securityMatcher(
                         "/api/public/**",
                         "/api/external/**",
-                        "/api/sensor-data/latest"
+                        "/api/sensor-data/latest",
+                        "/api/sensor-data/recent"
                 )
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))

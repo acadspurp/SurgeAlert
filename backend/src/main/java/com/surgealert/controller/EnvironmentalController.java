@@ -29,7 +29,7 @@ public class EnvironmentalController {
     @GetMapping("/latest")
     public ResponseEntity<Map<String, Object>> getLatestEnvironmental() {
         Map<String, Object> result = new LinkedHashMap<>();
-        java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Manila"));
+        java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Manila")).minusHours(10);
 
         mlFeaturesRealtimeRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(now).ifPresent(m -> {
             result.put("tideHeightM", m.getTideHeightM());

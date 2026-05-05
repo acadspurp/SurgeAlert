@@ -28,7 +28,7 @@ class WeatherManager:
                 "latitude": self.qc_coords[0], "longitude": self.qc_coords[1],
                 "current": ["precipitation"],
                 "hourly": ["precipitation"],
-                "timezone": "UTC", "past_days": 1, "forecast_days": 1
+                "timezone": "Asia/Manila", "past_days": 1, "forecast_days": 1
             }
             qc_resp = requests.get(self.base_url, params=qc_params, timeout=5).json()
             results["QC_Rain_mm"] = float(qc_resp.get("current", {}).get("precipitation", 0.0))
@@ -47,7 +47,7 @@ class WeatherManager:
                 "current": ["precipitation", "pressure_msl", "wind_speed_10m", "wind_direction_10m", "soil_moisture_0_to_7cm"],
                 "hourly": ["precipitation", "pressure_msl"],
                 "daily": ["precipitation_sum"],
-                "timezone": "UTC", "past_days": 1, "forecast_days": 1
+                "timezone": "Asia/Manila", "past_days": 1, "forecast_days": 1
             }
             mar_resp = requests.get(self.base_url, params=mar_params, timeout=5).json()
             results["Marulas_Rain_mm"] = float(mar_resp.get("current", {}).get("precipitation", 0.0))
