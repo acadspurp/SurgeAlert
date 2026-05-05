@@ -1,15 +1,53 @@
-# EdgeSystem/hardware/sensors/radar_driver.py
+import serial
+import threading
+import time
+import random
+from config.settings import RADAR_PORT, RADAR_BAUDRATE
 
-# This is a TEMPLATE file.
-# You will need to interface with your radar sensor via UART, I2C, or another protocol.
-# import serial
-# import time
+_current_speed_mps = 0.0
+_running = False
+_serial_conn = None
 
-# ser = serial.Serial('/dev/ttyS0', 9600, timeout=1) # Example serial port
+def init_radar():
+    global _running, _serial_conn
+    try:
+        print(f" [Hardware] Initializing HLK-LD2415H Radar on {RADAR_PORT}...")
+        
+        # Check if we have the correct 'serial' module (pyserial)
+        if not hasattr(serial, 'Serial'):
+            raise AttributeError("module 'serial' has no attribute 'Serial'. Ensure 'pyserial' is installed, not 'serial'.")
+            
+        _serial_conn = serial.Serial(RADAR_PORT, RADAR_BAUDRATE, timeout=1)
+        _running = True
+        # Start background thread to read from Serial
+        threading.Thread(target=_read_serial_loop, daemon=True).start()
+        print(" [Hardware] Radar Serial Connection Established.")
+    except Exception as e:
+        print(f" [Hardware] Radar Hardware not found (Simulation mode active): {e}")
+        _running = False
+
+def _read_serial_loop():
+    global _current_speed_mps, _running
+    while _running and _serial_conn and _serial_conn.is_open:
+        try:
+            line = _serial_conn.readline().decode('utf-8', errors='ignore').strip()
+            # HLK-LD2415H typically outputs speed in its data string. 
+            # This is a simplified parser; adjust based on specific firmware output.
+            if "speed:" in line.lower():
+                parts = line.split(":")
+                if len(parts) > 1:
+                    # Expecting format like "Speed: 1.23"
+                    _current_speed_mps = float(parts[1].strip().split()[0])
+        except:
+            time.sleep(0.1)
 
 def get_flow_rate():
-    """Reads the flow rate from the Doppler radar sensor."""
-    # This function should contain the logic to read data from the sensor's
-    # serial or I2C port and parse it to get the flow rate.
-    raise NotImplementedError("Radar driver is not implemented yet. Requires real hardware.")
-    return 0.0
+    if not _running:
+        return 0.0
+    return _current_speed_mps
+
+def close_radar():
+    global _running
+    _running = False
+    if _serial_conn:
+        _serial_conn.close()

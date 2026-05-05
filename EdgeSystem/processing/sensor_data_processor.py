@@ -1,5 +1,10 @@
 # EdgeSystem/processing/sensor_data_processor.py
-from config.settings import SENSOR_HEIGHT_FROM_MUDPLAIN
+from collections import deque
+from statistics import median
+from config.settings import REFERENCE_HEIGHT_M, SMOOTHING_WINDOW, MAX_DELTA_M_PER_CYCLE
+
+_recent_levels = deque(maxlen=max(3, SMOOTHING_WINDOW))
+_last_level = None
 
 def calculate_water_level(distance_from_sensor):
     """
@@ -12,14 +17,24 @@ def calculate_water_level(distance_from_sensor):
     Returns:
         float: The calculated water level in meters. Returns 0 if the reading is invalid.
     """
+    global _last_level
     if distance_from_sensor is None or distance_from_sensor < 0:
         return 0.0
     
     # Water Level = Total Height of Sensor - Distance from Sensor to Water
-    water_level = SENSOR_HEIGHT_FROM_MUDPLAIN - distance_from_sensor
+    water_level = REFERENCE_HEIGHT_M - distance_from_sensor
+    water_level = max(0.0, water_level)
+
+    # Reject implausible spikes from ultrasonic noise.
+    if _last_level is not None and abs(water_level - _last_level) > MAX_DELTA_M_PER_CYCLE:
+        water_level = _last_level
+    _last_level = water_level
+
+    _recent_levels.append(water_level)
+    if len(_recent_levels) >= 3:
+        water_level = float(median(_recent_levels))
     
-    # Ensure water level doesn't go below zero
-    return max(0.0, water_level)
+    return round(max(0.0, water_level), 2)
 
 if __name__ == '__main__':
     print("--- Testing Sensor Data Processor ---")

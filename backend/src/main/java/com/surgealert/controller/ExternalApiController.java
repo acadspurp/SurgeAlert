@@ -15,8 +15,12 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 @CrossOrigin(origins = "*") // Allow frontend to access this
 public class ExternalApiController {
 
+    private final ExternalApiService externalApiService;
+
     @Autowired
-    private ExternalApiService externalApiService;
+    public ExternalApiController(ExternalApiService externalApiService) {
+        this.externalApiService = externalApiService;
+    }
 
     @GetMapping("/weather")
     public ResponseEntity<WeatherResponse> getWeather() {

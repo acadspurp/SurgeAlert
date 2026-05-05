@@ -3,3 +3,10 @@ numpy
 opencv-python
 scikit-learn
 pandas
+requests
+python-dotenv
+joblib
+xgboost
+pyserial
+paho-mqtt
+RPi.GPIO

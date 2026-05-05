@@ -6,26 +6,39 @@ import java.util.List;
 public class WeatherResponse {
     // We only map the fields the frontend actually uses
     
+    private Double latitude;
+    private Double longitude;
+    private Double rainMm;
+    private Double pressureHpa;
+    private Double windSpeed;
+
     @JsonProperty("daily")
     private Daily daily;
 
+    // Getters and Setters
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
+    public Double getRainMm() { return rainMm; }
+    public void setRainMm(Double rainMm) { this.rainMm = rainMm; }
+    public Double getPressureHpa() { return pressureHpa; }
+    public void setPressureHpa(Double pressureHpa) { this.pressureHpa = pressureHpa; }
+    public Double getWindSpeed() { return windSpeed; }
+    public void setWindSpeed(Double windSpeed) { this.windSpeed = windSpeed; }
     public Daily getDaily() { return daily; }
     public void setDaily(Daily daily) { this.daily = daily; }
 
     public static class Daily {
         @JsonProperty("time")
         private List<String> time;
-        
         @JsonProperty("weathercode")
         private List<Integer> weathercode;
-        
-        @JsonProperty("temperature_2m_max")
+        @JsonProperty("apparent_temperature_max")
         private List<Double> temperatureMax;
-        
-        @JsonProperty("temperature_2m_min")
+        @JsonProperty("apparent_temperature_min")
         private List<Double> temperatureMin;
 
-        // Getters and Setters
         public List<String> getTime() { return time; }
         public void setTime(List<String> time) { this.time = time; }
         public List<Integer> getWeathercode() { return weathercode; }

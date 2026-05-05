@@ -1,90 +1,109 @@
-import os
-from config.settings import SMS_TEMPLATES_DIR
-from system_main.database_manager import DatabaseManager
+import serial
+import time
+import requests
+
+from config.settings import (
+    SMS_ONLINE_PRIMARY,
+    SEMAPHORE_ENABLED,
+    SEMAPHORE_API_KEY,
+    SEMAPHORE_API_URL,
+    SEMAPHORE_SENDER_NAME,
+)
+
+import threading
 
 class SMSManager:
-    def __init__(self, db_manager: DatabaseManager):
-        self.db_manager = db_manager
-        self.templates = {}
-        self._load_templates()
+    _lock = threading.Lock() # Class-level lock to prevent concurrent serial access
 
-    def _load_templates(self):
-        """Loads SMS alert messages from text files."""
-        for alert_level in ['green', 'yellow', 'orange', 'red']:
-            template_path = os.path.join(SMS_TEMPLATES_DIR, f'{alert_level}_alert.txt')
+    # If using USB, the AT command port is usually ttyUSB2 (sometimes ttyUSB3).
+    # If using GPIO TX/RX pins, change this to "/dev/serial0"
+    def __init__(self, port="/dev/ttyUSB2", baudrate=115200):
+        self.port = port
+        self.baudrate = baudrate
+
+    def send_sms(self, phone_number, message):
+        """Sends an SMS through online service first, then GSM fallback."""
+        if SMS_ONLINE_PRIMARY and self._send_via_semaphore(phone_number, message):
+            return True
+        return self._send_via_gsm(phone_number, message)
+
+    def _send_via_semaphore(self, phone_number, message):
+        if not SEMAPHORE_ENABLED or not SEMAPHORE_API_KEY:
+            return False
+        try:
+            # Semaphore API expects form-data, not JSON body
+            response = requests.post(
+                SEMAPHORE_API_URL,
+                data={
+                    "apikey": SEMAPHORE_API_KEY,
+                    "number": phone_number,
+                    "message": message,
+                    "sendername": SEMAPHORE_SENDER_NAME,
+                },
+                timeout=10,
+            )
+            if response.status_code == 200:
+                print(f" [SMS] Semaphore provider accepted request for {phone_number}.")
+                return True
+            else:
+                print(f" [SMS] Semaphore API Error: {response.status_code} - {response.text}")
+                return False
+        except Exception as e:
+            print(f" [SMS] Semaphore Connection Failed: {e}")
+            return False
+
+    def _send_via_gsm(self, phone_number, message):
+        """GSM fallback using AT commands to SIM7600 with thread-safety."""
+        # Use lock to prevent concurrent serial port access
+        with self._lock:
             try:
-                with open(template_path, 'r') as f:
-                    self.templates[alert_level.upper()] = f.read().strip()
-            except FileNotFoundError:
-                print(f"Warning: SMS template not found for {alert_level} at {template_path}")
-                self.templates[alert_level.upper()] = f"SurgeAlert: {alert_level.upper()} - Message not available."
-        print("SMS templates loaded.")
+                print(f" [SMS] Hardware Send Request: {phone_number}")
+                ser = serial.Serial(self.port, self.baudrate, timeout=3)
+                
+                # 1. Clear buffer and test
+                ser.reset_input_buffer()
+                ser.write(b'AT\r')
+                time.sleep(0.5)
+                
+                # 2. Set SMS mode to Text Mode
+                ser.write(b'AT+CMGF=1\r')
+                time.sleep(0.5)
+                
+                # 3. Enter recipient phone number
+                ser.write(f'AT+CMGS="{phone_number}"\r'.encode())
+                
+                # Wait for the prompt "> "
+                start_time = time.time()
+                prompt_received = False
+                while time.time() - start_time < 5:
+                    if ser.in_waiting > 0:
+                        line = ser.read_all().decode(errors='ignore')
+                        if ">" in line:
+                            prompt_received = True
+                            break
+                    time.sleep(0.1)
+                
+                if not prompt_received:
+                    print(" [SMS] GSM Error: Did not receive prompt from module.")
+                    ser.close()
+                    return False
 
-    def get_alert_message(self, alert_level):
-        """Retrieves the appropriate message for a given alert level."""
-        return self.templates.get(alert_level.upper(), f"SurgeAlert: Unknown Alert Level ({alert_level}).")
-
-    def send_alert(self, alert_level, explicit_recipients=None):
-        """
-        Sends the alert message. 
-        
-        Args:
-            alert_level (str): The level (RED, ORANGE, etc.)
-            explicit_recipients (list): Optional. A list of numbers passed from the Java Backend.
-                                        If this is None, the system falls back to the local database.
-        """
-        message = self.get_alert_message(alert_level)
-        
-        # LOGIC: Use the list from Java Backend if available. 
-        # If not (e.g., offline mode), use the local SQLite database.
-        if explicit_recipients and len(explicit_recipients) > 0:
-            recipients = explicit_recipients
-            source = "Java Backend"
-        else:
-            recipients = self.db_manager.get_all_registered_phone_numbers()
-            source = "Local Database"
-
-        recipient_count = len(recipients)
-
-        if recipient_count == 0:
-            print(f"No registered residents to send {alert_level} alert to.")
-            return
-
-        print(f"\n--- Sending {alert_level} Alert ---")
-        print(f"Source of Numbers: {source}")
-        print(f"Message: '{message}'")
-        print(f"Recipients: {', '.join(recipients)}")
-
-        # --- GSM MODULE LOGIC (FUTURE) ---
-        # This is where you will eventually put the AT Commands for the Sim800L
-        # For now, we simulate.
-        print(">> SIMULATION: GSM Module initiating...")
-        for number in recipients:
-            print(f"   -> Sending SMS to {number} ... [SUCCESS]")
-        
-        # Log the sent alert in the database
-        self.db_manager.log_sent_alert(alert_level, message, recipient_count)
-        print(f"Alert logged to database.")
-
-# --- TEST ZONE ---
-# The code below ONLY runs if you type "python sms_manager.py" in the terminal.
-# It DOES NOT run when the main system is running.
-if __name__ == "__main__":
-    print("--- TESTING SMS MANAGER (ISOLATED) ---")
-    
-    # 1. Setup a dummy database manager
-    db_manager = DatabaseManager()
-    
-    # 2. Add fake numbers just for this test
-    print("Registering test numbers...")
-    db_manager.register_resident("+639170000001") 
-    
-    # 3. Initialize Manager
-    sms_manager = SMSManager(db_manager)
-
-    # 4. Test Sending
-    sms_manager.send_alert("RED")
-    
-    # 5. Clean up (optional, to keep your db clean)
-    db_manager.unregister_resident("+639170000001")
-    print("Test complete.")
+                # 4. Enter the message and send the CTRL+Z command (ASCII 26)
+                ser.write(f'{message}\x1A'.encode())
+                
+                # Wait for response (can take up to 20 seconds for actual transmission)
+                time.sleep(5) 
+                
+                response = ser.read_all().decode(errors='ignore')
+                ser.close()
+                
+                if "OK" in response or "+CMGS:" in response:
+                    print(f" [SMS] Successfully sent alert to {phone_number}.")
+                    return True
+                else:
+                    print(f" [SMS] GSM Transmission Failed. Response: {response}")
+                    return False
+                    
+            except Exception as e:
+                print(f" [SMS] Hardware Error: {e}")
+                return False

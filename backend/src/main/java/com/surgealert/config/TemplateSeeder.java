@@ -32,7 +32,10 @@ public class TemplateSeeder implements CommandLineRunner {
                 "SurgeAlert: ALL-CLEAR. Bumalik na sa normal ang antas ng tubig sa Tullahan River. Ligtas nang bumalik sa inyong mga tahanan. Manatiling maingat. [%s] - Marulas BDRRMO"));
             
             repository.save(new AlertTemplate("OTP", 
-                "Ang iyong SurgeAlert OTP ay: [%s]. Huwag itong ibahagi sa iba. Ang code na ito ay valid sa loob ng 5 minuto."));
+                "Ang iyong SurgeAlert OTP ay: {code}. Huwag itong ibahagi sa iba. Ang code na ito ay valid sa loob ng 5 minuto."));
+            
+            repository.save(new AlertTemplate("REGISTER", 
+                "SurgeAlert: Welcome! Matagumpay ang iyong pag-subscribe sa Marulas Flood Alert System. Makakatanggap ka na ng mga SMS alerts kung may banta ng baha."));
             
             repository.save(new AlertTemplate("MANUAL", 
                 "SurgeAlert - Marulas BDRRMO: %s. [%s]"));

@@ -80,21 +80,40 @@ public class ActionPlanSeeder implements CommandLineRunner {
             // --- RED ---
             ActionPlan red = new ActionPlan();
             red.setAlertLevel("RED");
-            red.setTitleEn("🚨 LEVEL 4 RED: EVACUATE NOW!");
-            red.setTitleTl("🚨 LEVEL 4 RED: LUMIKAS NA!");
-            red.setShortDescriptionEn("The flood has reached a critical level. This is a mandatory evacuation order.");
-            red.setShortDescriptionTl("Nasa kritikal na antas na ang baha. Ipinag-uutos ang sapilitang paglikas.");
+            red.setTitleEn("🚨 LEVEL 4 RED: HIGH FLOOD RISK");
+            red.setTitleTl("🚨 LEVEL 4 RED: MATAAS NA RISGO NG BAHA");
+            red.setShortDescriptionEn("The river is at a dangerous level. Minor flooding may be occurring.");
+            red.setShortDescriptionTl("Nasa mapanganib na antas na ang ilog. Maaaring mayroon nang bahagyang pagbaha.");
             red.setActionsEn(List.of(
-                "LEAVE IMMEDIATELY: For your safety, you must evacuate now.",
-                "AVOID FLOODWATER: Do not walk or drive through flooded areas.",
-                "GO TO SAFETY: Proceed directly to the nearest evacuation center or high ground."
+                "PREPARE TO LEAVE: Put your Go Bag by the door.",
+                "STAY ALERT: Monitor the water level closely. Move to high ground if you feel unsafe.",
+                "SECURE: Ensure all valuables are high up."
             ));
             red.setActionsTl(List.of(
-                "UMALIS AGAD: Para sa inyong kaligtasan, dapat na kayong lumikas ngayon.",
-                "IWASAN ANG BAHA: Huwag maglakad o magmaneho sa mga lugar na lubog sa baha.",
-                "PUMUNTA SA LIGTAS NA LUGAR: Dumiretso agad sa pinakamalapit na evacuation center o sa mas mataas na lugar."
+                "MAGHANDA SA PAGLIKAS: Ilagay ang Go Bag sa malapit sa pinto.",
+                "MANATILING ALERTO: Bantayan ang antas ng tubig. Lumikas kung sa tingin niyo ay hindi na ligtas.",
+                "SIGURADUHIN: Ilagay sa mataas na lugar ang mga mahahalagang gamit."
             ));
             repository.save(red);
+
+            // --- CRITICAL ---
+            ActionPlan critical = new ActionPlan();
+            critical.setAlertLevel("CRITICAL");
+            critical.setTitleEn("☢️ LEVEL 5 CRITICAL: MANDATORY EVACUATION");
+            critical.setTitleTl("☢️ LEVEL 5 CRITICAL: SAPILITANG PAGLIKAS");
+            critical.setShortDescriptionEn("URGENT: The river is overflowing. Catastrophic flooding is occurring.");
+            critical.setShortDescriptionTl("APURAHAN: Umaapaw na ang ilog. Nagaganap na ang malubhang pagbaha.");
+            critical.setActionsEn(List.of(
+                "EVACUATE IMMEDIATELY: Leave your home now for your safety.",
+                "GO TO EVACUATION CENTER: Follow emergency routes to the nearest designated safe zone.",
+                "DO NOT DELAY: Life-threatening situation. Every second counts."
+            ));
+            critical.setActionsTl(List.of(
+                "LUMIKAS AGAD: Umalis na sa bahay ngayon para sa inyong kaligtasan.",
+                "PUMUNTA SA EVACUATION CENTER: Sundin ang mga emergency route patungo sa ligtas na lugar.",
+                "HUWAG MAG-ATUBILI: Panganib sa buhay. Mahalaga ang bawat segundo."
+            ));
+            repository.save(critical);
 
             System.out.println("SUCCESS: Action Plans have been inserted into the database.");
         }

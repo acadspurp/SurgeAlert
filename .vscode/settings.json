@@ -1,0 +1,8 @@
+{
+<<<<<<< HEAD
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.configuration.updateBuildConfiguration": "interactive"
+=======
+    "maven.view": "hierarchical"
+>>>>>>> parent of 3fa6f7ae (Cleanup: Ignore build artifacts and target folder)
+}

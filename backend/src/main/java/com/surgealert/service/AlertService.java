@@ -34,17 +34,16 @@ public class AlertService {
                     latest.getTimestamp() != null ? latest.getTimestamp() : LocalDateTime.now()
             );
         } catch (Exception e) {
-            // Return default status if there's any error
             return new AlertStatusDTO(0.0, "GREEN", "System initializing. No data available yet.", LocalDateTime.now());
         }
     }
 
     private String getAlertDescription(String alertLevel) {
         Map<String, String> descriptions = new HashMap<>();
-        descriptions.put("GREEN", "No immediate threat. River is at a safe level.");
-        descriptions.put("YELLOW", "First alarm. Prepare for possible evacuation.");
-        descriptions.put("ORANGE", "Second alarm. Evacuate low-lying areas.");
-        descriptions.put("RED", "Third and final alarm. Forced evacuation in progress.");
-        return descriptions.getOrDefault(alertLevel, "Unknown alert level");
+        descriptions.put("GREEN", "NORMAL: No immediate threat. River is at a safe level.");
+        descriptions.put("YELLOW", "MONITORING: Water is rising past halfway. Stay vigilant.");
+        descriptions.put("ORANGE", "PREPARATION: High water level. Residents in low-lying areas should prepare.");
+        descriptions.put("RED", "HIGH RISK: Dangerously high. Evacuation centers are opening. Be ready to leave.");
+        return descriptions.getOrDefault(alertLevel, "Unknown status");
     }
 }

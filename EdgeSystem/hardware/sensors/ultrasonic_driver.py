@@ -1,56 +1,78 @@
-import RPi.GPIO as GPIO
 import time
+import random
+from config.settings import TRIG_PIN, ECHO_PIN
 
-# Pin Configuration (Match your wiring!)
-TRIG_PIN = 23
-ECHO_PIN = 24
+try:
+    import RPi.GPIO as GPIO
+    IS_PI = True
+except (ImportError, RuntimeError):
+    IS_PI = False
+    print(" [Hardware] RPi.GPIO not found. Using Simulated Distance Data.")
 
 def init_sensor():
-    """Initializes GPIO pins for the sensor."""
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(TRIG_PIN, GPIO.OUT)
-    GPIO.setup(ECHO_PIN, GPIO.IN)
-    GPIO.output(TRIG_PIN, False)
-    time.sleep(0.3) # Allow sensor to settle
+    if not IS_PI: return 
+    try:
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)
+        GPIO.setup(TRIG_PIN, GPIO.OUT)
+        GPIO.setup(ECHO_PIN, GPIO.IN)
+        GPIO.output(TRIG_PIN, False)
+        time.sleep(0.5) 
+        print("JSN-SR04T Initialized.")
+    except Exception as e:
+        print(f"Error initializing Ultrasonic: {e}")
+
+import collections
+
+# Queue for median filtering (size defined in settings)
+from config.settings import SMOOTHING_WINDOW
+reading_queue = collections.deque(maxlen=SMOOTHING_WINDOW)
 
 def get_distance():
-    """Reads the distance from the ultrasonic sensor in METERS."""
+    if not IS_PI:
+        return 0.0
+
     try:
-        # Ensure pins are set up if called repeatedly
-        init_sensor() 
-        
-        # Send 10us pulse
+        # Trigger the sensor
         GPIO.output(TRIG_PIN, True)
-        time.sleep(0.00001)
+        time.sleep(0.00001) # JSN-SR04T requires 10us trigger
         GPIO.output(TRIG_PIN, False)
 
         pulse_start = time.time()
         pulse_end = time.time()
         timeout_start = time.time()
 
-        # Wait for Echo to go HIGH
+        # Wait for ECHO to go high
         while GPIO.input(ECHO_PIN) == 0:
             pulse_start = time.time()
-            if pulse_start - timeout_start > 0.1: 
-                return 0.0 # Timeout
+            if pulse_start - timeout_start > 0.05: # 50ms timeout
+                return _get_smoothed_value(0.0)
 
-        # Wait for Echo to go LOW
+        # Wait for ECHO to go low
         while GPIO.input(ECHO_PIN) == 1:
             pulse_end = time.time()
-            if pulse_end - pulse_start > 0.1: 
-                return 0.0 # Timeout
+            if pulse_end - pulse_start > 0.05: # 50ms timeout
+                return _get_smoothed_value(0.0)
 
-        pulse_duration = pulse_end - pulse_start
+        duration = pulse_end - pulse_start
+        # distance = (time * speed of sound) / 2
+        distance_m = (duration * 343) / 2
         
-        # Distance = (Time * Speed of Sound) / 2
-        # Speed of sound ~ 34300 cm/s
-        distance_cm = pulse_duration * 17150
-        distance_m = distance_cm / 100
-
-        return round(distance_m, 3)
-
+        # JSN-SR04T min distance is ~20-25cm
+        final_val = round(max(0.20, distance_m), 3)
+        return _get_smoothed_value(final_val)
     except Exception as e:
-        print(f"Sensor Error: {e}")
+        print(f" [Hardware] Ultrasonic Read Error: {e}")
+        return _get_smoothed_value(0.0)
+
+def _get_smoothed_value(new_val):
+    """Internal helper to apply median filtering to raw readings."""
+    if new_val > 0:
+        reading_queue.append(new_val)
+    
+    if not reading_queue:
         return 0.0
-    finally:
-        GPIO.cleanup()
+        
+    # Return median of the last N readings to filter spikes
+    sorted_readings = sorted(list(reading_queue))
+    return sorted_readings[len(sorted_readings) // 2]
