@@ -79,9 +79,9 @@ export default function DashboardView(props) {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                     <DashboardCard title="Water Level" value={dashData.waterLevel} icon="fa-water" color="blue" trend={trendIndicators.waterLevel} subtitle={`${getWaterLevelContext()}`} />
                     <DashboardCard title="Current Flow Speed" value={dashData.flowRate} icon="fa-gauge-high" color="indigo" trend={trendIndicators.flowRate} subtitle={`${getFlowContext()}`} />
-                    <DashboardCard title="Estimated Time to Danger" value={getETRText()} icon="fa-hourglass-half" color="teal" subtitle="Time remaining until 5.5m threshold." />
-                    <DashboardCard title="ML Forecast Trajectory (+1h)" value={dashData.prediction} icon="fa-brain" color="purple" subtitle="Where the water level is heading." />
-                    <DashboardCard title="Active Warning Subscribers" value={dashData.subscriberCount} icon="fa-users" color="teal" subtitle="Residents currently receiving texts." />
+                
+                    <DashboardCard title="ML Predicted Water Level (+1h)" value={dashData.prediction} icon="fa-brain" color="purple" subtitle="Where the water level is heading." />
+                    <DashboardCard title="Active SMS Subscribers" value={dashData.subscriberCount} icon="fa-users" color="teal" subtitle="Residents currently receiving texts." />
                 </div>
 
                 {/* ENVIRONMENTAL CONTEXT */}
