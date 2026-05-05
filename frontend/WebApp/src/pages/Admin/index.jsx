@@ -39,6 +39,7 @@ import AdminUsersView from './views/AdminUsersView';
 import CanaryView from './views/CanaryView';
 
 const DISPLAY_TIMEZONE = 'Asia/Manila';
+const TIDE_DISPLAY_TIMEZONE = 'UTC';
 const CAMERA_DELAY_MS = 10 * 60 * 60 * 1000;
 
 export default function Admin() {
@@ -254,11 +255,16 @@ export default function Admin() {
 
             // 3. Fetch environmental data DIRECTLY from tide_metrics + weather_metrics tables
             const envData = await fetchLatestEnvironmental().catch(() => null);
+            const resolvedEnvTideHeight =
+                (envData?.tideHeightM !== null && envData?.tideHeightM !== undefined) ? envData.tideHeightM
+                    : (envData?.tideHeight !== null && envData?.tideHeight !== undefined) ? envData.tideHeight
+                        : (envData?.Tide_Height_m !== null && envData?.Tide_Height_m !== undefined) ? envData.Tide_Height_m
+                            : null;
 
             // 4. Fallback: fetch external weather/tide if DB tables are also empty
             let weatherFallback = null;
             let tideFallback = null;
-            const dbHasEnv = envData && (envData.tideHeightM !== null || envData.qcRainMm !== null || envData.pressureHpa !== null);
+            const dbHasEnv = envData && (resolvedEnvTideHeight !== null || envData.qcRainMm !== null || envData.pressureHpa !== null);
             if (!dbHasEnv) {
                 try {
                     weatherFallback = await fetchWeatherData();
@@ -325,8 +331,8 @@ export default function Admin() {
                     if (envData.marulasRainMm !== null && envData.marulasRainMm !== undefined) {
                         newDash.marulasRain = envData.marulasRainMm.toFixed(1) + ' mm';
                     }
-                    if (envData.tideHeightM !== null && envData.tideHeightM !== undefined) {
-                        newDash.tideHeight = envData.tideHeightM.toFixed(2) + ' m';
+                    if (resolvedEnvTideHeight !== null && resolvedEnvTideHeight !== undefined) {
+                        newDash.tideHeight = Number(resolvedEnvTideHeight).toFixed(2) + ' m';
                     }
                     if (envData.pressureHpa !== null && envData.pressureHpa !== undefined) {
                         newDash.pressure = envData.pressureHpa.toFixed(0) + ' hPa';
@@ -967,8 +973,12 @@ export default function Admin() {
         let stepSize = 1;
         let tooltipFormat = 'MMM d, p';
 
-        const now = new Date();
-        let min = new Date();
+        const allSeries = [...(rawSensorData || []), ...(cvSensorData || [])].filter((d) => d?.timestamp);
+        const latestPointMs = allSeries.length > 0
+            ? Math.max(...allSeries.map((d) => new Date(d.timestamp).getTime()).filter((n) => Number.isFinite(n)))
+            : Date.now();
+        const now = Number.isFinite(latestPointMs) ? new Date(latestPointMs) : new Date();
+        let min = new Date(now);
         let max = new Date(now);
 
         if (timeFrame === 1) {
@@ -1091,6 +1101,19 @@ export default function Admin() {
     const latestLogs = [...(Array.isArray(systemLogs) ? systemLogs : [])]
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
         .slice(0, 5);
+
+    const formatTideDateUtc = (value) => new Date(value).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        timeZone: TIDE_DISPLAY_TIMEZONE
+    });
+
+    const formatTideTimeUtc = (value) => new Date(value).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: TIDE_DISPLAY_TIMEZONE
+    });
 
     const filteredResidents = (Array.isArray(residents) ? residents : []).filter(r => {
         if (!searchTerm.trim()) return true;
@@ -1245,7 +1268,8 @@ export default function Admin() {
                         openCreateUserModal, openEditUserModal, saveUserModal,
                         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
                         handleDeleteAdminUser,
-                        handleUpdateDatasetStatus, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert, canaryState, handleAdvanceCanaryPhase, handleRollbackCanaryPhase, handleUpdateCanaryConfig
+                        handleUpdateDatasetStatus, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert, canaryState, handleAdvanceCanaryPhase, handleRollbackCanaryPhase, handleUpdateCanaryConfig,
+                        formatTideDateUtc, formatTideTimeUtc
                     }; return (<>
 
 

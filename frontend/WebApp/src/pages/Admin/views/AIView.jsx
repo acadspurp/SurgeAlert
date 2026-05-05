@@ -9,11 +9,11 @@ export default function AIView(props) {
         openCreateUserModal, openEditUserModal, saveUserModal,
         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
         handleDeleteAdminUser,
-        approveDatasetRequest, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert } = props;
+        approveDatasetRequest, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert, formatTideDateUtc, formatTideTimeUtc } = props;
 
-    const formatTideDateTime = (value) => new Date(value).toLocaleString('en-US', { timeZone: 'Asia/Manila' });
-    const formatTideTime = (value) => new Date(value).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Manila' });
-    const formatTideDate = (value) => new Date(value).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' });
+    const formatTideDateTime = (value) => new Date(value).toLocaleString('en-US', { timeZone: 'UTC' });
+    const formatTideTime = (value) => formatTideTimeUtc(value);
+    const formatTideDate = (value) => formatTideDateUtc(value);
 
     const groupedTides = (Array.isArray(tides) ? tides : []).reduce((acc, t) => {
         const key = formatTideDate(t.dt * 1000);
