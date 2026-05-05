@@ -319,7 +319,7 @@ export async function saveTemplate(type, template) {
 export async function fetchLatestSensorReading() {
     try {
         const response = await apiFetch(`${API_BASE_URL}/sensor-data/latest`);
-        if (!response.ok) return null;
+        if (!response.ok || response.status === 204) return null;
         return await response.json();
     } catch {
         return null;
@@ -328,9 +328,13 @@ export async function fetchLatestSensorReading() {
 
 // --- ADMIN: ENVIRONMENTAL CONTEXT (tide_metrics + weather_metrics directly) ---
 export async function fetchLatestEnvironmental() {
-    const response = await apiFetch(`${API_BASE_URL}/admin/environmental/latest`);
-    if (!response.ok) return null;
-    return await response.json();
+    try {
+        const response = await apiFetch(`${API_BASE_URL}/admin/environmental/latest`);
+        if (!response.ok || response.status === 204) return null;
+        return await response.json();
+    } catch {
+        return null;
+    }
 }
 
 // --- ADMIN: SENSOR DATA (for chart) ---
