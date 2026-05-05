@@ -172,8 +172,10 @@ public class SensorDataService {
 
     public SensorDataDTO getLatestSensorData() {
         LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Manila"));
-        return sensorDataRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(now)
-                .map(this::convertToDTO)
+        // Use projection to avoid hydrating image_bytes BLOB directly.
+        // Some deployed DB rows have incompatible large-object values that can crash reads.
+        return sensorDataRepository.findLatestProjectionBefore(now)
+                .map(this::convertLatestProjectionToDTO)
                 .map(dto -> {
                     // Add simulated image fallback logic
                     if (dto.getSnapshotBase64() == null || dto.getSnapshotBase64().isEmpty() || dto.getSnapshotBase64().startsWith("b'0x")) {
@@ -185,6 +187,21 @@ public class SensorDataService {
                     return dto;
                 })
                 .orElse(null);
+    }
+
+    private SensorDataDTO convertLatestProjectionToDTO(SensorDataRepository.LatestSensorProjection row) {
+        SensorDataDTO dto = new SensorDataDTO();
+        dto.setId(row.getId());
+        dto.setTimestamp(row.getTimestamp());
+        dto.setWaterLevelM(row.getWaterLevelM());
+        dto.setSensorFlowRateMps(row.getSensorFlowRateMps());
+        dto.setImageFlowRateMps(row.getImageFlowRateMps());
+        dto.setImageRiseRateMps(row.getImageRiseRateMps());
+        dto.setSensorRiseRate(row.getSensorRiseRate());
+        dto.setCurrentAlertLevel(row.getCurrentAlertLevel());
+        dto.setPredictedLevel(row.getPredictedLevel());
+        dto.setPredictedAlertLevel(row.getPredictedAlertLevel());
+        return dto;
     }
 
     public List<SensorDataDTO> getRecentSensorData(int hours) {

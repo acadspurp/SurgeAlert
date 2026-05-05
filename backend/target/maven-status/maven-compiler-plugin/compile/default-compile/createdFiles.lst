@@ -14,6 +14,7 @@ com\surgealert\service\ActionPlanService.class
 com\surgealert\service\UserService.class
 com\surgealert\entity\ActionPlan.class
 com\surgealert\service\EvacuationSiteService.class
+com\surgealert\repository\SensorDataRepository$LatestSensorProjection.class
 com\surgealert\entity\Resident.class
 com\surgealert\dto\RegisterRequest.class
 com\surgealert\repository\ResidentRepository.class
