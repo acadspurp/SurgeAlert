@@ -1,5 +1,12 @@
 import { API_BASE_URL } from '../config.js';
 import { getAccessToken, getRefreshToken, updateTokens, clearUser } from './auth.js';
+import {
+    normalizeSensorRows,
+    countValidTimestampRows,
+    trimRowsToLastHours,
+    loadShiftedSensorRowsFromPublicCsv,
+    getLatestFromPublicCsvShifted,
+} from '../utils/sensorTimeseries.js';
 
 async function refreshAccessToken() {
     const refreshToken = getRefreshToken();
@@ -324,14 +331,17 @@ export async function saveTemplate(type, template) {
 
 // --- ADMIN: LATEST SINGLE SENSOR READING (merges tide + weather from DB) ---
 export async function fetchLatestSensorReading() {
+    const fromCsv = () => getLatestFromPublicCsvShifted();
     try {
         // Public endpoint for dashboard use; avoid attaching stale Bearer tokens.
         const response = await fetch(`${API_BASE_URL}/sensor-data/latest`);
-        if (!response.ok || response.status === 204) return null;
+        if (!response.ok || response.status === 204) return await fromCsv();
         const data = await response.json();
-        return data;
+        const rows = normalizeSensorRows([data]);
+        if (!rows.length) return await fromCsv();
+        return rows[0];
     } catch {
-        return null;
+        return await fromCsv();
     }
 }
 
@@ -352,22 +362,36 @@ export async function fetchLatestEnvironmental() {
 
 // --- ADMIN: SENSOR DATA (for chart) ---
 export async function fetchSensorData(hours = 24) {
+    const coalesceRecent = async (maybeRows) => {
+        const normalized = normalizeSensorRows(Array.isArray(maybeRows) ? maybeRows : []);
+        if (countValidTimestampRows(normalized) === 0) {
+            try {
+                return await loadShiftedSensorRowsFromPublicCsv(hours);
+            } catch {
+                return [];
+            }
+        }
+        return trimRowsToLastHours(normalized, hours);
+    };
+
     const url = `${API_BASE_URL}/sensor-data/recent?hours=${encodeURIComponent(hours)}`;
     try {
         let response = await fetch(url);
         if (response.status === 403 || response.status === 401) {
             response = await apiFetch(url);
         }
-        if (response.status === 204) return [];
+        if (response.status === 204) return await coalesceRecent([]);
         if (!response.ok) {
             throw new Error(`Recent sensor API HTTP ${response.status}`);
         }
         const data = await response.json();
-        return Array.isArray(data) ? data : [];
+        return await coalesceRecent(data);
     } catch {
-        // Keep charts alive with at least one point when /recent is temporarily unavailable.
-        const latest = await fetchLatestSensorReading();
-        return latest ? [latest] : [];
+        try {
+            return await loadShiftedSensorRowsFromPublicCsv(hours);
+        } catch {
+            return [];
+        }
     }
 }
 

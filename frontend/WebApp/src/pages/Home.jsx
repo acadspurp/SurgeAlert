@@ -4,10 +4,9 @@ import { fetchAlertStatus, fetchAlertGuide, fetchCameraFeed, fetchWeatherData, f
 import { useSensorMqtt } from '../hooks/useSensorMqtt.js';
 import { classifyAlertLevel, gaugeFillPercent, gaugeMarkers } from '../config/alertConfig.js';
 
+import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE, CAMERA_DELAY_MS } from '../constants/displayTime.js';
+
 let CACHED_GUIDE = null;
-const DISPLAY_TIMEZONE = 'Asia/Manila';
-const TIDE_DISPLAY_TIMEZONE = 'Asia/Manila';
-const CAMERA_DELAY_MS = 12 * 60 * 60 * 1000;
 
 /** How often to poll GET /public/alerts/status (includes manual override). Keeps all browsers in sync without refresh. */
 const ALERT_STATUS_POLL_MS = 10000;

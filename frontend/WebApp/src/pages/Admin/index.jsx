@@ -22,6 +22,7 @@ import Papa from 'papaparse';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { logoUrl } from '../../branding/logo.js';
+import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE, CAMERA_DELAY_MS } from '../../constants/displayTime.js';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend, TimeScale, TimeSeriesScale, annotationPlugin);
 
@@ -37,10 +38,6 @@ import DatasetsView from './views/DatasetsView';
 import ReportsView from './views/ReportsView';
 import AdminUsersView from './views/AdminUsersView';
 import CanaryView from './views/CanaryView';
-
-const DISPLAY_TIMEZONE = 'Asia/Manila';
-const TIDE_DISPLAY_TIMEZONE = 'Asia/Manila';
-const CAMERA_DELAY_MS = 10 * 60 * 60 * 1000;
 
 export default function Admin() {
     const navigate = useNavigate();
@@ -1025,6 +1022,11 @@ export default function Admin() {
                 x: {
                     type: 'time',
                     bounds: 'data',
+                    adapters: {
+                        date: {
+                            zone: DISPLAY_TIMEZONE,
+                        },
+                    },
                     time: {
                         unit: unit,
                         stepSize: stepSize,
