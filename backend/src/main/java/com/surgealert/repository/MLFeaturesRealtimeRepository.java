@@ -15,4 +15,6 @@ public interface MLFeaturesRealtimeRepository extends JpaRepository<MLFeaturesRe
     Optional<MLFeaturesRealtime> findFirstByTimestampLessThanEqualOrderByTimestampDesc(LocalDateTime timestamp);
     
     List<MLFeaturesRealtime> findByTimestampAfter(LocalDateTime timestamp);
+    
+    List<MLFeaturesRealtime> findByTimestampBetween(LocalDateTime start, LocalDateTime end);
 }
