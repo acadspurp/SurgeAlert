@@ -241,9 +241,7 @@ public class SensorDataService {
             dto.setPredictedLevel(sd.getPredictedLevel());
             dto.setPredictedAlertLevel(sd.getPredictedAlertLevel());
 
-            if (sd.getImageBytes() != null) {
-                dto.setSnapshotBase64(java.util.Base64.getEncoder().encodeToString(sd.getImageBytes()));
-            }
+            // charts only need numeric series from sensor_data — omit image_bytes.
 
             // Memory-efficient Nearest Neighbor join
             LocalDateTime ts = sd.getTimestamp();

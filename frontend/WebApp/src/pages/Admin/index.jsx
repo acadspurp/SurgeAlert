@@ -924,27 +924,40 @@ export default function Admin() {
     // CHART CONFIGURATIONS
     // -------------------------------------------------------------
 
-    // The backend already handles the time window filtering based on the 'telemetryTime' parameter.
-    // Frontend filtering based on real-world Date.now() breaks historical simulations.
-    const telemetryFiltered = rawSensorData;
-    const aiFiltered = rawSensorData;
+    // Chronological order required so Chart.js draws one continuous trend line.
+    const sortedTelemetry = [...(rawSensorData || [])].sort(
+        (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+    );
+    const sortedCv = [...(cvSensorData || [])].sort(
+        (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+    );
+    const aiFiltered = sortedTelemetry;
 
-    // Telemetry Chart (Multiple Lines)
+    const telemetryFiltered = sortedTelemetry;
+
+    const lineDatasetOpts = {
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHitRadius: 6,
+        spanGaps: true,
+    };
+
+    // Telemetry Chart (Multiple Lines) — sensor_data: water_level, sensor_flow_rate_mps
     const telemetryChartData = {
         datasets: [
-            { label: 'Water Level (m)', data: telemetryFiltered.map(d => ({ x: d.timestamp, y: d.waterLevelM })), yAxisID: 'y', borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3 },
-            { label: 'Flow Rate (m/s)', data: telemetryFiltered.map(d => ({ x: d.timestamp, y: d.sensorFlowRateMps })), yAxisID: 'y1', borderColor: '#f59e0b', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.3 }
+            { ...lineDatasetOpts, label: 'Water Level (m)', data: telemetryFiltered.map(d => ({ x: d.timestamp, y: d.waterLevelM })), yAxisID: 'y', borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.25 },
+            { ...lineDatasetOpts, label: 'Flow Rate (m/s)', data: telemetryFiltered.map(d => ({ x: d.timestamp, y: d.sensorFlowRateMps })), yAxisID: 'y1', borderColor: '#f59e0b', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.25, fill: false }
         ]
     };
 
-    // CV Chart Data
+    // CV Chart — sensor_data: image_flow_rate_mps
     const cvChartData = {
         datasets: [
-            { label: 'Optical Flow (m/s)', data: cvSensorData.map(d => ({ x: d.timestamp, y: d.imageFlowRateMps })), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.3 }
+            { ...lineDatasetOpts, label: 'Optical Flow (m/s)', data: sortedCv.map(d => ({ x: d.timestamp, y: d.imageFlowRateMps })), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.25 }
         ]
     };
 
-    // AI Chart (Historical + Future prediction plot logic)
+    // AI Chart — sensor_data: water_level + predicted_level (segment to +1h)
     const lastHistorical = aiFiltered.length > 0 ? aiFiltered[aiFiltered.length - 1] : null;
     const nextHour = lastHistorical 
         ? new Date(new Date(lastHistorical.timestamp).getTime() + 60 * 60 * 1000).toISOString()
@@ -953,74 +966,52 @@ export default function Admin() {
     const aiChartData = {
         datasets: [
             {
+                ...lineDatasetOpts,
                 label: 'Historical Level (m)',
                 data: aiFiltered.map(d => ({ x: d.timestamp, y: d.waterLevelM })),
-                borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3
+                borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.25
             },
             {
+                ...lineDatasetOpts,
                 label: 'ML Prediction (m)',
                 data: lastHistorical ? [
                     { x: lastHistorical.timestamp, y: lastHistorical.waterLevelM },
                     { x: nextHour, y: lastHistorical.predictedLevel }
                 ] : [],
-                borderColor: '#f59e0b', borderDash: [5, 5], backgroundColor: 'transparent', tension: 0.3
+                borderColor: '#f59e0b', borderDash: [6, 4], backgroundColor: 'transparent', tension: 0, fill: false,
+                pointRadius: 3,
             }
         ]
     };
 
+    /** Time scale: do not set min/max — fixed windows often clipped 5‑minute series and hid trend lines. */
     const getCommonChartOptions = (timeFrame) => {
         let unit = 'hour';
         let stepSize = 1;
         let tooltipFormat = 'MMM d, p';
 
-        const allSeries = [...(rawSensorData || []), ...(cvSensorData || [])].filter((d) => d?.timestamp);
-        const latestPointMs = allSeries.length > 0
-            ? Math.max(...allSeries.map((d) => new Date(d.timestamp).getTime()).filter((n) => Number.isFinite(n)))
-            : Date.now();
-        const now = Number.isFinite(latestPointMs) ? new Date(latestPointMs) : new Date();
-        let min = new Date(now);
-        let max = new Date(now);
-
         if (timeFrame === 1) {
             unit = 'minute';
             stepSize = 10;
-            const currentMin = now.getMinutes();
-            const roundedMin = Math.floor(currentMin / 10) * 10;
-            const alignedNow = new Date(now);
-            alignedNow.setMinutes(roundedMin, 0, 0);
-            min = new Date(alignedNow.getTime() - 60 * 60 * 1000);
         } else if (timeFrame === 24) {
             unit = 'hour';
             stepSize = 2;
-            const currentHour = now.getHours();
-            const roundedHour = Math.floor(currentHour / 2) * 2;
-            const alignedNow = new Date(now);
-            alignedNow.setHours(roundedHour, 0, 0, 0);
-            min = new Date(alignedNow.getTime() - 24 * 60 * 60 * 1000);
         } else if (timeFrame === 168) {
             unit = 'day';
             stepSize = 1;
-            const alignedNow = new Date(now);
-            alignedNow.setHours(0, 0, 0, 0);
-            min = new Date(alignedNow.getTime() - 7 * 24 * 60 * 60 * 1000);
         } else if (timeFrame === 720) {
             unit = 'day';
             stepSize = 3;
-            const alignedNow = new Date(now);
-            alignedNow.setHours(0, 0, 0, 0);
-            min = new Date(alignedNow.getTime() - 30 * 24 * 60 * 60 * 1000);
-        } else {
-            min = new Date(now.getTime() - timeFrame * 60 * 60 * 1000);
         }
 
         return {
             responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { position: 'top' } },
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { position: 'top' }, decimation: { enabled: true, algorithm: 'lttb', samples: 500 } },
             scales: {
                 x: {
                     type: 'time',
-                    min: min.toISOString(),
-                    max: max.toISOString(),
+                    bounds: 'data',
                     time: {
                         unit: unit,
                         stepSize: stepSize,
