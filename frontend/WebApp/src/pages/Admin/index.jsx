@@ -294,29 +294,37 @@ export default function Admin() {
                 else if (level === 'GREEN') newDash.statusColor = 'text-green-600';
                 else newDash.statusColor = 'text-slate-400';
 
-                // Environmental Metrics — Pi sensor data takes priority, then DB tables, then external API
+                // Environmental Metrics — PRIMARY source is ml_features_realtime via /admin/environmental/latest
                 if (latest) {
                     newDash.flowRate = latest.sensorFlowRateMps !== null ? latest.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s';
                     newDash.prediction = latest.predictedLevel !== null ? latest.predictedLevel.toFixed(2) + ' m' : '-- m';
-                    newDash.qcRain = (latest.rainMm !== null && latest.rainMm !== undefined) ? latest.rainMm.toFixed(1) + ' mm' : '-- mm';
-                    newDash.marulasRain = (latest.marulasRainMm !== null && latest.marulasRainMm !== undefined) ? latest.marulasRainMm.toFixed(1) + ' mm' : '-- mm';
-                    newDash.tideHeight = (latest.tideHeightM !== null && latest.tideHeightM !== undefined) ? latest.tideHeightM.toFixed(2) + ' m' : '-- m';
-                    newDash.pressure = (latest.pressureHpa !== null && latest.pressureHpa !== undefined) ? latest.pressureHpa.toFixed(0) + ' hPa' : '-- hPa';
-                    newDash.wind = (latest.windSpeedKph !== null && latest.windSpeedKph !== undefined) ? latest.windSpeedKph.toFixed(1) + ' kph' : '-- kph';
+                    // Keep legacy latest-record fallback only when ml_features_realtime is empty.
+                    if (!envData) {
+                        newDash.qcRain = (latest.rainMm !== null && latest.rainMm !== undefined) ? latest.rainMm.toFixed(1) + ' mm' : '-- mm';
+                        newDash.marulasRain = (latest.marulasRainMm !== null && latest.marulasRainMm !== undefined) ? latest.marulasRainMm.toFixed(1) + ' mm' : '-- mm';
+                        newDash.tideHeight = (latest.tideHeightM !== null && latest.tideHeightM !== undefined) ? latest.tideHeightM.toFixed(2) + ' m' : '-- m';
+                        newDash.pressure = (latest.pressureHpa !== null && latest.pressureHpa !== undefined) ? latest.pressureHpa.toFixed(0) + ' hPa' : '-- hPa';
+                        newDash.wind = (latest.windSpeedKph !== null && latest.windSpeedKph !== undefined) ? latest.windSpeedKph.toFixed(1) + ' kph' : '-- kph';
+                    }
                 }
 
-                // Apply DB table values (tide_metrics + weather_metrics) where Pi data is missing
+                // Apply ml_features_realtime values (authoritative for Environmental Context cards)
                 if (envData) {
-                    if (newDash.tideHeight === '-- m' && envData.tideHeightM !== null && envData.tideHeightM !== undefined)
-                        newDash.tideHeight = envData.tideHeightM.toFixed(2) + ' m';
-                    if (newDash.qcRain === '-- mm' && envData.qcRainMm !== null && envData.qcRainMm !== undefined)
-                        newDash.qcRain = envData.qcRainMm.toFixed(1) + ' mm';
-                    if (newDash.marulasRain === '-- mm' && envData.marulasRainMm !== null && envData.marulasRainMm !== undefined)
-                        newDash.marulasRain = envData.marulasRainMm.toFixed(1) + ' mm';
-                    if (newDash.pressure === '-- hPa' && envData.pressureHpa !== null && envData.pressureHpa !== undefined)
-                        newDash.pressure = envData.pressureHpa.toFixed(0) + ' hPa';
-                    if (newDash.wind === '-- kph' && envData.windSpeed !== null && envData.windSpeed !== undefined)
-                        newDash.wind = envData.windSpeed.toFixed(1) + ' kph';
+                    newDash.qcRain = (envData.qcRainMm !== null && envData.qcRainMm !== undefined)
+                        ? envData.qcRainMm.toFixed(1) + ' mm'
+                        : '-- mm';
+                    newDash.marulasRain = (envData.marulasRainMm !== null && envData.marulasRainMm !== undefined)
+                        ? envData.marulasRainMm.toFixed(1) + ' mm'
+                        : '-- mm';
+                    newDash.tideHeight = (envData.tideHeightM !== null && envData.tideHeightM !== undefined)
+                        ? envData.tideHeightM.toFixed(2) + ' m'
+                        : '-- m';
+                    newDash.pressure = (envData.pressureHpa !== null && envData.pressureHpa !== undefined)
+                        ? envData.pressureHpa.toFixed(0) + ' hPa'
+                        : '-- hPa';
+                    newDash.wind = (envData.windSpeed !== null && envData.windSpeed !== undefined)
+                        ? envData.windSpeed.toFixed(1) + ' kph'
+                        : '-- kph';
                 }
 
                 // Last resort: live external APIs
