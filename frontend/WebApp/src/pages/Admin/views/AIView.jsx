@@ -9,11 +9,11 @@ export default function AIView(props) {
         openCreateUserModal, openEditUserModal, saveUserModal,
         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
         handleDeleteAdminUser,
-        approveDatasetRequest, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert, formatTideDateDelayed, formatTideTimeDelayed, formatTideDateTimeDelayed } = props;
+        approveDatasetRequest, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert, formatTideDateUtc, formatTideTimeUtc } = props;
 
-    const formatTideDateTime = (value) => formatTideDateTimeDelayed(value);
-    const formatTideTime = (value) => formatTideTimeDelayed(value);
-    const formatTideDate = (value) => formatTideDateDelayed(value);
+    const formatTideDateTime = (value) => new Date(value).toLocaleString('en-US', { timeZone: 'UTC' });
+    const formatTideTime = (value) => formatTideTimeUtc(value);
+    const formatTideDate = (value) => formatTideDateUtc(value);
 
     const groupedTides = (Array.isArray(tides) ? tides : []).reduce((acc, t) => {
         const key = formatTideDate(t.dt * 1000);
@@ -54,7 +54,7 @@ export default function AIView(props) {
             <div className="animate-fade-in">
                 <h1 className="mb-6 pl-0 text-2xl font-black tracking-tight text-sky-100 sm:mb-8 sm:text-3xl md:pl-10">Prediction &amp; Tides</h1>
 
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                     {/* Confidence Metrics */}
                     <div className="lg:col-span-1 space-y-6">
                         <div className="bg-gradient-to-br from-indigo-900 to-navy text-white rounded-2xl shadow-xl p-6 relative overflow-hidden">
@@ -177,39 +177,38 @@ export default function AIView(props) {
                         </div>
                     </div>
 
-                </div>
-
-                {/* AI Forecast Graph */}
-                <div className="bg-[#1e293b] rounded-2xl shadow-lg border border-slate-700 p-6 flex flex-col">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-2">
-                        <div>
-                            <h3 className="text-xl font-bold text-sky-100">Prediction Trajectory</h3>
-                            <p className="text-sm text-slate-400">Comparing historical sensor data against the AI's projected path for the next hour.</p>
+                    {/* AI Forecast Graph */}
+                    <div className="lg:col-span-2 bg-[#1e293b] rounded-2xl shadow-lg border border-slate-700 p-6 flex flex-col">
+                        <div className="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 className="text-xl font-bold text-sky-100">Prediction Trajectory</h3>
+                                <p className="text-sm text-slate-400">Comparing historical sensor data against the AI's projected path for the next hour.</p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <i className="fa-regular fa-clock text-slate-400"></i>
+                                <select 
+                                    className="bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500"
+                                    value={aiTime}
+                                    onChange={(e) => setAiTime(Number(e.target.value))}
+                                >
+                                    <option value={1}>Last 1 Hour</option>
+                                    <option value={24}>Last 24 Hours</option>
+                                    <option value={168}>Last 7 Days</option>
+                                    <option value={720}>Last 30 Days</option>
+                                </select>
+                            </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                            <i className="fa-regular fa-clock text-slate-400"></i>
-                            <select
-                                className="bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500"
-                                value={aiTime}
-                                onChange={(e) => setAiTime(Number(e.target.value))}
-                            >
-                                <option value={1}>Last 1 Hour</option>
-                                <option value={24}>Last 24 Hours</option>
-                                <option value={168}>Last 7 Days</option>
-                                <option value={720}>Last 30 Days</option>
-                            </select>
+                        <div className="flex-1 w-full relative min-h-[400px] mt-4">
+                            <Line data={aiChartData} options={aiChartOptions} />
                         </div>
-                    </div>
-                    <div className="w-full relative h-[320px] sm:h-[360px] mt-3">
-                        <Line data={aiChartData} options={aiChartOptions} />
-                    </div>
-                    <div className="bg-blue-900/60 border border-blue-400/50 text-blue-100 text-xs px-5 py-4 rounded-xl mt-4 flex items-center shadow-lg backdrop-blur-sm">
-                        <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center mr-3 shrink-0">
-                            <i className="fa-solid fa-circle-info text-blue-400"></i>
+                        <div className="bg-blue-900/60 border border-blue-400/50 text-blue-100 text-xs px-5 py-4 rounded-xl mt-4 flex items-center shadow-lg backdrop-blur-sm">
+                            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center mr-3 shrink-0">
+                                <i className="fa-solid fa-circle-info text-blue-400"></i>
+                            </div>
+                            <span className="font-medium tracking-wide">
+                                Note: Trajectory confidence decreases significantly past the 1-hour mark. Models are retrained daily to maintain high accuracy.
+                            </span>
                         </div>
-                        <span className="font-medium tracking-wide">
-                            Note: Trajectory confidence decreases significantly past the 1-hour mark. Models are retrained daily to maintain high accuracy.
-                        </span>
                     </div>
                 </div>
             </div>

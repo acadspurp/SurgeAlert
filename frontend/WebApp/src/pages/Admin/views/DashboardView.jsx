@@ -5,7 +5,7 @@ import HealthRow from '../components/HealthRow';
 import TelemetryCard from '../components/TelemetryCard';
 
 export default function DashboardView(props) {
-    const { hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, formatTideDateDelayed, formatTideTimeDelayed,
+    const { hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, formatTideDateUtc, formatTideTimeUtc,
         openCreateUserModal, openEditUserModal, saveUserModal,
         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
         handleDeleteAdminUser,
@@ -155,8 +155,8 @@ export default function DashboardView(props) {
                                         <i className={`fa-solid ${nextTide.type === 'High' ? 'fa-arrow-up text-blue-500' : 'fa-arrow-down text-teal-500'} text-3xl`}></i>
                                     </div>
                                     <h4 className="text-lg font-bold text-slate-100">Next {nextTide.type} Tide</h4>
-                                    <p className="text-3xl font-black text-cyan-300 my-2">{formatTideTimeDelayed(nextTide.dt * 1000)}</p>
-                                    <p className="text-xs font-semibold text-slate-300 mb-2">{formatTideDateDelayed(nextTide.dt * 1000)}</p>
+                                    <p className="text-3xl font-black text-cyan-300 my-2">{formatTideTimeUtc(nextTide.dt * 1000)}</p>
+                                    <p className="text-xs font-semibold text-slate-300 mb-2">{formatTideDateUtc(nextTide.dt * 1000)}</p>
                                     <p className="text-xs text-slate-300">Source: WorldTides station estimate</p>
                                 </>
                             ) : (
