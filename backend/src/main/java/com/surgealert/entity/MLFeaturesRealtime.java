@@ -14,40 +14,25 @@ public class MLFeaturesRealtime {
     @Column(name = "time", nullable = false)
     private LocalDateTime timestamp;
 
-    @Column(name = "Month", nullable = true)
-    private Integer month;
-
-    @Column(name = "Hour", nullable = true)
-    private Integer hour;
-
-    @Column(name = "water_level", nullable = true)
-    private Double waterLevel;
-
-    @Column(name = "rise_rate", nullable = true)
-    private Double riseRate;
-
-    @Column(name = "sensor_rise_rate", nullable = true)
-    private Double sensorRiseRate;
-
     @Column(name = "Tide_Height_m", nullable = true)
     private Double tideHeightM;
 
     @Column(name = "Tide_Trend", nullable = true)
     private Double tideTrend;
 
-    @Column(name = "Rain_mm", nullable = true)
+    @Column(name = "QC_Rain_mm", nullable = true)
     private Double qcRainMm;
 
-    @Column(name = "Rain_Lag1", nullable = true)
+    @Column(name = "QC_Rain_Lag1", nullable = true)
     private Double qcLag1Mm;
 
-    @Column(name = "Rain_Lag2", nullable = true)
+    @Column(name = "QC_Rain_Lag2", nullable = true)
     private Double qcLag2Mm;
 
-    @Column(name = "Rain_3hr_Sum", nullable = true)
+    @Column(name = "QC_3hr_Sum", nullable = true)
     private Double qc3hrSum;
 
-    @Column(name = "Rain_6hr_Sum", nullable = true)
+    @Column(name = "QC_6hr_Sum", nullable = true)
     private Double qc6hrSum;
 
     @Column(name = "Marulas_Rain_mm", nullable = true)
@@ -61,9 +46,6 @@ public class MLFeaturesRealtime {
 
     @Column(name = "Mar_3hr_Sum", nullable = true)
     private Double mar3hrSum;
-
-    @Column(name = "Mar_6hr_Sum", nullable = true)
-    private Double mar6hrSum;
 
     @Column(name = "Mar_24hr_Sum", nullable = true)
     private Double mar24hrSum;
@@ -86,7 +68,7 @@ public class MLFeaturesRealtime {
     @Column(name = "Soil_Moisture", nullable = true)
     private Double soilMoisture;
 
-    @Column(name = "predicted_alert_class", nullable = true)
+    @Column(name = "Target_Alert_Class", nullable = true)
     private Integer predictedAlertClass;
 
     @PrePersist
@@ -101,16 +83,6 @@ public class MLFeaturesRealtime {
     public void setId(Long id) { this.id = id; }
     public LocalDateTime getTimestamp() { return timestamp; }
     public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
-    public Integer getMonth() { return month; }
-    public void setMonth(Integer month) { this.month = month; }
-    public Integer getHour() { return hour; }
-    public void setHour(Integer hour) { this.hour = hour; }
-    public Double getWaterLevel() { return waterLevel; }
-    public void setWaterLevel(Double waterLevel) { this.waterLevel = waterLevel; }
-    public Double getRiseRate() { return riseRate; }
-    public void setRiseRate(Double riseRate) { this.riseRate = riseRate; }
-    public Double getSensorRiseRate() { return sensorRiseRate; }
-    public void setSensorRiseRate(Double sensorRiseRate) { this.sensorRiseRate = sensorRiseRate; }
     public Double getTideHeightM() { return tideHeightM; }
     public void setTideHeightM(Double tideHeightM) { this.tideHeightM = tideHeightM; }
     public Double getTideTrend() { return tideTrend; }
@@ -133,8 +105,6 @@ public class MLFeaturesRealtime {
     public void setMarLag2Mm(Double marLag2Mm) { this.marLag2Mm = marLag2Mm; }
     public Double getMar3hrSum() { return mar3hrSum; }
     public void setMar3hrSum(Double mar3hrSum) { this.mar3hrSum = mar3hrSum; }
-    public Double getMar6hrSum() { return mar6hrSum; }
-    public void setMar6hrSum(Double mar6hrSum) { this.mar6hrSum = mar6hrSum; }
     public Double getMar24hrSum() { return mar24hrSum; }
     public void setMar24hrSum(Double mar24hrSum) { this.mar24hrSum = mar24hrSum; }
     public Double getPressureHpa() { return pressureHpa; }
