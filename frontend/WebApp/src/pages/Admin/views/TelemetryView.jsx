@@ -81,7 +81,7 @@ export default function TelemetryView(props) {
                             <div className="flex flex-col rounded-2xl border border-slate-700 bg-[#1e293b] p-4 shadow-lg sm:p-6">
                                 <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-                                        <h3 className="min-w-0 text-base font-bold text-sky-100 sm:text-xl">Visual Water Movement Trends (sensor_data.image_flow_rate_mps)</h3>
+                                        <h3 className="min-w-0 text-base font-bold text-sky-100 sm:text-xl">Visual Water Movement Trends</h3>
                                         <div className="relative shrink-0 tooltip-parent">
                                             <i className="fa-solid fa-circle-info text-slate-500"></i>
                                             <span className="tooltip-text z-50 max-w-[12rem] whitespace-normal rounded bg-black px-2 py-1 text-xs text-white sm:whitespace-nowrap absolute left-0 top-full mt-1 pointer-events-none">

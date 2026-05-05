@@ -226,6 +226,7 @@ public class SensorDataService {
             LocalDateTime liveNow = LocalDateTime.now(MANILA_ZONE);
             mlList = mlFeaturesRealtimeRepository.findByTimestampBetween(liveNow.minusHours(hours + 1), liveNow.plusMinutes(1));
         }
+        final List<MLFeaturesRealtime> mlCandidates = mlList;
 
         return coreData.stream().map(sd -> {
             SensorDataDTO dto = new SensorDataDTO();
@@ -246,7 +247,7 @@ public class SensorDataService {
 
             // Memory-efficient Nearest Neighbor join
             LocalDateTime ts = sd.getTimestamp();
-            mlList.stream()
+            mlCandidates.stream()
                 .filter(m -> {
                     long diff = Math.abs(java.time.Duration.between(m.getTimestamp(), ts).getSeconds());
                     return diff < 3900; // 65 minutes
