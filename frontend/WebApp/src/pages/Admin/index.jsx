@@ -798,8 +798,10 @@ export default function Admin() {
     // CHART CONFIGURATIONS
     // -------------------------------------------------------------
 
-    const telemetryFiltered = rawSensorData.filter(d => new Date(d.timestamp).getTime() >= new Date().getTime() - telemetryTime * 60 * 60 * 1000);
-    const aiFiltered = rawSensorData.filter(d => new Date(d.timestamp).getTime() >= new Date().getTime() - aiTime * 60 * 60 * 1000);
+    // The backend already handles the time window filtering based on the 'telemetryTime' parameter.
+    // Frontend filtering based on real-world Date.now() breaks historical simulations.
+    const telemetryFiltered = rawSensorData;
+    const aiFiltered = rawSensorData;
 
     // Telemetry Chart (Multiple Lines)
     const telemetryChartData = {
@@ -817,8 +819,10 @@ export default function Admin() {
     };
 
     // AI Chart (Historical + Future prediction plot logic)
-    const nextHour = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     const lastHistorical = aiFiltered.length > 0 ? aiFiltered[aiFiltered.length - 1] : null;
+    const nextHour = lastHistorical 
+        ? new Date(new Date(lastHistorical.timestamp).getTime() + 60 * 60 * 1000).toISOString()
+        : new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
     const aiChartData = {
         datasets: [

@@ -171,7 +171,7 @@ public class SensorDataService {
     }
 
     public SensorDataDTO getLatestSensorData() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Manila"));
         return sensorDataRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(now)
                 .map(sd -> {
                     SensorDataDTO dto = convertToDTO(sd);
@@ -210,34 +210,25 @@ public class SensorDataService {
     }
 
     public List<SensorDataDTO> getRecentSensorData(int hours) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Manila"));
+        LocalDateTime since = now.minusHours(hours);
         
-        // --- HYBRID SIMULATION LOGIC ---
-        // 1. Find the "Simulated Now" (the latest record in DB that is not in the future)
-        Optional<SensorData> latestSim = sensorDataRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(now);
+        // 1. Fetch core sensor data in the last X hours, but exclude future simulation data
+        List<SensorData> coreData = sensorDataRepository.findByTimestampBetween(since, now);
         
-        if (latestSim.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        LocalDateTime simulatedNow = latestSim.get().getTimestamp();
-        LocalDateTime simulatedSince = simulatedNow.minusHours(hours);
-
-        // 2. Fetch the window of data relative to our simulated "now"
-        List<SensorData> coreData = sensorDataRepository.findByTimestampBetween(simulatedSince, simulatedNow);
-        
-        // Sort DESC to match frontend expectations (or ASC if your chart prefers it)
+        // Sort DESC for frontend
         coreData.sort((a, b) -> b.getTimestamp().compareTo(a.getTimestamp()));
 
-        List<MLFeaturesRealtime> mlList = mlFeaturesRealtimeRepository.findByTimestampBetween(simulatedSince, simulatedNow);
+        // 2. Fetch environmental features for the same window
+        List<MLFeaturesRealtime> mlList = mlFeaturesRealtimeRepository.findByTimestampBetween(since, now);
 
         return coreData.stream().map(sd -> {
             SensorDataDTO dto = convertToDTO(sd);
             LocalDateTime ts = sd.getTimestamp();
 
-            // Find closest match (within 2.5 minutes for 5-min granularity) for environmental data
+            // Find closest match (within 30 seconds) for environmental data
             mlList.stream()
-                .filter(m -> Math.abs(java.time.Duration.between(m.getTimestamp(), ts).getSeconds()) <= 150)
+                .filter(m -> Math.abs(java.time.Duration.between(m.getTimestamp(), ts).getSeconds()) <= 30)
                 .findFirst().ifPresent(m -> {
                     dto.setTideHeightM(m.getTideHeightM());
                     dto.setTideTrend(m.getTideTrend());

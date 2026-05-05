@@ -224,7 +224,7 @@ public class SensorDataController {
 
         StringBuilder csv = new StringBuilder();
         csv.append(csvRow("SurgeAlert Detailed Export Report")).append("\n");
-        csv.append(csvRow("Generated At", java.time.LocalDateTime.now().toString())).append("\n");
+        csv.append(csvRow("Generated At", java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Manila")).toString())).append("\n");
         csv.append(csvRow("Date Range", (startDate == null || startDate.isBlank() ? "Entire History" : startDate + " to " + endDate))).append("\n");
         csv.append(csvRow("Total Records", String.valueOf(filtered.size()))).append("\n\n");
 
