@@ -155,8 +155,8 @@ export default function DashboardView(props) {
                                         <i className={`fa-solid ${nextTide.type === 'High' ? 'fa-arrow-up text-blue-500' : 'fa-arrow-down text-teal-500'} text-3xl`}></i>
                                     </div>
                                     <h4 className="text-lg font-bold text-slate-100">Next {nextTide.type} Tide</h4>
-                                    <p className="text-3xl font-black text-cyan-300 my-2">{formatTideTimeUtc(nextTide.dt * 1000)}</p>
-                                    <p className="text-xs font-semibold text-slate-300 mb-2">{formatTideDateUtc(nextTide.dt * 1000)}</p>
+                                    <p className="text-3xl font-black text-cyan-300 my-2">{formatManilaTime(nextTide.dt * 1000)}</p>
+                                    <p className="text-xs font-semibold text-slate-300 mb-2">{formatManilaDate(nextTide.dt * 1000)}</p>
                                     <p className="text-xs text-slate-300">Source: WorldTides station estimate</p>
                                 </>
                             ) : (

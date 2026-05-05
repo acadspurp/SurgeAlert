@@ -46,9 +46,9 @@ export default function TelemetryView(props) {
                                     const latest = rawSensorData[rawSensorData.length-1];
                                     const rate = latest.sensorRiseRate || 0; // m/s
                                     
-                                    if (rate > 0.0005) return <><span className="text-red-500">Rising Fast</span> ({rate.toFixed(4)} m/s)</>;
-                                    if (rate > 0.0001) return <><span className="text-yellow-400">Rising</span> ({rate.toFixed(4)} m/s)</>;
-                                    if (rate < -0.0001) return <><span className="text-blue-400">Falling</span> ({Math.abs(rate).toFixed(4)} m/s)</>;
+                                    if (rate > 0.5) return <><span className="text-red-500">Rising Fast</span> ({rate.toFixed(4)} m/s)</>;
+                                    if (rate > 0.1) return <><span className="text-yellow-400">Rising</span> ({rate.toFixed(4)} m/s)</>;
+                                    if (rate < -0.1) return <><span className="text-blue-400">Falling</span> ({Math.abs(rate).toFixed(4)} m/s)</>;
                                     return <><span className="text-cyan-300">Stable</span> (±0.0001 m/s)</>;
                                 })()}
                             </h2>

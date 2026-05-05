@@ -11,7 +11,7 @@ export default function AIView(props) {
         handleDeleteAdminUser,
         approveDatasetRequest, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert, formatTideDateUtc, formatTideTimeUtc } = props;
 
-    const formatTideDateTime = (value) => new Date(value).toLocaleString('en-US', { timeZone: 'UTC' });
+    const formatTideDateTime = (value) => new Date(value).toLocaleString('en-US', { timeZone: 'Asia/Manila' });
     const formatTideTime = (value) => formatTideTimeUtc(value);
     const formatTideDate = (value) => formatTideDateUtc(value);
 

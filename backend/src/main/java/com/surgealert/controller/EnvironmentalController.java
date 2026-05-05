@@ -50,6 +50,16 @@ public class EnvironmentalController {
             result.put("weatherTimestamp", m.getTimestamp() != null ? m.getTimestamp().toString() : null);
         });
 
+        // Keep source-of-truth in ml_features_realtime only:
+        // if the selected row has null tide values, fallback to latest ML row with a tide value.
+        if (result.get("tideHeightM") == null) {
+            mlFeaturesRealtimeRepository.findFirstByTideHeightMIsNotNullOrderByTimestampDesc().ifPresent(m -> {
+                result.put("tideHeightM", m.getTideHeightM());
+                result.put("tideTrend", m.getTideTrend());
+                result.put("tideTimestamp", m.getTimestamp() != null ? m.getTimestamp().toString() : null);
+            });
+        }
+
         if (result.isEmpty()) {
             return ResponseEntity.noContent().build();
         }
