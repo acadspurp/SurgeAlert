@@ -87,16 +87,20 @@ export async function fetchAlertStatus() {
 }
 
 // --- SYSTEM CONFIG / THRESHOLDS ---
-// Returns: { sensorDepthM: 6.1, thresholds: { yellow: 3.48, orange: 4.51, red: 5.49 } }
-// The frontend uses this instead of any hardcoded threshold values.
+// Always enforces 3.50 / 4.50 / 5.50 — rejects stale Render values.
+const CORRECT_THRESHOLDS = { sensorDepthM: 6.1, thresholds: { yellow: 3.50, orange: 4.50, red: 5.50 } };
 export async function fetchSystemThresholds() {
     try {
         const response = await fetch(`${API_BASE_URL}/public/config/thresholds`);
         if (!response.ok) throw new Error('Config fetch failed');
-        return await response.json();
+        const data = await response.json();
+        // Reject stale backend defaults — enforce correct 3.50/4.50/5.50
+        if (data?.thresholds?.yellow < 3.0 || data?.thresholds?.orange < 4.0) {
+            return CORRECT_THRESHOLDS;
+        }
+        return data;
     } catch {
-        // Safe fallback if backend is unreachable — keeps the UI functional
-        return { sensorDepthM: 6.1, thresholds: { yellow: 3.50, orange: 4.50, red: 5.50 } };
+        return CORRECT_THRESHOLDS;
     }
 }
 
@@ -309,6 +313,24 @@ export async function saveTemplate(type, template) {
     });
     if (!response.ok) throw new Error('Failed to update template');
     return true;
+}
+
+// --- ADMIN: LATEST SINGLE SENSOR READING (merges tide + weather from DB) ---
+export async function fetchLatestSensorReading() {
+    try {
+        const response = await apiFetch(`${API_BASE_URL}/sensor-data/latest`);
+        if (!response.ok) return null;
+        return await response.json();
+    } catch {
+        return null;
+    }
+}
+
+// --- ADMIN: ENVIRONMENTAL CONTEXT (tide_metrics + weather_metrics directly) ---
+export async function fetchLatestEnvironmental() {
+    const response = await apiFetch(`${API_BASE_URL}/admin/environmental/latest`);
+    if (!response.ok) return null;
+    return await response.json();
 }
 
 // --- ADMIN: SENSOR DATA (for chart) ---

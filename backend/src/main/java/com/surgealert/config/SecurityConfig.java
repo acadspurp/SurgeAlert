@@ -59,7 +59,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/public/**", "/api/public/system/**", "/api/residents/send-otp", "/api/residents/verify-otp", "/api/residents/register", "/api/residents/unsubscribe-otp").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/sensor-data").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/sensor-data/latest").permitAll()
-                .requestMatchers("/api/admin/**", "/api/admin/templates/**", "/api/admin/datasets", "/api/admin/datasets/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
+                .requestMatchers("/api/admin/**", "/api/admin/templates/**", "/api/admin/datasets", "/api/admin/datasets/**", "/api/admin/environmental/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
                 .requestMatchers("/api/sensor-data/recent", "/api/sensor-data/audit", "/api/sensor-data/reports/export").hasAnyRole("ADMIN", "HEAD_ADMIN")
                 .requestMatchers("/api/residents/active", "/api/residents/id/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
                 .anyRequest().authenticated()

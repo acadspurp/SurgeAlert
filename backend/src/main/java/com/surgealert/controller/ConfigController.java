@@ -29,15 +29,24 @@ public class ConfigController {
     @Value("${surgealert.sensor.depth-m:6.1}")
     private double sensorDepthM;
 
+    @Value("${surgealert.thresholds.yellow:3.50}")
+    private double yellowThreshold;
+
+    @Value("${surgealert.thresholds.orange:4.50}")
+    private double orangeThreshold;
+
+    @Value("${surgealert.thresholds.red:5.50}")
+    private double redThreshold;
+
     @GetMapping("/thresholds")
     public ResponseEntity<Map<String, Object>> getThresholds() {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("sensorDepthM", sensorDepthM);
 
         Map<String, Double> thresholds = new LinkedHashMap<>();
-        thresholds.put("yellow", 2.50);
-        thresholds.put("orange", 4.00);
-        thresholds.put("red",    5.50);
+        thresholds.put("yellow", yellowThreshold);
+        thresholds.put("orange", orangeThreshold);
+        thresholds.put("red", redThreshold);
         response.put("thresholds", thresholds);
 
         return ResponseEntity.ok(response);

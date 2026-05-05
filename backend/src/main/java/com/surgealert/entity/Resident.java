@@ -21,7 +21,7 @@ public class Resident {
     private Boolean isPriority = false;
 
     // --- ADDED COLUMNS ---
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String fullName;
 
     @Column(nullable = false)

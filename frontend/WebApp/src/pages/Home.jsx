@@ -39,7 +39,7 @@ export default function Home() {
     // Thresholds fetched from backend (driven by SENSOR_DEPTH_M in .env)
     const [sensorConfig, setSensorConfig] = useState({
         sensorDepthM: 6.1,
-        thresholds: { yellow: 3.48, orange: 4.51, red: 5.49 }
+        thresholds: { yellow: 3.50, orange: 4.50, red: 5.50 }
     });
 
     const sensorConfigRef = useRef(sensorConfig);

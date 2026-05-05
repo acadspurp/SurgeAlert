@@ -4,7 +4,8 @@ import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend, TimeScale, TimeSeriesScale } from 'chart.js';
 import { getUser, clearUser } from '../../services/auth.js';
 import {
-    fetchAlertStatus, fetchCameraFeed as fetchCameraAPI, fetchTidesData,
+    fetchAlertStatus, fetchCameraFeed as fetchCameraAPI, fetchTidesData, fetchWeatherData,
+    fetchLatestEnvironmental, fetchLatestSensorReading,
     fetchPendingCriticalAlerts, approvePendingCriticalAlert, rejectPendingCriticalAlert,
     fetchCanaryHealth, advanceCanaryPhase, rollbackCanaryPhase,
     fetchActiveResidents, deleteResident as deleteResidentAPI,
@@ -164,9 +165,14 @@ export default function Admin() {
             const statusData = await fetchAlertStatus();
             
             // 2. Get the latest detailed telemetry for environmental cards
-            const latestRecords = await fetchSensorData(1); // Get last 1 hour of data
-            // Backend returns DESC (newest first), so index 0 is latest.
-            const latest = latestRecords.length > 0 ? latestRecords[0] : null;
+            // First try recent (last 1h) for live data, then fall back to the all-time latest merged record
+            const latestRecords = await fetchSensorData(1);
+            let latest = latestRecords.length > 0 ? latestRecords[0] : null;
+            if (!latest) {
+                // Pi may have been offline >1h; /api/sensor-data/latest always returns the newest row
+                // and the backend already merges tide_metrics + weather_metrics into it.
+                latest = await fetchLatestSensorReading();
+            }
             
             if (statusData && statusData.lastUpdated) {
                 setLastMqttAt(new Date(statusData.lastUpdated).getTime());
@@ -179,6 +185,29 @@ export default function Admin() {
                 const res = await fetchActiveResidents();
                 subCount = res.length;
             } catch (e) { /* keep previous count */ }
+
+            // 3. Fetch environmental data DIRECTLY from tide_metrics + weather_metrics tables
+            const envData = await fetchLatestEnvironmental().catch(() => null);
+
+            // 4. Fallback: fetch external weather/tide if DB tables are also empty
+            let weatherFallback = null;
+            let tideFallback = null;
+            const dbHasEnv = envData && (envData.tideHeightM !== null || envData.qcRainMm !== null || envData.pressureHpa !== null);
+            if (!dbHasEnv) {
+                try {
+                    weatherFallback = await fetchWeatherData();
+                } catch (e) { /* weather API unavailable */ }
+                try {
+                    const tideData = await fetchTidesData();
+                    if (tideData && tideData.extremes && tideData.extremes.length > 0) {
+                        const now = Date.now() / 1000;
+                        const closest = tideData.extremes.reduce((a, b) =>
+                            Math.abs(a.dt - now) < Math.abs(b.dt - now) ? a : b
+                        );
+                        tideFallback = closest?.height ?? null;
+                    }
+                } catch (e) { /* tide API unavailable */ }
+            }
 
             setDashData((prev) => {
                 const newDash = { ...prev };
@@ -194,17 +223,44 @@ export default function Admin() {
                 else if (level === 'GREEN') newDash.statusColor = 'text-green-600';
                 else newDash.statusColor = 'text-slate-400';
 
-                // Environmental Metrics (Populate from latest record if MQTT hasn't arrived)
+                // Environmental Metrics — Pi sensor data takes priority, then DB tables, then external API
                 if (latest) {
                     newDash.flowRate = latest.sensorFlowRateMps !== null ? latest.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s';
                     newDash.prediction = latest.predictedLevel !== null ? latest.predictedLevel.toFixed(2) + ' m' : '-- m';
-                    
-                    // Use the legacy getters I added to the DTO
                     newDash.qcRain = (latest.QC_Rain_mm !== null && latest.QC_Rain_mm !== undefined) ? latest.QC_Rain_mm.toFixed(1) + ' mm' : '-- mm';
                     newDash.marulasRain = (latest.Marulas_Rain_mm !== null && latest.Marulas_Rain_mm !== undefined) ? latest.Marulas_Rain_mm.toFixed(1) + ' mm' : '-- mm';
                     newDash.tideHeight = (latest.Tide_Height_m !== null && latest.Tide_Height_m !== undefined) ? latest.Tide_Height_m.toFixed(2) + ' m' : '-- m';
                     newDash.pressure = (latest.Pressure_hPa !== null && latest.Pressure_hPa !== undefined) ? latest.Pressure_hPa.toFixed(0) + ' hPa' : '-- hPa';
                     newDash.wind = (latest.Wind_Speed !== null && latest.Wind_Speed !== undefined) ? latest.Wind_Speed.toFixed(1) + ' kph' : '-- kph';
+                }
+
+                // Apply DB table values (tide_metrics + weather_metrics) where Pi data is missing
+                if (envData) {
+                    if (newDash.tideHeight === '-- m' && envData.tideHeightM !== null && envData.tideHeightM !== undefined)
+                        newDash.tideHeight = envData.tideHeightM.toFixed(2) + ' m';
+                    if (newDash.qcRain === '-- mm' && envData.qcRainMm !== null && envData.qcRainMm !== undefined)
+                        newDash.qcRain = envData.qcRainMm.toFixed(1) + ' mm';
+                    if (newDash.marulasRain === '-- mm' && envData.marulasRainMm !== null && envData.marulasRainMm !== undefined)
+                        newDash.marulasRain = envData.marulasRainMm.toFixed(1) + ' mm';
+                    if (newDash.pressure === '-- hPa' && envData.pressureHpa !== null && envData.pressureHpa !== undefined)
+                        newDash.pressure = envData.pressureHpa.toFixed(0) + ' hPa';
+                    if (newDash.wind === '-- kph' && envData.windSpeed !== null && envData.windSpeed !== undefined)
+                        newDash.wind = envData.windSpeed.toFixed(1) + ' kph';
+                }
+
+                // Last resort: live external APIs
+                if (!dbHasEnv) {
+                    if (weatherFallback?.current_weather) {
+                        const cw = weatherFallback.current_weather;
+                        if (newDash.pressure === '-- hPa' && weatherFallback.hourly?.surface_pressure) {
+                            const p = weatherFallback.hourly.surface_pressure[0];
+                            if (p !== null && p !== undefined) newDash.pressure = p.toFixed(0) + ' hPa';
+                        }
+                        if (newDash.wind === '-- kph' && cw.windspeed !== undefined)
+                            newDash.wind = cw.windspeed.toFixed(1) + ' kph';
+                    }
+                    if (tideFallback !== null && newDash.tideHeight === '-- m')
+                        newDash.tideHeight = tideFallback.toFixed(2) + ' m (tide)';
                 }
 
                 if (subCount !== undefined) newDash.subscriberCount = subCount;
@@ -214,6 +270,7 @@ export default function Admin() {
             console.error("Dashboard Load Error:", e);
         }
     };
+
 
     const loadCameraFeed = async () => {
         try {
