@@ -7,7 +7,7 @@ import { classifyAlertLevel, gaugeFillPercent, gaugeMarkers } from '../config/al
 let CACHED_GUIDE = null;
 const DISPLAY_TIMEZONE = 'Asia/Manila';
 const TIDE_DISPLAY_TIMEZONE = 'UTC';
-const CAMERA_DELAY_MS = 12 * 60 * 60 * 1000;
+const CAMERA_DELAY_MS = 10 * 60 * 60 * 1000;
 
 /** How often to poll GET /public/alerts/status (includes manual override). Keeps all browsers in sync without refresh. */
 const ALERT_STATUS_POLL_MS = 10000;
