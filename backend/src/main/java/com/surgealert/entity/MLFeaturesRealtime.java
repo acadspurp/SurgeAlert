@@ -14,6 +14,21 @@ public class MLFeaturesRealtime {
     @Column(name = "time", nullable = false)
     private LocalDateTime timestamp;
 
+    @Column(name = "Hour")
+    private Integer hour;
+
+    @Column(name = "water_level")
+    private Double waterLevel;
+
+    @Column(name = "rise_rate")
+    private Double riseRate;
+
+    @Column(name = "sensor_rise_rate")
+    private Double sensorRiseRate;
+
+    @Column(name = "mar_6hr_sum")
+    private Double mar6hrSum;
+
     @Column(name = "Tide_Height_m", nullable = true)
     private Double tideHeightM;
 
@@ -83,6 +98,16 @@ public class MLFeaturesRealtime {
     public void setId(Long id) { this.id = id; }
     public LocalDateTime getTimestamp() { return timestamp; }
     public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+    public Integer getHour() { return hour; }
+    public void setHour(Integer hour) { this.hour = hour; }
+    public Double getWaterLevel() { return waterLevel; }
+    public void setWaterLevel(Double waterLevel) { this.waterLevel = waterLevel; }
+    public Double getRiseRate() { return riseRate; }
+    public void setRiseRate(Double riseRate) { this.riseRate = riseRate; }
+    public Double getSensorRiseRate() { return sensorRiseRate; }
+    public void setSensorRiseRate(Double sensorRiseRate) { this.sensorRiseRate = sensorRiseRate; }
+    public Double getMar6hrSum() { return mar6hrSum; }
+    public void setMar6hrSum(Double mar6hrSum) { this.mar6hrSum = mar6hrSum; }
     public Double getTideHeightM() { return tideHeightM; }
     public void setTideHeightM(Double tideHeightM) { this.tideHeightM = tideHeightM; }
     public Double getTideTrend() { return tideTrend; }
