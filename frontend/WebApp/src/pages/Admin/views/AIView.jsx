@@ -70,7 +70,7 @@ export default function AIView(props) {
                                     </div>
                                     <div>
                                         <p className="text-indigo-200 text-xs font-bold uppercase tracking-wider mb-1">+1hr Predicted Level</p>
-                                        <div className="text-3xl font-black">{rawSensorData.length > 0 ? rawSensorData[rawSensorData.length - 1].predictedLevel?.toFixed(2) + ' m' : '--'}</div>
+                                        <div className="text-3xl font-black">{dashData.prediction}</div>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -78,7 +78,7 @@ export default function AIView(props) {
                                         <i className="fa-solid fa-water-arrow-up"></i>
                                     </div>
                                     <div>
-                                        <p className="text-indigo-200 text-xs font-bold uppercase tracking-wider mb-1">Estimated Flow Rate</p>
+                                        <p className="text-indigo-200 text-xs font-bold uppercase tracking-wider mb-1">Predicted Classification</p>
                                         <div className="text-2xl font-bold opacity-90">Currently Unavailable</div>
                                     </div>
                                 </div>
@@ -90,9 +90,9 @@ export default function AIView(props) {
                                         <p className="text-indigo-200 text-xs font-bold uppercase tracking-wider">Model Confidence</p>
                                     </div>
                                     <div className="w-full bg-indigo-900 rounded-full h-3 mb-1 border border-indigo-700">
-                                        <div className="bg-gradient-to-r from-teal-400 to-green-400 h-3 rounded-full" style={{ width: '85%' }}></div>
+                                        <div className="bg-gradient-to-r from-teal-400 to-green-400 h-3 rounded-full" style={{ width: '88.45%' }}></div>
                                     </div>
-                                    <p className="text-right text-xs font-bold text-teal-300">85% HIGH</p>
+                                    <p className="text-right text-xs font-bold text-teal-300">88.45% HIGH</p>
                                 </div>
                             </div>
                         </div>

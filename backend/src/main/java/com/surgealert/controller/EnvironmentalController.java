@@ -31,7 +31,12 @@ public class EnvironmentalController {
         Map<String, Object> result = new LinkedHashMap<>();
         java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Manila")).minusHours(10);
 
-        mlFeaturesRealtimeRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(now).ifPresent(m -> {
+        // Primary window: "filmed 10 hours ago" behavior.
+        // Fallback: latest row so the dashboard does not show empty cards when delayed data is unavailable.
+        var row = mlFeaturesRealtimeRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(now)
+                .or(() -> mlFeaturesRealtimeRepository.findFirstByOrderByTimestampDesc());
+
+        row.ifPresent(m -> {
             result.put("tideHeightM", m.getTideHeightM());
             result.put("tideTrend",   m.getTideTrend());
             result.put("tideTimestamp", m.getTimestamp() != null ? m.getTimestamp().toString() : null);

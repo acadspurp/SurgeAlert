@@ -176,7 +176,10 @@ public class SensorDataService {
         LocalDateTime now = LocalDateTime.now(MANILA_ZONE).minusHours(CAMERA_DELAY_HOURS);
         // Use projection to avoid hydrating image_bytes BLOB directly.
         // Some deployed DB rows have incompatible large-object values that can crash reads.
-        return sensorDataRepository.findLatestProjectionBefore(now)
+        var latestProjection = sensorDataRepository.findLatestProjectionBefore(now)
+                .or(() -> sensorDataRepository.findLatestProjectionBefore(LocalDateTime.now(MANILA_ZONE)));
+
+        return latestProjection
                 .map(this::convertLatestProjectionToDTO)
                 .map(dto -> {
                     // Add simulated image fallback logic
@@ -211,10 +214,18 @@ public class SensorDataService {
         LocalDateTime since = now.minusHours(hours);
         
         List<SensorData> coreData = sensorDataRepository.findByTimestampBetween(since, now);
+        if (coreData.isEmpty()) {
+            LocalDateTime liveNow = LocalDateTime.now(MANILA_ZONE);
+            coreData = sensorDataRepository.findByTimestampBetween(liveNow.minusHours(hours), liveNow);
+        }
         coreData.sort((a, b) -> b.getTimestamp().compareTo(a.getTimestamp()));
 
         // Optimization: Fetch all potentially relevant ML features in one go (with 1h buffer)
         List<MLFeaturesRealtime> mlList = mlFeaturesRealtimeRepository.findByTimestampBetween(since.minusHours(1), now.plusMinutes(1));
+        if (mlList.isEmpty()) {
+            LocalDateTime liveNow = LocalDateTime.now(MANILA_ZONE);
+            mlList = mlFeaturesRealtimeRepository.findByTimestampBetween(liveNow.minusHours(hours + 1), liveNow.plusMinutes(1));
+        }
 
         return coreData.stream().map(sd -> {
             SensorDataDTO dto = new SensorDataDTO();
