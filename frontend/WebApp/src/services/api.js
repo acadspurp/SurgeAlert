@@ -358,7 +358,10 @@ export async function fetchSensorData(hours = 24) {
         if (response.status === 403 || response.status === 401) {
             response = await apiFetch(url);
         }
-        if (!response.ok || response.status === 204) return [];
+        if (response.status === 204) return [];
+        if (!response.ok) {
+            throw new Error(`Recent sensor API HTTP ${response.status}`);
+        }
         const data = await response.json();
         return Array.isArray(data) ? data : [];
     } catch {
