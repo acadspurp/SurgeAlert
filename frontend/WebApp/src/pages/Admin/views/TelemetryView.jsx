@@ -10,8 +10,18 @@ export default function TelemetryView(props) {
     beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
     handleDeleteAdminUser,
     approveDatasetRequest } = props;
-
-  const cvTrackedFeatures = rawSensorData.length > 0 && rawSensorData[rawSensorData.length-1].imageFlowRateMps ? Math.floor(Math.random() * 50 + 100) : '--';
+  const opticalFlowChartData = {
+    datasets: [
+      {
+        label: 'Optical Flow (image_flow_rate_mps)',
+        data: rawSensorData.map((d) => ({ x: d.timestamp, y: d.imageFlowRateMps })),
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        fill: true,
+        tension: 0.3
+      }
+    ]
+  };
 
   return (
 <>
@@ -21,11 +31,10 @@ export default function TelemetryView(props) {
                         <h1 className="mb-6 pl-0 text-2xl font-black tracking-tight text-sky-100 sm:mb-8 sm:text-3xl md:pl-10">Historical Data</h1>
                         
                         {/* Current Readings */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                             <TelemetryCard title="Ultrasonic WL" value={rawSensorData.length > 0 ? rawSensorData[rawSensorData.length-1].waterLevelM?.toFixed(2) + ' m' : '--'} icon="fa-ruler-vertical" color="blue" />
                             <TelemetryCard title="Speed Radar Flow" value={rawSensorData.length > 0 ? rawSensorData[rawSensorData.length-1].sensorFlowRateMps?.toFixed(2) + ' m/s' : '--'} icon="fa-gauge-high" color="purple" />
                             <TelemetryCard title="Optical Flow (CV)" value={rawSensorData.length > 0 ? rawSensorData[rawSensorData.length-1].imageFlowRateMps?.toFixed(2) + ' m/s' : '--'} icon="fa-video" color="teal" />
-                            <TelemetryCard title="Tracked Features (CV)" value={cvTrackedFeatures} icon="fa-microchip" color="yellow" />
                         </div>
 
                         {/* Calculated Rates */}
@@ -72,7 +81,7 @@ export default function TelemetryView(props) {
                             <div className="flex flex-col rounded-2xl border border-slate-700 bg-[#1e293b] p-4 shadow-lg sm:p-6">
                                 <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-                                        <h3 className="min-w-0 text-base font-bold text-sky-100 sm:text-xl">Visual Water Movement Trends</h3>
+                                        <h3 className="min-w-0 text-base font-bold text-sky-100 sm:text-xl">Visual Water Movement Trends (sensor_data.image_flow_rate_mps)</h3>
                                         <div className="relative shrink-0 tooltip-parent">
                                             <i className="fa-solid fa-circle-info text-slate-500"></i>
                                             <span className="tooltip-text z-50 max-w-[12rem] whitespace-normal rounded bg-black px-2 py-1 text-xs text-white sm:whitespace-nowrap absolute left-0 top-full mt-1 pointer-events-none">
@@ -91,7 +100,7 @@ export default function TelemetryView(props) {
                                     </select>
                                 </div>
                                 <div className="relative h-64 w-full min-w-0 sm:h-80">
-                                    <Line data={cvChartData} options={{ ...commonChartOptions, scales: { ...commonChartOptions.scales, y: { type: 'linear', display: true, position: 'left', title: {display: true, text: 'Flow (m/s)'} } } }} />
+                                    <Line data={opticalFlowChartData} options={{ ...commonChartOptions, scales: { ...commonChartOptions.scales, y: { type: 'linear', display: true, position: 'left', title: {display: true, text: 'Flow (m/s)'} } } }} />
                                 </div>
                             </div>
                         </div>
