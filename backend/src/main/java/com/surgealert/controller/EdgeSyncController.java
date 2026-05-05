@@ -52,35 +52,34 @@ public class EdgeSyncController {
         return ResponseEntity.ok(data);
     }
 
+    @Autowired
+    private com.surgealert.repository.SensorDataRepository sensorDataRepository;
+
     /**
-     * Fetches the latest environmental data (Weather, Tides, Lags) calculated by the backend.
-     * The Pi uses this every 30 mins to run its ML Classifier.
+     * Fetches the latest simulated environmental data and water level.
+     * The Pi uses this every 10 mins to display the simulation status.
      */
     @GetMapping("/environmental")
     public ResponseEntity<Map<String, Object>> syncEnvironmental() {
         Map<String, Object> data = new LinkedHashMap<>();
-        mlRepository.findFirstByOrderByTimestampDesc().ifPresent(ml -> {
-            data.put("month", ml.getMonth());
-            data.put("hour", ml.getHour());
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+
+        sensorDataRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(now).ifPresent(sd -> {
+            data.put("water_level", sd.getWaterLevelM());
+            data.put("alert_level", sd.getCurrentAlertLevel());
+            data.put("flow_rate", sd.getSensorFlowRateMps());
+            data.put("rise_rate", sd.getImageRiseRateMps());
+            data.put("timestamp", sd.getTimestamp().toString());
+        });
+
+        mlRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(now).ifPresent(ml -> {
             data.put("tide_height", ml.getTideHeightM());
             data.put("tide_trend", ml.getTideTrend());
             data.put("pressure", ml.getPressureHpa());
-            data.put("press_trend", ml.getPressTrend());
             data.put("wind_speed", ml.getWindSpeed());
-            data.put("wind_sin", ml.getWindSin());
-            data.put("wind_cos", ml.getWindCos());
-            data.put("soil_moisture", ml.getSoilMoisture());
             data.put("qc_rain", ml.getQcRainMm());
-            data.put("qc_lag1", ml.getQcLag1Mm());
-            data.put("qc_lag2", ml.getQcLag2Mm());
-            data.put("qc_3h", ml.getQc3hrSum());
-            data.put("qc_6h", ml.getQc6hrSum());
             data.put("mar_rain", ml.getMarulasRainMm());
-            data.put("mar_lag1", ml.getMarLag1Mm());
-            data.put("mar_lag2", ml.getMarLag2Mm());
-            data.put("mar_3h", ml.getMar3hrSum());
-            data.put("mar_6h", ml.getMar6hrSum());
-            data.put("mar_24h", ml.getMar24hrSum());
+            data.put("soil_moisture", ml.getSoilMoisture());
         });
         return ResponseEntity.ok(data);
     }

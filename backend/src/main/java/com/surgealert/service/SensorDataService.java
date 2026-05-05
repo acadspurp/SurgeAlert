@@ -171,27 +171,21 @@ public class SensorDataService {
     }
 
     public SensorDataDTO getLatestSensorData() {
-        return sensorDataRepository.findFirstByOrderByTimestampDesc()
+        LocalDateTime now = LocalDateTime.now();
+        return sensorDataRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(now)
                 .map(sd -> {
                     SensorDataDTO dto = convertToDTO(sd);
 
-                    // Merge latest Tide info
-                    tideMetricsRepository.findFirstByOrderByTimestampDesc().ifPresent(t -> {
-                        dto.setTideHeightM(t.getTideHeightM());
-                    });
-
-                    // Merge latest Weather info
-                    weatherMetricsRepository.findFirstByOrderByTimestampDesc().ifPresent(w -> {
-                        dto.setRainMm(w.getQcRainMm());
-                        dto.setMarulasRainMm(w.getMarulasRainMm());
-                        dto.setMar24hrSum(w.getMar24hrSum());
-                        dto.setPressureHpa(w.getPressureHpa());
-                        dto.setWindSpeedKph(w.getWindSpeed());
-                        dto.setSoilMoisturePct(w.getSoilMoisture());
-                    });
-
-                    // Merge latest ML classification and features if needed
-                    mlFeaturesRealtimeRepository.findFirstByOrderByTimestampDesc().ifPresent(m -> {
+                    // Merge latest ML classification and features
+                    mlFeaturesRealtimeRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(now).ifPresent(m -> {
+                        dto.setTideHeightM(m.getTideHeightM());
+                        dto.setTideTrend(m.getTideTrend());
+                        dto.setRainMm(m.getQcRainMm());
+                        dto.setMarulasRainMm(m.getMarulasRainMm());
+                        dto.setMar24hrSum(m.getMar24hrSum());
+                        dto.setPressureHpa(m.getPressureHpa());
+                        dto.setWindSpeedKph(m.getWindSpeed());
+                        dto.setSoilMoisturePct(m.getSoilMoisture());
                         dto.setPredictedAlertClass(m.getPredictedAlertClass());
                         dto.setQcLag1(m.getQcLag1Mm());
                         dto.setQcLag2(m.getQcLag2Mm());
@@ -199,7 +193,16 @@ public class SensorDataService {
                         dto.setMarLag2(m.getMarLag2Mm());
                         dto.setMar3hrSum(m.getMar3hrSum());
                         dto.setMar6hrSum(m.getMar6hrSum());
+                        dto.setPressTrend(m.getPressTrend());
                     });
+
+                    // Add simulated image fallback logic
+                    if (dto.getSnapshotBase64() == null || dto.getSnapshotBase64().isEmpty() || dto.getSnapshotBase64().startsWith("b'0x")) {
+                        String imgBase64 = loadSimulatedImage(dto.getCurrentAlertLevel());
+                        if (imgBase64 != null) {
+                            dto.setSnapshotBase64(imgBase64);
+                        }
+                    }
 
                     return dto;
                 })
@@ -207,40 +210,34 @@ public class SensorDataService {
     }
 
     public List<SensorDataDTO> getRecentSensorData(int hours) {
-        LocalDateTime since = LocalDateTime.now().minusHours(hours);
-        List<SensorData> coreData = sensorDataRepository.findRecentData(since);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime since = now.minusHours(hours);
+        
+        // Filter out future data for simulation realism
+        List<SensorData> coreData = sensorDataRepository.findRecentData(since).stream()
+                .filter(d -> !d.getTimestamp().isAfter(now))
+                .collect(Collectors.toList());
 
-        // Fetch metrics for the same range to optimize joins
-        List<TideMetrics> tideList = tideMetricsRepository.findByTimestampAfter(since);
-        List<WeatherMetrics> weatherList = weatherMetricsRepository.findByTimestampAfter(since);
-        List<MLFeaturesRealtime> mlList = mlFeaturesRealtimeRepository.findByTimestampAfter(since);
+        List<MLFeaturesRealtime> mlList = mlFeaturesRealtimeRepository.findByTimestampAfter(since).stream()
+                .filter(m -> !m.getTimestamp().isAfter(now))
+                .collect(Collectors.toList());
 
         return coreData.stream().map(sd -> {
             SensorDataDTO dto = convertToDTO(sd);
             LocalDateTime ts = sd.getTimestamp();
 
             // Find closest match (within 30 seconds) for environmental data
-            tideList.stream()
-                .filter(t -> Math.abs(java.time.Duration.between(t.getTimestamp(), ts).getSeconds()) < 30)
-                .findFirst().ifPresent(t -> {
-                    dto.setTideHeightM(t.getTideHeightM());
-                    dto.setTideTrend(t.getTideTrend());
-                });
-
-            weatherList.stream()
-                .filter(w -> Math.abs(java.time.Duration.between(w.getTimestamp(), ts).getSeconds()) < 30)
-                .findFirst().ifPresent(w -> {
-                    dto.setRainMm(w.getQcRainMm());
-                    dto.setMarulasRainMm(w.getMarulasRainMm());
-                    dto.setMar24hrSum(w.getMar24hrSum());
-                    dto.setPressureHpa(w.getPressureHpa());
-                    dto.setWindSpeedKph(w.getWindSpeed());
-                    dto.setSoilMoisturePct(w.getSoilMoisture());
-                });
-
             mlList.stream()
                 .filter(m -> Math.abs(java.time.Duration.between(m.getTimestamp(), ts).getSeconds()) < 30)
                 .findFirst().ifPresent(m -> {
+                    dto.setTideHeightM(m.getTideHeightM());
+                    dto.setTideTrend(m.getTideTrend());
+                    dto.setRainMm(m.getQcRainMm());
+                    dto.setMarulasRainMm(m.getMarulasRainMm());
+                    dto.setMar24hrSum(m.getMar24hrSum());
+                    dto.setPressureHpa(m.getPressureHpa());
+                    dto.setWindSpeedKph(m.getWindSpeed());
+                    dto.setSoilMoisturePct(m.getSoilMoisture());
                     dto.setPredictedAlertClass(m.getPredictedAlertClass());
                     dto.setQcLag1(m.getQcLag1Mm());
                     dto.setQcLag2(m.getQcLag2Mm());
@@ -289,5 +286,32 @@ public class SensorDataService {
         if (waterLevel >= yellowThreshold)
             return "YELLOW";
         return "GREEN";
+    }
+
+    private String loadSimulatedImage(String alertLevel) {
+        String filename = "normal.jpg";
+        if (alertLevel != null) {
+            String level = alertLevel.toUpperCase();
+            if (level.equals("RED") || level.equals("CRITICAL")) {
+                filename = "flood.jpg";
+            } else if (level.equals("YELLOW") || level.equals("ORANGE")) {
+                filename = "rising.jpg";
+            }
+        }
+        
+        try {
+            java.nio.file.Path path = java.nio.file.Paths.get("data", "simulation_images", filename);
+            if (!java.nio.file.Files.exists(path)) {
+                // Fallback to normal.jpg
+                path = java.nio.file.Paths.get("data", "simulation_images", "normal.jpg");
+            }
+            if (java.nio.file.Files.exists(path)) {
+                byte[] bytes = java.nio.file.Files.readAllBytes(path);
+                return java.util.Base64.getEncoder().encodeToString(bytes);
+            }
+        } catch (Exception e) {
+            System.err.println(" [Simulation] Failed to load simulation image: " + e.getMessage());
+        }
+        return null;
     }
 }

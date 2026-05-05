@@ -13,6 +13,8 @@ import java.util.Optional;
 public interface SensorDataRepository extends JpaRepository<SensorData, Long> {
     Optional<SensorData> findFirstByOrderByTimestampDesc();
     
+    Optional<SensorData> findFirstByTimestampLessThanEqualOrderByTimestampDesc(LocalDateTime timestamp);
+    
     Optional<SensorData> findFirstByWaterLevelMGreaterThanEqualOrderByTimestampDesc(Double minLevel);
     
     List<SensorData> findByTimestampBetween(LocalDateTime start, LocalDateTime end);
