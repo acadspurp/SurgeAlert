@@ -5,7 +5,7 @@ import { useSensorMqtt } from '../hooks/useSensorMqtt.js';
 import { classifyAlertLevel, gaugeFillPercent, gaugeMarkers } from '../config/alertConfig.js';
 
 import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE } from '../constants/displayTime.js';
-import { useAnchored527Clock } from '../hooks/useAnchored527Clock.js';
+import { useLiveManilaClock } from '../hooks/useLiveManilaClock.js';
 
 let CACHED_GUIDE = null;
 
@@ -30,7 +30,7 @@ export default function Home() {
     const [alertLevelKey, setAlertLevelKey] = useState('green');
     const [alertHtml, setAlertHtml] = useState('<p class="text-gray-400">System is running normally.</p>');
     const [cameraImg, setCameraImg] = useState(null);
-    const { clockLabel: cameraLastUpdated, dateLabel: cameraClockDate } = useAnchored527Clock();
+    const { clockLabel: cameraLastUpdated, dateLabel: cameraClockDate } = useLiveManilaClock();
     const [weatherCards, setWeatherCards] = useState([]);
     const [weatherError, setWeatherError] = useState(null);
     const [isWeatherLoading, setIsWeatherLoading] = useState(true);

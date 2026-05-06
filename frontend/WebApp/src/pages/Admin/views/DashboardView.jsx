@@ -165,7 +165,7 @@ export default function DashboardView(props) {
                                         <span className="text-slate-500"> · </span>
                                         <span className="text-slate-400">{formatManilaDate(nextTide.dt * 1000)}</span>
                                     </div>
-                                    <p className="text-xs text-slate-400 mt-3">Tide times: WorldTides · Demo clock starts at 5:27 PM Manila, then ticks forward</p>
+                                    <p className="text-xs text-slate-400 mt-3">Tide times: WorldTides · Clock: live Asia/Manila</p>
                                 </>
                             ) : (
                                 <p className="text-slate-400">Loading tide data...</p>

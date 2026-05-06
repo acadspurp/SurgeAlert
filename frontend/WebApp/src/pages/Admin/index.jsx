@@ -23,7 +23,7 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { logoUrl } from '../../branding/logo.js';
 import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE } from '../../constants/displayTime.js';
-import { useAnchored527Clock } from '../../hooks/useAnchored527Clock.js';
+import { useLiveManilaClock } from '../../hooks/useLiveManilaClock.js';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend, TimeScale, TimeSeriesScale, annotationPlugin);
 
@@ -72,7 +72,7 @@ export default function Admin() {
         pressure: '-- hPa', wind: '-- kph'
     });
     const [cameraImg, setCameraImg] = useState(null);
-    const { clockLabel: cameraLastUpdated, dateLabel: cameraClockDate } = useAnchored527Clock();
+    const { clockLabel: cameraLastUpdated, dateLabel: cameraClockDate } = useLiveManilaClock();
     const [tides, setTides] = useState([]);
     const [nextTide, setNextTide] = useState(null);
 
