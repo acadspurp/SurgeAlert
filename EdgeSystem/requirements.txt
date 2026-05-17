@@ -10,3 +10,5 @@ xgboost
 pyserial
 paho-mqtt
 RPi.GPIO
+sqlalchemy
+psycopg2-binary

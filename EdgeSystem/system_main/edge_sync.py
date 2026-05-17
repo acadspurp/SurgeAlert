@@ -1,4 +1,5 @@
-"""Sync ml_features, residents, templates, and snapshots via backend API."""
+"""Sync ml_features, residents, templates, and model artifacts via backend API."""
+import os
 from datetime import datetime, timedelta
 
 import requests
@@ -7,7 +8,11 @@ from config.settings import (
     BACKEND_API_URL,
     EDGE_API_KEY,
     ML_FEATURES_MAX_AGE_HOURS,
+    MODEL_DIR,
+    MODEL_PATH,
 )
+
+MODEL_VERSION_FILE = os.path.join(MODEL_DIR, "model_version.txt")
 
 
 def _headers():
@@ -75,6 +80,30 @@ def fetch_offline_bundle(db_manager):
         return True
     except Exception as e:
         print(f" [Sync] Offline bundle fetch failed: {e}")
+        return False
+
+
+def download_model_if_updated():
+    """Pull latest server-trained XGBoost when version changes."""
+    try:
+        url = f"{BACKEND_API_URL}/edge/sync/model"
+        r = requests.get(url, headers=_headers(), timeout=120)
+        if r.status_code != 200:
+            return False
+        version = (r.headers.get("X-Model-Version") or "").strip() or "unknown"
+        if os.path.isfile(MODEL_VERSION_FILE):
+            with open(MODEL_VERSION_FILE, encoding="utf-8") as f:
+                if f.read().strip() == version:
+                    return False
+        os.makedirs(MODEL_DIR, exist_ok=True)
+        with open(MODEL_PATH, "wb") as f:
+            f.write(r.content)
+        with open(MODEL_VERSION_FILE, "w", encoding="utf-8") as f:
+            f.write(version)
+        print(f" [ML] Downloaded model version {version}")
+        return True
+    except Exception as e:
+        print(f" [ML] Model download failed: {e}")
         return False
 
 

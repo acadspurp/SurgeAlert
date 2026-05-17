@@ -28,6 +28,4 @@ class DataLogger:
                 pred_class=pred_class,
             )
 
-        if image_base64 and row_id:
-            self.db_manager.log_snapshot(row_id, image_base64, reading["timestamp"])
         return row_id

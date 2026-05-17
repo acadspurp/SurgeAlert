@@ -40,6 +40,7 @@ from processing.sensor_fusion import build_cycle_reading
 from system_main.database_manager import DatabaseManager
 from system_main.data_logger import DataLogger
 from system_main.edge_sync import (
+    download_model_if_updated,
     fetch_offline_bundle,
     ml_features_to_weather_dict,
     resolve_ml_features,
@@ -227,6 +228,8 @@ def main():
             cycle_ts = grid_timestamp_iso()
 
             cloud_online = fetch_offline_bundle(db)
+            if cloud_online and download_model_if_updated():
+                alert_mgr.reload_model()
             ml_features, ml_stale = resolve_ml_features(db)
 
             print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Wake — gathering {GATHER_DURATION_SEC}s...")

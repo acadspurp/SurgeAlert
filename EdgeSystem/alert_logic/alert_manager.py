@@ -21,6 +21,10 @@ class AlertManager:
         self.model = None
         self.load_model()
 
+    def reload_model(self):
+        """Reload after OTA model download from backend."""
+        self.load_model()
+
     def load_model(self):
         """Loads the .joblib model from the path defined in settings.py."""
         print(f" [AI] Attempting to load model from: {MODEL_PATH}")

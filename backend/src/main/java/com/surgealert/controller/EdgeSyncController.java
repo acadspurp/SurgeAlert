@@ -5,8 +5,14 @@ import com.surgealert.repository.AlertTemplateRepository;
 import com.surgealert.repository.MLFeaturesRealtimeRepository;
 import com.surgealert.service.ResidentService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.nio.file.Files;
 
 //import java.lang.reflect.Field;
 //import java.util.HashMap;
@@ -28,16 +34,22 @@ public class EdgeSyncController {
     private final AlertTemplateRepository templateRepository;
     private final MLFeaturesRealtimeRepository mlRepository;
     private final com.surgealert.service.SensorDataService sensorDataService;
+    private final com.surgealert.service.MlModelRegistryService mlModelRegistry;
+    private final com.surgealert.service.MlTrainingService mlTrainingService;
 
     @Autowired
     public EdgeSyncController(ResidentService residentService,
                               AlertTemplateRepository templateRepository,
                               MLFeaturesRealtimeRepository mlRepository,
-                              com.surgealert.service.SensorDataService sensorDataService) {
+                              com.surgealert.service.SensorDataService sensorDataService,
+                              com.surgealert.service.MlModelRegistryService mlModelRegistry,
+                              com.surgealert.service.MlTrainingService mlTrainingService) {
         this.residentService = residentService;
         this.templateRepository = templateRepository;
         this.mlRepository = mlRepository;
         this.sensorDataService = sensorDataService;
+        this.mlModelRegistry = mlModelRegistry;
+        this.mlTrainingService = mlTrainingService;
     }
 
     /**
@@ -75,6 +87,29 @@ public class EdgeSyncController {
         Map<String, String> resp = new LinkedHashMap<>();
         resp.put("status", "ok");
         return ResponseEntity.ok(resp);
+    }
+
+    /** Pi downloads latest trained XGBoost artifact (auto-improve pipeline). */
+    @GetMapping("/model")
+    public ResponseEntity<Resource> downloadModel() {
+        if (!mlModelRegistry.modelArtifactExists()) {
+            return ResponseEntity.notFound().build();
+        }
+        Resource resource = new FileSystemResource(mlModelRegistry.getModelFilePath().toFile());
+        return ResponseEntity.ok()
+                .header("X-Model-Version", mlModelRegistry.getCurrentVersion())
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=flood_prediction_model.joblib")
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(resource);
+    }
+
+    @PostMapping("/retrain")
+    public ResponseEntity<Map<String, Object>> triggerRetrain() {
+        boolean ok = mlTrainingService.runScheduledRetrain();
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("success", ok);
+        body.put("version", mlModelRegistry.getCurrentVersion());
+        return ok ? ResponseEntity.ok(body) : ResponseEntity.internalServerError().body(body);
     }
 
     /**

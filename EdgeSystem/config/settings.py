@@ -10,10 +10,6 @@ DATABASE_PATH = os.path.join(DATABASE_DIR, DATABASE_NAME)
 MODEL_DIR = os.path.join(BASE_DIR, 'ml_model', 'trained_models')
 MODEL_PATH = os.path.join(MODEL_DIR, 'flood_prediction_model.joblib')
 
-# SMS Templates
-SMS_TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates', 'sms_alerts')
-
-
 def _load_env_file(env_path):
     """Minimal .env loader so Edge can run without shell-exported variables."""
     if not os.path.exists(env_path):

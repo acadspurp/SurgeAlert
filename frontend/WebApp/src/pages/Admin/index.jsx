@@ -65,7 +65,7 @@ export default function Admin() {
     // UI State
     const [activeView, setActiveView] = useState('dashboard');
     const [dashData, setDashData] = useState({
-        waterLevel: '-- m', flowRate: '-- m/s', status: 'Normal', statusColor: 'text-green-600',
+        waterLevel: '-- m', flowRate: '-- m/s', riseRateMph: null, status: 'Normal', statusColor: 'text-green-600',
         prediction: '-- m', predictedClassification: '--', predColor: 'text-slate-400', subscriberCount: 0,
         batteryLevel: '--',
         qcRain: '-- mm', marulasRain: '-- mm', tideHeight: '-- m', 
@@ -292,6 +292,10 @@ export default function Admin() {
                 if (latest) {
                     if (latest.sensorFlowRateMps !== null && latest.sensorFlowRateMps !== undefined) {
                         newDash.flowRate = latest.sensorFlowRateMps.toFixed(2) + ' m/s';
+                    }
+                    const rise = latest.riseRateMph ?? latest.imageRiseRateMps;
+                    if (rise !== null && rise !== undefined) {
+                        newDash.riseRateMph = rise;
                     }
                     if (latest.predictedLevel !== null && latest.predictedLevel !== undefined) {
                         newDash.prediction = latest.predictedLevel.toFixed(2) + ' m';
@@ -550,6 +554,9 @@ export default function Admin() {
 
             newDash.waterLevel = (floatWl !== null && !isGhost) ? floatWl.toFixed(2) + ' m' : '-- m';
             newDash.flowRate = (mqttData.sensorFlowRateMps !== null) ? mqttData.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s';
+            if (mqttData.imageRiseRateMps != null) {
+                newDash.riseRateMph = mqttData.imageRiseRateMps;
+            }
 
             const level = mqttData.currentAlertLevel || 'OFFLINE';
             newDash.status = isGhost ? 'NORMAL (GHOST FILTERED)' : level;
@@ -1052,21 +1059,18 @@ export default function Admin() {
     };
 
     const getETRText = () => {
-        const flowStr = String(dashData.flowRate).replace(/[^0-9.-]/g, '');
         const levelStr = String(dashData.waterLevel).replace(/[^0-9.-]/g, '');
-        const flow = parseFloat(flowStr);
         const level = parseFloat(levelStr);
-        if (isNaN(flow) || isNaN(level)) return 'Calculating...';
-        if (flow <= 0) return 'Stable (No increase)';
-        if (level >= 18) return 'Critical level reached';
-        // UI-side extrapolation: we assume a rough mapping from flow rate (m/s) to
-        // water level rise rate (m/hour). This keeps the dashboard useful even
-        // without a backend-derived rise-rate model.
-        const riseRateMph = Math.max(0.02, flow * 0.22);
-        const hours = (18 - level) / riseRateMph;
+        const rise = dashData.riseRateMph;
+        const redThreshold = 5.5;
+        if (Number.isNaN(level) || rise == null || Number.isNaN(rise)) return 'Calculating...';
+        if (rise <= 0) return 'Stable (no rise)';
+        if (level >= redThreshold) return 'Red threshold reached';
+        const hours = (redThreshold - level) / rise;
+        if (!Number.isFinite(hours) || hours <= 0) return 'Red threshold reached';
         const h = Math.floor(hours);
         const m = Math.round((hours - h) * 60);
-        return `Red Alert expected in ${h}h ${m}m`;
+        return `Red threshold (~${redThreshold}m) in ~${h}h ${m}m at current rise`;
     };
 
     const getWaterLevelContext = () => {

@@ -187,10 +187,13 @@ export default function Home() {
             return;
         }
 
-        // Priority 1: Admin Override. Priority 2: Fetch-driven threshold classification.
+        const levelMap = {
+            GREEN: 'green', YELLOW: 'yellow', ORANGE: 'orange', RED: 'red', CRITICAL: 'red',
+        };
+        const normalized = String(rawLevel || 'GREEN').toUpperCase();
         const levelKey = isOverride
             ? rawLevel.toLowerCase()
-            : classifyAlertLevel(floatVal, sensorConfigRef.current.thresholds);
+            : (levelMap[normalized] || classifyAlertLevel(floatVal, sensorConfigRef.current.thresholds));
 
         setWaterLevel(floatVal.toFixed(2) + ' m');
         setAlertLevelKey(levelKey);

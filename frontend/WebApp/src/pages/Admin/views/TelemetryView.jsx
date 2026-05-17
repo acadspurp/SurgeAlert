@@ -31,12 +31,12 @@ export default function TelemetryView(props) {
                                 {(() => {
                                     if (rawSensorData.length === 0) return "Calculating...";
                                     const latest = rawSensorData[rawSensorData.length-1];
-                                    const rate = latest.sensorRiseRate || 0; // m/s
+                                    const rate = latest.riseRateMph ?? latest.imageRiseRateMps ?? 0;
                                     
-                                    if (rate > 0.5) return <><span className="text-red-500">Rising Fast</span> ({rate.toFixed(4)} m/s)</>;
-                                    if (rate > 0.1) return <><span className="text-yellow-400">Rising</span> ({rate.toFixed(4)} m/s)</>;
-                                    if (rate < -0.1) return <><span className="text-blue-400">Falling</span> ({Math.abs(rate).toFixed(4)} m/s)</>;
-                                    return <><span className="text-cyan-300">Stable</span> (±0.0001 m/s)</>;
+                                    if (rate > 0.5) return <><span className="text-red-500">Rising Fast</span> ({rate.toFixed(2)} m/h)</>;
+                                    if (rate > 0.1) return <><span className="text-yellow-400">Rising</span> ({rate.toFixed(2)} m/h)</>;
+                                    if (rate < -0.1) return <><span className="text-blue-400">Falling</span> ({Math.abs(rate).toFixed(2)} m/h)</>;
+                                    return <><span className="text-cyan-300">Stable</span> (±0.01 m/h)</>;
                                 })()}
                             </h2>
                             <p className="text-xs mt-2 text-slate-300">Derived from the latest telemetry heartbeat</p>

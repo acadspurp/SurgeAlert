@@ -60,8 +60,8 @@ export function normalizeSensorRow(row) {
         waterLevelM: row.waterLevelM != null ? parseNum(row.waterLevelM) : parseNum(row.water_level),
         sensorFlowRateMps: row.sensorFlowRateMps != null ? parseNum(row.sensorFlowRateMps) : parseNum(row.sensor_flow_rate_mps),
         imageFlowRateMps: row.imageFlowRateMps != null ? parseNum(row.imageFlowRateMps) : parseNum(row.image_flow_rate_mps),
-        imageRiseRateMps: row.imageRiseRateMps != null ? parseNum(row.imageRiseRateMps) : parseNum(row.rise_rate),
-        sensorRiseRate: row.sensorRiseRate != null ? parseNum(row.sensorRiseRate) : parseNum(row.sensor_rise_rate),
+        riseRateMph: row.riseRateMph != null ? parseNum(row.riseRateMph)
+            : (row.imageRiseRateMps != null ? parseNum(row.imageRiseRateMps) : parseNum(row.rise_rate)),
         currentAlertLevel: row.currentAlertLevel ?? row.current_alert_level,
         predictedLevel: row.predictedLevel != null ? parseNum(row.predictedLevel) : parseNum(row.predicted_level),
         predictedAlertLevel: row.predictedAlertLevel ?? row.predicted_alert_level,

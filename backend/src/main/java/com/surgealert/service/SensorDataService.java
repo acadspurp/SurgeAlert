@@ -22,8 +22,6 @@ import java.util.stream.Collectors;
 @Service
 public class SensorDataService {
     private static final java.time.ZoneId MANILA_ZONE = java.time.ZoneId.of("Asia/Manila");
-    private static final long CAMERA_DELAY_HOURS = 10;
-
     private final SensorDataRepository sensorDataRepository;
     private final TideMetricsRepository tideMetricsRepository;
     private final WeatherMetricsRepository weatherMetricsRepository;
@@ -172,25 +170,26 @@ public class SensorDataService {
     }
 
     public SensorDataDTO getLatestSensorData() {
-        LocalDateTime now = LocalDateTime.now(MANILA_ZONE).minusHours(CAMERA_DELAY_HOURS);
-        // Use projection to avoid hydrating image_bytes BLOB directly.
-        // Some deployed DB rows have incompatible large-object values that can crash reads.
-        var latestProjection = sensorDataRepository.findLatestProjectionBefore(now)
-                .or(() -> sensorDataRepository.findLatestProjectionBefore(LocalDateTime.now(MANILA_ZONE)));
-
-        return latestProjection
-                .map(this::convertLatestProjectionToDTO)
-                .map(dto -> {
-                    // Add simulated image fallback logic
-                    if (dto.getSnapshotBase64() == null || dto.getSnapshotBase64().isEmpty() || dto.getSnapshotBase64().startsWith("b'0x")) {
-                        String imgBase64 = loadSimulatedImage(dto.getCurrentAlertLevel());
-                        if (imgBase64 != null) {
-                            dto.setSnapshotBase64(imgBase64);
-                        }
-                    }
-                    return dto;
-                })
+        return sensorDataRepository.findFirstByOrderByTimestampDesc()
+                .map(this::convertEntityToLatestDto)
                 .orElse(null);
+    }
+
+    private SensorDataDTO convertEntityToLatestDto(SensorData row) {
+        SensorDataDTO dto = new SensorDataDTO();
+        dto.setId(row.getId());
+        dto.setTimestamp(row.getTimestamp());
+        dto.setWaterLevelM(row.getWaterLevelM());
+        dto.setSensorFlowRateMps(row.getSensorFlowRateMps());
+        dto.setImageFlowRateMps(row.getImageFlowRateMps());
+        dto.setImageRiseRateMps(row.getImageRiseRateMps());
+        dto.setCurrentAlertLevel(row.getCurrentAlertLevel());
+        dto.setPredictedLevel(row.getPredictedLevel());
+        dto.setPredictedAlertLevel(row.getPredictedAlertLevel());
+        if (row.getImageBytes() != null && row.getImageBytes().length > 0) {
+            dto.setSnapshotBase64(java.util.Base64.getEncoder().encodeToString(row.getImageBytes()));
+        }
+        return dto;
     }
 
     private SensorDataDTO convertLatestProjectionToDTO(SensorDataRepository.LatestSensorProjection row) {
