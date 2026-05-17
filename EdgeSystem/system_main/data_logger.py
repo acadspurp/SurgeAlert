@@ -1,32 +1,33 @@
-# EdgeSystem/system_main/data_logger.py
 from system_main.database_manager import DatabaseManager
+from system_main.edge_sync import ml_features_to_weather_dict
+from system_main.edge_time_utils import grid_timestamp_iso
 
 
 class DataLogger:
     def __init__(self, db_manager: DatabaseManager):
-        """
-        Initializes the DataLogger with a DatabaseManager instance.
-        """
         self.db_manager = db_manager
-        print("Data Logger initialized.")
 
+    def log_cycle(self, reading, ml_features=None, raw_vectors=None, image_base64=None, pred_class=None):
+        if not reading.get("timestamp"):
+            reading["timestamp"] = grid_timestamp_iso()
 
-    def log_cycle_data(self, water_level, sensor_flow, img_flow, img_rise, alert_level):
-        """
-        A single entry point for logging all data from a system cycle.
-        """
-        self.db_manager.log_sensor_data(
-            #water_level_m=water_level,
-            #sensor_flow_rate_mps=sensor_flow,
-            #img_flow_rate_mps=img_flow,
-            #img_rise_rate_mps=img_rise,
-            #current_alert_level=alert_level
-            water_level=water_level,         # Match param name in db_manager
-            sensor_flow=sensor_flow,         # Match param name in db_manager
-            img_flow=img_flow,             # <--- CORRECTED
-            img_rise=img_rise,             # <--- CORRECTED
-            pred_level=0.0,                  # Added this (DB expects it now)
-            alert_level=alert_level,         # Match param name in db_manager
-            raw_vectors=[]                   # Added this (DB expects it now)
+        row_id = self.db_manager.log_sensor_data(
+            reading=reading,
+            raw_vectors=raw_vectors or [],
+            image_bytes=image_base64,
         )
 
+        if ml_features:
+            weather = ml_features_to_weather_dict(ml_features)
+            tide_h = ml_features.get("Tide_Height_m") or ml_features.get("tideHeightM") or 0.0
+            tide_trend = ml_features.get("Tide_Trend") or ml_features.get("tideTrend") or 0.0
+            self.db_manager.cache_ml_features_row(
+                ml_features,
+                water_level=reading["water_level"],
+                rise_rate_mph=reading["rise_rate"],
+                pred_class=pred_class,
+            )
+
+        if image_base64 and row_id:
+            self.db_manager.log_snapshot(row_id, image_base64, reading["timestamp"])
+        return row_id

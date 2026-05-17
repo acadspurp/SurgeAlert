@@ -1,8 +1,9 @@
 import sqlite3
 import os
 import json
-from datetime import datetime
-from config.settings import DATABASE_DIR, DATABASE_PATH
+from datetime import datetime, timedelta
+from config.settings import DATABASE_DIR, DATABASE_PATH, LOCAL_SYNCED_RETAIN_DAYS
+from system_main.edge_time_utils import grid_timestamp_iso
 
 class DatabaseManager:
     def __init__(self):
@@ -25,7 +26,8 @@ class DatabaseManager:
                 CREATE TABLE IF NOT EXISTS residents (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     phone_number TEXT UNIQUE NOT NULL,
-                    registration_date TEXT NOT NULL
+                    registration_date TEXT NOT NULL,
+                    is_priority INTEGER DEFAULT 0
                 )
             """)
 
@@ -63,6 +65,7 @@ class DatabaseManager:
                     Soil_Moisture REAL,
                     predicted_alert_class INTEGER,
                     raw_cv_vectors TEXT,
+                    image_bytes TEXT,
                     is_synced INTEGER DEFAULT 0
                 )
             """)
@@ -166,35 +169,51 @@ class DatabaseManager:
             except Exception as e:
                 print(f" [DB] Migration Warning: {e}")
 
+            try:
+                cursor.execute("PRAGMA table_info(sensor_data)")
+                sd_cols = [column[1] for column in cursor.fetchall()]
+                if "image_bytes" not in sd_cols:
+                    cursor.execute("ALTER TABLE sensor_data ADD COLUMN image_bytes TEXT")
+                conn.commit()
+            except Exception as e:
+                print(f" [DB] sensor_data migration warning: {e}")
+
+            try:
+                cursor.execute("PRAGMA table_info(residents)")
+                res_cols = [column[1] for column in cursor.fetchall()]
+                if "is_priority" not in res_cols:
+                    cursor.execute("ALTER TABLE residents ADD COLUMN is_priority INTEGER DEFAULT 0")
+                conn.commit()
+            except Exception as e:
+                print(f" [DB] residents migration warning: {e}")
+
     # --- SENSOR LOGGING ---
-    def log_sensor_data(self, water_level, sensor_flow, img_flow, img_rise, sensor_rise, 
-                        pred_level, alert_level, pred_alert_level, tide_future, tide_trend,
-                        weather_data, pred_class, raw_vectors):
-        """Logs all sensor readings, AI predictions, and environmental data to local DB."""
+    def log_sensor_data(self, reading, raw_vectors=None, image_bytes=None):
+        """Logs core edge telemetry (environmental data lives in ml_features_realtime cache)."""
         try:
             raw_vectors_json = json.dumps(raw_vectors) if raw_vectors else "[]"
-            timestamp = datetime.now().isoformat()
+            timestamp = reading.get("timestamp") or grid_timestamp_iso()
 
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO sensor_data 
                     (timestamp, water_level, sensor_flow_rate_mps, image_flow_rate_mps, 
-                     rise_rate, sensor_rise_rate, predicted_level, current_alert_level, predicted_alert_level, 
-                     Tide_Height_m, Tide_Trend, QC_Rain_mm, QC_Lag1, QC_Lag2, QC_3hr_Sum, QC_6hr_Sum,
-                     Marulas_Rain_mm, Mar_Lag1, Mar_Lag2, Mar_3hr_Sum, Mar_6hr_Sum, Mar_24hr_Sum, 
-                     Pressure_hPa, Press_Trend, Wind_Speed, Wind_Sin, Wind_Cos, Soil_Moisture,
-                     predicted_alert_class, raw_cv_vectors, is_synced)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-                """, (timestamp, water_level, sensor_flow, img_flow, img_rise, sensor_rise, 
-                      pred_level, alert_level, pred_alert_level, tide_future, tide_trend,
-                      weather_data["QC_Rain_mm"], weather_data["QC_Lag1"], weather_data["QC_Lag2"],
-                      weather_data["QC_3hr_Sum"], weather_data["QC_6hr_Sum"],
-                      weather_data["Marulas_Rain_mm"], weather_data["Mar_Lag1"], weather_data["Mar_Lag2"],
-                      weather_data["Mar_3hr_Sum"], weather_data["Mar_6hr_Sum"], weather_data["Mar_24hr_Sum"],
-                      weather_data["Pressure_hPa"], weather_data["Press_Trend"], 
-                      weather_data["Wind_Speed"], weather_data["Wind_Sin"], weather_data["Wind_Cos"],
-                      weather_data["Soil_Moisture"], pred_class, raw_vectors_json))
+                     rise_rate, predicted_level, current_alert_level, predicted_alert_level,
+                     raw_cv_vectors, image_bytes, is_synced)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                """, (
+                    timestamp,
+                    reading["water_level"],
+                    reading["sensor_flow_rate_mps"],
+                    reading["image_flow_rate_mps"],
+                    reading["rise_rate"],
+                    reading["predicted_level"],
+                    reading["current_alert_level"],
+                    reading["predicted_alert_level"],
+                    raw_vectors_json,
+                    image_bytes,
+                ))
                 inserted_id = cursor.lastrowid
                 conn.commit()
                 return inserted_id
@@ -232,10 +251,35 @@ class DatabaseManager:
         except Exception as e:
             print(f" [DB] Error logging weather metrics: {e}")
 
-    def log_ml_features(self, water_level, rise_rate, sensor_rise, tide_future, tide_trend, weather_data, pred_class):
-        """Logs ML features to the ml_features_realtime table."""
+    def cache_ml_features_row(self, ml_row, water_level=None, rise_rate_mph=None, pred_class=None):
+        """Persist latest ml_features_realtime from cloud or cycle context."""
         try:
-            timestamp = datetime.now().isoformat()
+            weather = {
+                "QC_Rain_mm": ml_row.get("QC_Rain_mm", 0.0),
+                "QC_Lag1": ml_row.get("QC_Lag1", 0.0),
+                "QC_Lag2": ml_row.get("QC_Lag2", 0.0),
+                "QC_3hr_Sum": ml_row.get("QC_3hr_Sum", 0.0),
+                "QC_6hr_Sum": ml_row.get("QC_6hr_Sum", 0.0),
+                "Marulas_Rain_mm": ml_row.get("Marulas_Rain_mm", 0.0),
+                "Mar_Lag1": ml_row.get("Mar_Lag1", 0.0),
+                "Mar_Lag2": ml_row.get("Mar_Lag2", 0.0),
+                "Mar_3hr_Sum": ml_row.get("Mar_3hr_Sum", 0.0),
+                "Mar_6hr_Sum": ml_row.get("Mar_6hr_Sum", 0.0),
+                "Mar_24hr_Sum": ml_row.get("Mar_24hr_Sum", 0.0),
+                "Pressure_hPa": ml_row.get("Pressure_hPa", 1013.0),
+                "Press_Trend": ml_row.get("Press_Trend", 0.0),
+                "Wind_Speed": ml_row.get("Wind_Speed", 0.0),
+                "Wind_Sin": ml_row.get("Wind_Sin", 0.0),
+                "Wind_Cos": ml_row.get("Wind_Cos", 0.0),
+                "Soil_Moisture": ml_row.get("Soil_Moisture", 0.0),
+            }
+            timestamp = ml_row.get("timestamp") or grid_timestamp_iso()
+            tide_h = ml_row.get("Tide_Height_m") or ml_row.get("tideHeightM") or 0.0
+            tide_trend = ml_row.get("Tide_Trend") or ml_row.get("tideTrend") or 0.0
+            wl = water_level if water_level is not None else ml_row.get("water_level", 0.0)
+            rr = rise_rate_mph if rise_rate_mph is not None else ml_row.get("rise_rate", 0.0)
+            pc = pred_class if pred_class is not None else ml_row.get("predicted_alert_class", 0)
+
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
@@ -246,22 +290,49 @@ class DatabaseManager:
                      Pressure_hPa, Press_Trend, Wind_Speed, Wind_Sin, Wind_Cos, Soil_Moisture, 
                      predicted_alert_class)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (timestamp, water_level, rise_rate, sensor_rise, tide_future, tide_trend,
-                      weather_data["QC_Rain_mm"], weather_data["QC_Lag1"], weather_data["QC_Lag2"],
-                      weather_data["QC_3hr_Sum"], weather_data["QC_6hr_Sum"],
-                      weather_data["Marulas_Rain_mm"], weather_data["Mar_Lag1"], weather_data["Mar_Lag2"],
-                      weather_data["Mar_3hr_Sum"], weather_data["Mar_6hr_Sum"], weather_data["Mar_24hr_Sum"],
-                      weather_data["Pressure_hPa"], weather_data["Press_Trend"], 
-                      weather_data["Wind_Speed"], weather_data["Wind_Sin"], weather_data["Wind_Cos"],
-                      weather_data["Soil_Moisture"], pred_class))
+                """, (timestamp, wl, rr, rr, tide_h, tide_trend,
+                      weather["QC_Rain_mm"], weather["QC_Lag1"], weather["QC_Lag2"],
+                      weather["QC_3hr_Sum"], weather["QC_6hr_Sum"],
+                      weather["Marulas_Rain_mm"], weather["Mar_Lag1"], weather["Mar_Lag2"],
+                      weather["Mar_3hr_Sum"], weather["Mar_6hr_Sum"], weather["Mar_24hr_Sum"],
+                      weather["Pressure_hPa"], weather["Press_Trend"],
+                      weather["Wind_Speed"], weather["Wind_Sin"], weather["Wind_Cos"],
+                      weather["Soil_Moisture"], pc))
                 conn.commit()
         except Exception as e:
-            print(f" [DB] Error logging ML features: {e}")
+            print(f" [DB] Error caching ML features: {e}")
 
-    def log_snapshot(self, sensor_data_id, image_base64):
+    def get_latest_ml_features_cached(self):
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT timestamp, water_level, rise_rate, Tide_Height_m, Tide_Trend,
+                           QC_Rain_mm, QC_Lag1, QC_Lag2, QC_3hr_Sum, QC_6hr_Sum,
+                           Marulas_Rain_mm, Mar_Lag1, Mar_Lag2, Mar_3hr_Sum, Mar_6hr_Sum, Mar_24hr_Sum,
+                           Pressure_hPa, Press_Trend, Wind_Speed, Wind_Sin, Wind_Cos, Soil_Moisture,
+                           predicted_alert_class
+                    FROM ml_features_realtime ORDER BY id DESC LIMIT 1
+                """)
+                row = cursor.fetchone()
+                if not row:
+                    return None
+                keys = [
+                    "timestamp", "water_level", "rise_rate", "Tide_Height_m", "Tide_Trend",
+                    "QC_Rain_mm", "QC_Lag1", "QC_Lag2", "QC_3hr_Sum", "QC_6hr_Sum",
+                    "Marulas_Rain_mm", "Mar_Lag1", "Mar_Lag2", "Mar_3hr_Sum", "Mar_6hr_Sum", "Mar_24hr_Sum",
+                    "Pressure_hPa", "Press_Trend", "Wind_Speed", "Wind_Sin", "Wind_Cos", "Soil_Moisture",
+                    "predicted_alert_class",
+                ]
+                return dict(zip(keys, row))
+        except Exception as e:
+            print(f" [DB] Error reading ML cache: {e}")
+            return None
+
+    def log_snapshot(self, sensor_data_id, image_base64, timestamp=None):
         """Logs image snapshot to the snapshots table."""
         try:
-            timestamp = datetime.now().isoformat()
+            timestamp = timestamp or grid_timestamp_iso()
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
@@ -301,26 +372,61 @@ class DatabaseManager:
         except Exception as e:
             print(f" [DB] Error marking data as synced: {e}")
 
+    def purge_old_synced_rows(self, retain_days=None):
+        """Free SD space after cloud sync."""
+        retain_days = retain_days if retain_days is not None else LOCAL_SYNCED_RETAIN_DAYS
+        try:
+            cutoff = (datetime.now() - timedelta(days=retain_days)).isoformat()
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    DELETE FROM snapshots WHERE sensor_data_id IN (
+                        SELECT id FROM sensor_data WHERE is_synced = 1 AND timestamp < ?
+                    )
+                """, (cutoff,))
+                cursor.execute("DELETE FROM sensor_data WHERE is_synced = 1 AND timestamp < ?", (cutoff,))
+                deleted = cursor.rowcount
+                conn.commit()
+                if deleted:
+                    print(f" [DB] Purged {deleted} synced sensor_data row(s) older than {retain_days}d.")
+        except Exception as e:
+            print(f" [DB] Purge error: {e}")
+
     # --- RESIDENT MANAGEMENT ---
-    def get_all_registered_phone_numbers(self):
+    def get_residents_for_sms(self):
+        """Priority residents first, then registration order."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT phone_number FROM residents")
+            cursor.execute("""
+                SELECT phone_number FROM residents
+                ORDER BY is_priority DESC, id ASC
+            """)
             return [row[0] for row in cursor.fetchall()]
 
     # --- SYNC HELPERS ---
-    def sync_residents(self, phone_numbers):
-        """Clears and re-populates the residents table with a fresh list from the backend."""
+    def sync_residents(self, residents):
+        """Re-populate residents from backend (strings or {phoneNumber, isPriority})."""
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("DELETE FROM residents")
                 now = datetime.now().isoformat()
-                for phone in phone_numbers:
-                    cursor.execute("INSERT OR IGNORE INTO residents (phone_number, registration_date) VALUES (?, ?)", 
-                                 (phone, now))
+                count = 0
+                for entry in residents:
+                    if isinstance(entry, str):
+                        phone, priority = entry, 0
+                    else:
+                        phone = entry.get("phoneNumber") or entry.get("phone_number") or entry.get("phone")
+                        priority = 1 if entry.get("isPriority") or entry.get("is_priority") else 0
+                    if not phone:
+                        continue
+                    cursor.execute(
+                        "INSERT OR IGNORE INTO residents (phone_number, registration_date, is_priority) VALUES (?, ?, ?)",
+                        (phone, now, priority),
+                    )
+                    count += 1
                 conn.commit()
-                print(f" [DB] Synced {len(phone_numbers)} residents.")
+                print(f" [DB] Synced {count} residents (priority ordering enabled).")
         except Exception as e:
             print(f" [DB] Error syncing residents: {e}")
 

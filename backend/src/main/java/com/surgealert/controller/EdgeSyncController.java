@@ -27,14 +27,17 @@ public class EdgeSyncController {
     private final ResidentService residentService;
     private final AlertTemplateRepository templateRepository;
     private final MLFeaturesRealtimeRepository mlRepository;
+    private final com.surgealert.service.SensorDataService sensorDataService;
 
     @Autowired
-    public EdgeSyncController(ResidentService residentService, 
+    public EdgeSyncController(ResidentService residentService,
                               AlertTemplateRepository templateRepository,
-                              MLFeaturesRealtimeRepository mlRepository) {
+                              MLFeaturesRealtimeRepository mlRepository,
+                              com.surgealert.service.SensorDataService sensorDataService) {
         this.residentService = residentService;
         this.templateRepository = templateRepository;
         this.mlRepository = mlRepository;
+        this.sensorDataService = sensorDataService;
     }
 
     /**
@@ -43,7 +46,7 @@ public class EdgeSyncController {
     @GetMapping("/all")
     public ResponseEntity<Map<String, Object>> syncAll(@RequestHeader(value = "X-Edge-Key", required = false) String edgeKey) {
         Map<String, Object> data = new LinkedHashMap<>();
-        data.put("residents", residentService.getAllActivePhoneNumbers());
+        data.put("residents", residentService.getActiveResidentsForEdgeSync());
         List<AlertTemplateDTO> templates = templateRepository.findAll().stream()
                 .map(t -> new AlertTemplateDTO(t.getId(), t.getAlertType(), t.getTemplate()))
                 .collect(Collectors.toList());
@@ -56,8 +59,62 @@ public class EdgeSyncController {
     private com.surgealert.repository.SensorDataRepository sensorDataRepository;
 
     /**
-     * Fetches the latest simulated environmental data and water level.
-     * The Pi uses this every 10 mins to display the simulation status.
+     * Edge uploads camera snapshot (base64) over HTTPS; MQTT carries telemetry only.
+     */
+    @PostMapping("/snapshot")
+    public ResponseEntity<Map<String, String>> uploadSnapshot(@RequestBody Map<String, String> body) {
+        String timestamp = body.get("timestamp");
+        String snapshotBase64 = body.get("snapshotBase64");
+        if (timestamp == null || snapshotBase64 == null || snapshotBase64.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        boolean attached = sensorDataService.attachSnapshotByTimestamp(timestamp, snapshotBase64);
+        if (!attached) {
+            return ResponseEntity.notFound().build();
+        }
+        Map<String, String> resp = new LinkedHashMap<>();
+        resp.put("status", "ok");
+        return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * Latest ml_features_realtime row for edge ML inference (rainfall, tide, pressure, etc.).
+     */
+    @GetMapping("/ml-features")
+    public ResponseEntity<Map<String, Object>> syncMlFeatures() {
+        Map<String, Object> data = new LinkedHashMap<>();
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        mlRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(now).ifPresent(ml -> {
+            data.put("timestamp", ml.getTimestamp() != null ? ml.getTimestamp().toString() : null);
+            data.put("water_level", ml.getWaterLevel());
+            data.put("rise_rate", ml.getRiseRate());
+            data.put("sensor_rise_rate", ml.getSensorRiseRate());
+            data.put("Tide_Height_m", ml.getTideHeightM());
+            data.put("Tide_Trend", ml.getTideTrend());
+            data.put("QC_Rain_mm", ml.getQcRainMm());
+            data.put("QC_Lag1", ml.getQcLag1Mm());
+            data.put("QC_Lag2", ml.getQcLag2Mm());
+            data.put("QC_3hr_Sum", ml.getQc3hrSum());
+            data.put("QC_6hr_Sum", ml.getQc6hrSum());
+            data.put("Marulas_Rain_mm", ml.getMarulasRainMm());
+            data.put("Mar_Lag1", ml.getMarLag1Mm());
+            data.put("Mar_Lag2", ml.getMarLag2Mm());
+            data.put("Mar_3hr_Sum", ml.getMar3hrSum());
+            data.put("Mar_6hr_Sum", ml.getMar6hrSum());
+            data.put("Mar_24hr_Sum", ml.getMar24hrSum());
+            data.put("Pressure_hPa", ml.getPressureHpa());
+            data.put("Press_Trend", ml.getPressTrend());
+            data.put("Wind_Speed", ml.getWindSpeed());
+            data.put("Wind_Sin", ml.getWindSin());
+            data.put("Wind_Cos", ml.getWindCos());
+            data.put("Soil_Moisture", ml.getSoilMoisture());
+            data.put("predicted_alert_class", ml.getPredictedAlertClass());
+        });
+        return ResponseEntity.ok(data);
+    }
+
+    /**
+     * Fetches the latest environmental data (legacy display endpoint).
      */
     @GetMapping("/environmental")
     public ResponseEntity<Map<String, Object>> syncEnvironmental() {
@@ -68,7 +125,8 @@ public class EdgeSyncController {
             data.put("water_level", sd.getWaterLevelM());
             data.put("alert_level", sd.getCurrentAlertLevel());
             data.put("flow_rate", sd.getSensorFlowRateMps());
-            data.put("rise_rate", sd.getImageRiseRateMps());
+            Double rise = sd.getSensorRiseRate() != null ? sd.getSensorRiseRate() : sd.getImageRiseRateMps();
+            data.put("rise_rate", rise);
             data.put("timestamp", sd.getTimestamp().toString());
         });
 

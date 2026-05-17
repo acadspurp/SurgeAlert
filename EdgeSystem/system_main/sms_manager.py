@@ -27,6 +27,10 @@ class SMSManager:
             return True
         return self._send_via_gsm(phone_number, message)
 
+    def send_gsm_only(self, phone_number, message):
+        """Offline alert path: SIM7600 only (no internet / Semaphore)."""
+        return self._send_via_gsm(phone_number, message)
+
     def _send_via_semaphore(self, phone_number, message):
         if not SEMAPHORE_ENABLED or not SEMAPHORE_API_KEY:
             return False

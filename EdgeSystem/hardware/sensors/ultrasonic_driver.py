@@ -30,7 +30,11 @@ reading_queue = collections.deque(maxlen=SMOOTHING_WINDOW)
 
 def get_distance():
     if not IS_PI:
-        return 0.0
+        # Simulated distance (m) for dev / non-Pi hosts
+        import math
+        t = time.time()
+        sim_dist = 3.5 + 0.15 * math.sin(t / 120.0)
+        return _get_smoothed_value(round(sim_dist, 3))
 
     try:
         # Trigger the sensor

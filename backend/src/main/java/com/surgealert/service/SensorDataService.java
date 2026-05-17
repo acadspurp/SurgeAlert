@@ -349,4 +349,30 @@ public class SensorDataService {
         }
         return null;
     }
+
+    /**
+     * Attach image_bytes to the sensor_data row nearest the given grid timestamp (edge HTTPS upload).
+     */
+    @Transactional
+    public boolean attachSnapshotByTimestamp(String timestampIso, String snapshotBase64) {
+        try {
+            String normalized = timestampIso.contains("T") ? timestampIso : timestampIso.replace(" ", "T");
+            LocalDateTime ts = LocalDateTime.parse(normalized.length() > 19 ? normalized.substring(0, 19) : normalized);
+            Optional<SensorData> opt = sensorDataRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(ts);
+            if (opt.isEmpty()) {
+                opt = sensorDataRepository.findFirstByOrderByTimestampDesc();
+            }
+            if (opt.isEmpty()) {
+                return false;
+            }
+            byte[] imageBytes = java.util.Base64.getDecoder().decode(snapshotBase64);
+            SensorData sd = opt.get();
+            sd.setImageBytes(imageBytes);
+            sensorDataRepository.save(sd);
+            return true;
+        } catch (Exception e) {
+            System.err.println(" [Storage] Snapshot attach failed: " + e.getMessage());
+            return false;
+        }
+    }
 }

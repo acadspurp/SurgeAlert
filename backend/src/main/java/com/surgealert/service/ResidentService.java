@@ -111,6 +111,21 @@ public class ResidentService {
                 .collect(Collectors.toList());
     }
 
+    /** Edge Pi offline SMS: phone + priority flag. */
+    public List<Map<String, Object>> getActiveResidentsForEdgeSync() {
+        return residentRepository.findByIsActiveTrue().stream()
+                .sorted((a, b) -> Boolean.compare(
+                        Boolean.TRUE.equals(b.getIsPriority()),
+                        Boolean.TRUE.equals(a.getIsPriority())))
+                .map(r -> {
+                    Map<String, Object> entry = new java.util.LinkedHashMap<>();
+                    entry.put("phoneNumber", r.getPhoneNumber());
+                    entry.put("isPriority", Boolean.TRUE.equals(r.getIsPriority()));
+                    return entry;
+                })
+                .collect(Collectors.toList());
+    }
+
     // --- USED FOR ADMIN DASHBOARD (EXTERNAL USE - RETURNS MASKED DATA) ---
     public List<ResidentAdminDTO> getAllActiveResidentsForAdmin() {
         return residentRepository.findByIsActiveTrue().stream()

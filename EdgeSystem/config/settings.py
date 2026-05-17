@@ -83,6 +83,15 @@ LK_WINDOW_SIZE = (15, 15)
 LK_MAX_LEVEL = 2
 LK_CRITERIA = (3, 10, 0.03)
 
+# --- DUTY CYCLE (sensors + camera sleep/wake) ---
+SLEEP_DURATION_SEC = 270            # 4 min 30 s low-power sleep
+GATHER_DURATION_SEC = 30              # 30 s active sensor burst
+SNAPSHOT_INTERVAL_SEC = 300           # snapshot every 5 min (one per cycle)
+CYCLE_INTERVAL_SEC = SLEEP_DURATION_SEC + GATHER_DURATION_SEC  # 5 min total
+RISE_RATE_WINDOW_SEC = 900            # ~15 min ultrasonic history for rise_rate (m/h)
+ML_FEATURES_MAX_AGE_HOURS = 6         # stale cache warning threshold
+LOCAL_SYNCED_RETAIN_DAYS = 7          # purge synced local rows older than this
+
 # --- SYSTEM CONFIGURATION ---
 # Set True = Use Real Sensors (Pi Camera, Ultrasonic, HLK Radar)
 USE_HARDWARE = True
@@ -114,7 +123,7 @@ else:
     #     This file is tracked by git, so the change will persist after every push.
     #     Mirror the same value in: backend/src/main/resources/application.properties
     #                              → surgealert.sensor.depth-m=6.1
-    SENSOR_HEIGHT_FROM_MUDPLAIN = 6.1  # 20 ft ≈ 6.096 m
+    SENSOR_HEIGHT_FROM_MUDPLAIN = float(os.getenv("SENSOR_DEPTH_M", "6.0"))
 
     PIXELS_TO_METERS = 0.01
 
