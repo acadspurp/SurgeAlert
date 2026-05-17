@@ -75,7 +75,6 @@ public class SensorDataService {
             sensorData.setSensorFlowRateMps(dto.getSensorFlowRateMps());
             sensorData.setImageFlowRateMps(dto.getImageFlowRateMps());
             sensorData.setImageRiseRateMps(dto.getImageRiseRateMps());
-            sensorData.setSensorRiseRate(dto.getSensorRiseRate());
 
             if (dto.getSnapshotBase64() != null && !dto.getSnapshotBase64().isEmpty()) {
                 try {

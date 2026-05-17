@@ -69,24 +69,21 @@ class AlertManager:
             
         return "GREEN"
 
-    def predict_alert_class(self, water_level, rise_rate_cv, rise_rate_sensor, tide_level, 
+    def predict_alert_class(self, water_level, rise_rate_mph, tide_level,
                            qc_rain, qc_lag1, qc_lag2,
                            mar_rain, mar_lag1, mar_lag2, mar_3h, mar_6h, mar_24h,
                            pressure, wind, soil_moisture):
         """
-        AI Logic: Predicts the ALERT CLASS based on your professional 16-feature vector.
-        Input order (MUST match train_model.py): 
-        [water_level, rise_rate_cv, rise_rate_sensor, Tide_Height_m, 
-         QC_Rain_mm, QC_Lag1, QC_Lag2, Marulas_Rain_mm, Mar_Lag1, Mar_Lag2, 
-         Mar_3hr_Sum, Mar_6hr_Sum, Mar_24hr_Sum, Pressure_hPa, Wind_Speed, Soil_Moisture_pct]
+        AI Logic: 15-feature vector (ultrasonic rise_rate only, in m/s for model input).
+        Retrain with train_model.py after changing feature list.
         """
         if self.model is None:
             return None
 
         try:
-            # Prepare input vector (Must match train_model.py exactly)
+            rise_mps = (rise_rate_mph or 0.0) / 3600.0
             features = np.array([[
-                water_level, rise_rate_cv, rise_rate_sensor, tide_level,
+                water_level, rise_mps, tide_level,
                 qc_rain, qc_lag1, qc_lag2,
                 mar_rain, mar_lag1, mar_lag2, mar_3h, mar_6h, mar_24h,
                 pressure, wind, soil_moisture

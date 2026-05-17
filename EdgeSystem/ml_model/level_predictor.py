@@ -18,18 +18,15 @@ class LevelPredictor:
         """
         ml = ml_features or {}
         rise_mph = rise_rate_mph or 0.0
-        rise_mps = rise_mph / 3600.0
 
         predicted_level = max(0.0, (water_level or 0.0) + rise_mph)
         predicted_level = round(predicted_level, 2)
 
         predicted_alert = None
         if self.alert_manager.model is not None and ml and not features_stale:
-            # Model was trained with rise_rate + sensor_rise_rate; both use ultrasonic m/s.
             predicted_alert = self.alert_manager.predict_alert_class(
                 water_level=water_level or 0.0,
-                rise_rate_cv=rise_mps,
-                rise_rate_sensor=rise_mps,
+                rise_rate_mph=rise_mph,
                 tide_level=ml.get("Tide_Height_m", 0.0),
                 qc_rain=ml.get("QC_Rain_mm", 0.0),
                 qc_lag1=ml.get("QC_Lag1", 0.0),

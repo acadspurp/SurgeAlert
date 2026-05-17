@@ -39,8 +39,7 @@ class DatabaseManager:
                     water_level REAL,
                     sensor_flow_rate_mps REAL,
                     image_flow_rate_mps REAL,
-                    rise_rate REAL, 
-                    sensor_rise_rate REAL,
+                    rise_rate REAL,
                     predicted_level REAL,
                     current_alert_level TEXT,
                     predicted_alert_level TEXT,
@@ -100,7 +99,6 @@ class DatabaseManager:
                     timestamp TEXT NOT NULL,
                     water_level REAL,
                     rise_rate REAL,
-                    sensor_rise_rate REAL,
                     Tide_Height_m REAL,
                     Tide_Trend REAL,
                     QC_Rain_mm REAL,
@@ -284,13 +282,13 @@ class DatabaseManager:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO ml_features_realtime 
-                    (timestamp, water_level, rise_rate, sensor_rise_rate, Tide_Height_m, Tide_Trend,
+                    (timestamp, water_level, rise_rate, Tide_Height_m, Tide_Trend,
                      QC_Rain_mm, QC_Lag1, QC_Lag2, QC_3hr_Sum, QC_6hr_Sum,
                      Marulas_Rain_mm, Mar_Lag1, Mar_Lag2, Mar_3hr_Sum, Mar_6hr_Sum, Mar_24hr_Sum, 
                      Pressure_hPa, Press_Trend, Wind_Speed, Wind_Sin, Wind_Cos, Soil_Moisture, 
                      predicted_alert_class)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (timestamp, wl, rr, rr, tide_h, tide_trend,
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (timestamp, wl, rr, tide_h, tide_trend,
                       weather["QC_Rain_mm"], weather["QC_Lag1"], weather["QC_Lag2"],
                       weather["QC_3hr_Sum"], weather["QC_6hr_Sum"],
                       weather["Marulas_Rain_mm"], weather["Mar_Lag1"], weather["Mar_Lag2"],

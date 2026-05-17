@@ -88,7 +88,6 @@ public class EdgeSyncController {
             data.put("timestamp", ml.getTimestamp() != null ? ml.getTimestamp().toString() : null);
             data.put("water_level", ml.getWaterLevel());
             data.put("rise_rate", ml.getRiseRate());
-            data.put("sensor_rise_rate", ml.getSensorRiseRate());
             data.put("Tide_Height_m", ml.getTideHeightM());
             data.put("Tide_Trend", ml.getTideTrend());
             data.put("QC_Rain_mm", ml.getQcRainMm());
@@ -125,8 +124,7 @@ public class EdgeSyncController {
             data.put("water_level", sd.getWaterLevelM());
             data.put("alert_level", sd.getCurrentAlertLevel());
             data.put("flow_rate", sd.getSensorFlowRateMps());
-            Double rise = sd.getSensorRiseRate() != null ? sd.getSensorRiseRate() : sd.getImageRiseRateMps();
-            data.put("rise_rate", rise);
+            data.put("rise_rate", sd.getImageRiseRateMps());
             data.put("timestamp", sd.getTimestamp().toString());
         });
 

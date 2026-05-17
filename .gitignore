@@ -14,8 +14,12 @@ __pycache__/
 node_modules/
 dist/
 
-# Java/Maven build outputs
+# Java/Maven build outputs (never commit compiled classes)
 backend/target/
+**/target/
+*.class
+*.jar
+!**/gradle-wrapper.jar
 
 # Sensitive credentials/certs
 **/firebase-service-account.json
@@ -23,6 +27,5 @@ backend/target/
 *.key
 *.p12
 
-# Ignore Maven/Java build outputs
+# Legacy root target/
 target/
-*.class

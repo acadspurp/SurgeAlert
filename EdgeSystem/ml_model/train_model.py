@@ -23,8 +23,6 @@ def train_on_user_dataset():
     
     # --- FEATURE ENGINEERING & AUGMENTATION ---
     if 'Soil_Moisture' not in df.columns: df['Soil_Moisture'] = 0.5
-    if 'sensor_rise_rate' not in df.columns: df['sensor_rise_rate'] = 0.0
-    
     if 'water_level' not in df.columns:
         print(" [Note] Generating Hydrologically-Grounded Water Levels...")
         # REALISM UPDATE: We are increasing the random noise from 0.05 to 0.6.
@@ -54,7 +52,7 @@ def train_on_user_dataset():
     # the model will just cheat and get 100% accuracy. The model must learn to 
     # predict the 0-3 class using only raw Rain, Wind, and Tide.
     feature_cols = [
-        'Month', 'Hour', 'rise_rate', 'sensor_rise_rate',
+        'Month', 'Hour', 'rise_rate',
         'Tide_Height_m', 'Tide_Trend',
         'Pressure_hPa', 'Press_Trend',
         'Wind_Speed', 'Wind_Sin', 'Wind_Cos',
