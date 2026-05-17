@@ -80,10 +80,11 @@ LK_MAX_LEVEL = 2
 LK_CRITERIA = (3, 10, 0.03)
 
 # --- DUTY CYCLE (sensors + camera sleep/wake) ---
-SLEEP_DURATION_SEC = 270            # 4 min 30 s low-power sleep
-GATHER_DURATION_SEC = 30              # 30 s active sensor burst
-SNAPSHOT_INTERVAL_SEC = 300           # snapshot every 5 min (one per cycle)
-CYCLE_INTERVAL_SEC = SLEEP_DURATION_SEC + GATHER_DURATION_SEC  # 5 min total
+# 4 min 30 s rest + 30 s active = 5 min total, aligned to :00/:05/:10 grid (edge_time_utils).
+SLEEP_DURATION_SEC = 270            # 4 min 30 s rest (sensors/camera idle)
+GATHER_DURATION_SEC = 30              # 30 s active gather burst
+CYCLE_INTERVAL_SEC = SLEEP_DURATION_SEC + GATHER_DURATION_SEC  # 300 s = 5 min
+SNAPSHOT_INTERVAL_SEC = CYCLE_INTERVAL_SEC  # one snapshot per cycle
 RISE_RATE_WINDOW_SEC = 900            # ~15 min ultrasonic history for rise_rate (m/h)
 ML_FEATURES_MAX_AGE_HOURS = 6         # stale cache warning threshold
 LOCAL_SYNCED_RETAIN_DAYS = 7          # purge synced local rows older than this

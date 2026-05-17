@@ -56,7 +56,7 @@ public class EdgeSyncController {
      * Returns everything the Pi needs to know to send SMS alerts offline.
      */
     @GetMapping("/all")
-    public ResponseEntity<Map<String, Object>> syncAll(@RequestHeader(value = "X-Edge-Key", required = false) String edgeKey) {
+    public ResponseEntity<Map<String, Object>> syncAll() {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("residents", residentService.getActiveResidentsForEdgeSync());
         List<AlertTemplateDTO> templates = templateRepository.findAll().stream()
@@ -159,7 +159,7 @@ public class EdgeSyncController {
             data.put("water_level", sd.getWaterLevelM());
             data.put("alert_level", sd.getCurrentAlertLevel());
             data.put("flow_rate", sd.getSensorFlowRateMps());
-            data.put("rise_rate", sd.getImageRiseRateMps());
+            data.put("rise_rate", sd.getRiseRateMph());
             data.put("timestamp", sd.getTimestamp().toString());
         });
 

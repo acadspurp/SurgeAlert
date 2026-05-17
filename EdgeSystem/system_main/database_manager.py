@@ -11,6 +11,7 @@ class DatabaseManager:
         os.makedirs(DATABASE_DIR, exist_ok=True)
         self.database_path = DATABASE_PATH
         self._create_tables()
+        self._drop_legacy_tables()
 
     def _get_connection(self):
         """Establishes a connection to the SQLite database."""
@@ -69,30 +70,7 @@ class DatabaseManager:
                 )
             """)
 
-            # 3. Tide Metrics Table (Raw only as requested)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS tide_metrics (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TEXT NOT NULL,
-                    Tide_Height_m REAL
-                )
-            """)
-
-            # 4. Weather Metrics Table (Dual Location - Raw only)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS weather_metrics (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TEXT NOT NULL,
-                    QC_Rain_mm REAL,
-                    Marulas_Rain_mm REAL,
-                    Mar_24hr_Sum REAL,
-                    Pressure_hPa REAL,
-                    Wind_Speed REAL,
-                    Soil_Moisture REAL
-                )
-            """)
-
-            # 5. ML Realtime Features Table (Refined with all 21 professional features)
+            # 3. ML Realtime Features Table (cloud cache for offline inference)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS ml_features_realtime (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -122,18 +100,7 @@ class DatabaseManager:
                 )
             """)
 
-            # 6. Snapshots Table (For Image History)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS snapshots (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    sensor_data_id INTEGER,
-                    timestamp TEXT NOT NULL,
-                    image_base64 TEXT,
-                    FOREIGN KEY(sensor_data_id) REFERENCES sensor_data(id)
-                )
-            """)
-
-            # 7. Alert Templates (Synced from Backend)
+            # 4. Alert Templates (Synced from Backend)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS alert_templates (
                     alert_type TEXT PRIMARY KEY,
@@ -141,7 +108,7 @@ class DatabaseManager:
                 )
             """)
 
-            # 8. OTP Cache (Synced from Backend for offline verification)
+            # 5. OTP Cache (Synced from Backend for offline verification)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS otp_cache (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -185,6 +152,18 @@ class DatabaseManager:
             except Exception as e:
                 print(f" [DB] residents migration warning: {e}")
 
+    def _drop_legacy_tables(self):
+        """Remove unused Pi tables (images live in sensor_data.image_bytes)."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                for table in ("snapshots", "tide_metrics", "weather_metrics"):
+                    cursor.execute(f"DROP TABLE IF EXISTS {table}")
+                conn.commit()
+                print(" [DB] Legacy tables removed (snapshots, tide_metrics, weather_metrics).")
+        except Exception as e:
+            print(f" [DB] Legacy table drop warning: {e}")
+
     # --- SENSOR LOGGING ---
     def log_sensor_data(self, reading, raw_vectors=None, image_bytes=None):
         """Logs core edge telemetry (environmental data lives in ml_features_realtime cache)."""
@@ -218,36 +197,6 @@ class DatabaseManager:
         except Exception as e:
             print(f" [DB] Error logging sensor data: {e}")
             return None
-
-    def log_tide_metrics(self, tide_height):
-        """Logs raw tide data to the tide_metrics table."""
-        try:
-            timestamp = datetime.now().isoformat()
-            with self._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO tide_metrics (timestamp, Tide_Height_m)
-                    VALUES (?, ?)
-                """, (timestamp, tide_height))
-                conn.commit()
-        except Exception as e:
-            print(f" [DB] Error logging tide metrics: {e}")
-
-    def log_weather_metrics(self, weather_data):
-        """Logs weather data to the weather_metrics table."""
-        try:
-            timestamp = datetime.now().isoformat()
-            with self._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO weather_metrics (timestamp, QC_Rain_mm, Marulas_Rain_mm, Mar_24hr_Sum, Pressure_hPa, Wind_Speed, Soil_Moisture)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (timestamp, weather_data["QC_Rain_mm"], weather_data["Marulas_Rain_mm"], 
-                      weather_data["Mar_24hr_Sum"], weather_data["Pressure_hPa"], 
-                      weather_data["Wind_Speed"], weather_data["Soil_Moisture"]))
-                conn.commit()
-        except Exception as e:
-            print(f" [DB] Error logging weather metrics: {e}")
 
     def cache_ml_features_row(self, ml_row, water_level=None, rise_rate_mph=None, pred_class=None):
         """Persist latest ml_features_realtime from cloud or cycle context."""
@@ -327,20 +276,6 @@ class DatabaseManager:
             print(f" [DB] Error reading ML cache: {e}")
             return None
 
-    def log_snapshot(self, sensor_data_id, image_base64, timestamp=None):
-        """Logs image snapshot to the snapshots table."""
-        try:
-            timestamp = timestamp or grid_timestamp_iso()
-            with self._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO snapshots (sensor_data_id, timestamp, image_base64)
-                    VALUES (?, ?, ?)
-                """, (sensor_data_id, timestamp, image_base64))
-                conn.commit()
-        except Exception as e:
-            print(f" [DB] Error logging snapshot: {e}")
-
     def get_unsynced_data(self, limit=50):
         """Retrieves unsynced sensor data."""
         try:
@@ -377,11 +312,6 @@ class DatabaseManager:
             cutoff = (datetime.now() - timedelta(days=retain_days)).isoformat()
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
-                    DELETE FROM snapshots WHERE sensor_data_id IN (
-                        SELECT id FROM sensor_data WHERE is_synced = 1 AND timestamp < ?
-                    )
-                """, (cutoff,))
                 cursor.execute("DELETE FROM sensor_data WHERE is_synced = 1 AND timestamp < ?", (cutoff,))
                 deleted = cursor.rowcount
                 conn.commit()

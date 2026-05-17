@@ -2,12 +2,9 @@ package com.surgealert.service;
 
 import com.surgealert.dto.SensorDataDTO;
 import com.surgealert.entity.SensorData;
-import com.surgealert.entity.TideMetrics;
-import com.surgealert.entity.WeatherMetrics;
 import com.surgealert.entity.MLFeaturesRealtime;
+import com.surgealert.util.GridTimeUtils;
 import com.surgealert.repository.SensorDataRepository;
-import com.surgealert.repository.TideMetricsRepository;
-import com.surgealert.repository.WeatherMetricsRepository;
 import com.surgealert.repository.MLFeaturesRealtimeRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -24,8 +21,6 @@ import java.util.stream.Collectors;
 public class SensorDataService {
     private static final java.time.ZoneId MANILA_ZONE = java.time.ZoneId.of("Asia/Manila");
     private final SensorDataRepository sensorDataRepository;
-    private final TideMetricsRepository tideMetricsRepository;
-    private final WeatherMetricsRepository weatherMetricsRepository;
     private final MLFeaturesRealtimeRepository mlFeaturesRealtimeRepository;
 
     // Reads from application.properties → surgealert.sensor.depth-m →
@@ -43,131 +38,73 @@ public class SensorDataService {
     private double redThreshold;
 
     public SensorDataService(SensorDataRepository sensorDataRepository,
-            TideMetricsRepository tideMetricsRepository,
-            WeatherMetricsRepository weatherMetricsRepository,
             MLFeaturesRealtimeRepository mlFeaturesRealtimeRepository) {
         this.sensorDataRepository = sensorDataRepository;
-        this.tideMetricsRepository = tideMetricsRepository;
-        this.weatherMetricsRepository = weatherMetricsRepository;
         this.mlFeaturesRealtimeRepository = mlFeaturesRealtimeRepository;
     }
 
+    /**
+     * MQTT / edge telemetry ingest — sensor_data only (no tide, weather, or ml_features writes).
+     * Images arrive via HTTPS {@code /edge/sync/snapshot}, not MQTT.
+     */
+    public SensorData saveSensorDataFromMqtt(SensorDataDTO dto) {
+        if (dto != null) {
+            dto.setSnapshotBase64(null);
+        }
+        return saveSensorData(dto);
+    }
+
+    /**
+     * Persists one 5-minute grid telemetry row. Environmental tables are filled by {@link com.surgealert.service.DataCollectionScheduler} only.
+     */
     public SensorData saveSensorData(SensorDataDTO dto) {
-        // --- DATA GUARD: REJECT GHOST VALUES / NOISE ---
-        // We relax this to 0.10m to allow for legitimate low-water readings 
-        // during dry seasons or low tides while still filtering absolute zeros.
+        if (dto == null) {
+            return null;
+        }
         if (dto.getWaterLevelM() != null && dto.getWaterLevelM() < 0.10) {
             System.out.println(" [DATA GUARD] Blocking ghost value: " + dto.getWaterLevelM() + "m");
             return null;
         }
 
-        LocalDateTime now = dto.getTimestamp() != null ? dto.getTimestamp() : LocalDateTime.now();
-
-        // 1. SAVE CORE SENSOR DATA (Skip if Simulated)
-        SensorData savedSensor = null;
         if (dto.getIsSimulated() != null && dto.getIsSimulated()) {
             System.out.println(" [DATA GUARD] Skipping simulated sensor data save.");
+            return null;
+        }
+
+        LocalDateTime gridTs = dto.getTimestamp() != null
+                ? GridTimeUtils.alignToFiveMinuteGrid(dto.getTimestamp())
+                : GridTimeUtils.alignToFiveMinuteGrid(LocalDateTime.now(MANILA_ZONE));
+
+        Double riseMph = dto.getRiseRateMph() != null ? dto.getRiseRateMph() : 0.0;
+
+        SensorData sensorData = sensorDataRepository.findByTimestamp(gridTs).orElseGet(SensorData::new);
+        sensorData.setTimestamp(gridTs);
+        sensorData.setWaterLevelM(dto.getWaterLevelM());
+        sensorData.setSensorFlowRateMps(dto.getSensorFlowRateMps() != null ? dto.getSensorFlowRateMps() : 0.0);
+        sensorData.setImageFlowRateMps(dto.getImageFlowRateMps() != null ? dto.getImageFlowRateMps() : 0.0);
+        sensorData.setRiseRateMph(riseMph);
+        sensorData.setSensorRiseRate(riseMph);
+
+        String alertLevel = dto.getCurrentAlertLevel();
+        if (alertLevel == null || alertLevel.isEmpty()) {
+            alertLevel = calculateFallbackAlertLevel(dto.getWaterLevelM());
+        }
+        sensorData.setCurrentAlertLevel(alertLevel.toUpperCase());
+
+        if (dto.getPredictedLevel() != null) {
+            sensorData.setPredictedLevel(dto.getPredictedLevel());
         } else {
-            SensorData sensorData = new SensorData();
-            sensorData.setTimestamp(now);
-            sensorData.setWaterLevelM(dto.getWaterLevelM());
-            sensorData.setSensorFlowRateMps(dto.getSensorFlowRateMps());
-            sensorData.setImageFlowRateMps(dto.getImageFlowRateMps());
-            sensorData.setImageRiseRateMps(dto.getImageRiseRateMps());
-
-            if (dto.getSnapshotBase64() != null && !dto.getSnapshotBase64().isEmpty()) {
-                try {
-                    byte[] imageBytes = java.util.Base64.getDecoder().decode(dto.getSnapshotBase64());
-                    sensorData.setImageBytes(imageBytes);
-                } catch (Exception e) {
-                    System.err.println(" [Storage] Failed to decode image base64: " + e.getMessage());
-                }
-            }
-
-            String alertLevel = dto.getCurrentAlertLevel();
-            if (alertLevel == null || alertLevel.isEmpty()) {
-                alertLevel = calculateFallbackAlertLevel(dto.getWaterLevelM());
-            }
-            sensorData.setCurrentAlertLevel(alertLevel.toUpperCase());
-
-            if (dto.getPredictedLevel() != null) {
-                sensorData.setPredictedLevel(dto.getPredictedLevel());
-            } else {
-                sensorData.setPredictedLevel(dto.getWaterLevelM());
-            }
-
-            String predictedAlert = dto.getPredictedAlertLevel();
-            if (predictedAlert != null && !predictedAlert.isEmpty()) {
-                sensorData.setPredictedAlertLevel(predictedAlert);
-            } else {
-                sensorData.setPredictedAlertLevel(calculateFallbackAlertLevel(sensorData.getPredictedLevel()));
-            }
-
-            savedSensor = sensorDataRepository.save(sensorData);
+            sensorData.setPredictedLevel(dto.getWaterLevelM());
         }
 
-        // 2. SAVE TIDE METRICS (Only if not recently saved by Scheduler to avoid
-        // duplicates)
-        if (dto.getTideHeightM() != null) {
-            boolean exists = tideMetricsRepository.findFirstByOrderByTimestampDesc()
-                    .map(t -> t.getTimestamp().isAfter(now.minusMinutes(1))).orElse(false);
-            if (!exists) {
-                TideMetrics tide = new TideMetrics();
-                tide.setTimestamp(now != null ? now : LocalDateTime.now(MANILA_ZONE));
-                tide.setTideHeightM(dto.getTideHeightM());
-                tide.setTideTrend(dto.getTideTrend());
-                tideMetricsRepository.save(tide);
-            }
+        String predictedAlert = dto.getPredictedAlertLevel();
+        if (predictedAlert != null && !predictedAlert.isEmpty()) {
+            sensorData.setPredictedAlertLevel(predictedAlert);
+        } else {
+            sensorData.setPredictedAlertLevel(calculateFallbackAlertLevel(sensorData.getPredictedLevel()));
         }
 
-        // 3. SAVE WEATHER METRICS (Only if not recently saved by Scheduler)
-        if (dto.getRainMm() != null || dto.getMarulasRainMm() != null) {
-            boolean exists = weatherMetricsRepository.findFirstByTimestampBeforeOrderByTimestampDesc(now.plusMinutes(1))
-                    .map(w -> w.getTimestamp().isAfter(now.minusMinutes(1))).orElse(false);
-            if (!exists) {
-                WeatherMetrics weather = new WeatherMetrics();
-                weather.setTimestamp(now);
-                weather.setQcRainMm(dto.getRainMm());
-                weather.setMarulasRainMm(dto.getMarulasRainMm());
-                weather.setMar24hrSum(dto.getMar24hrSum());
-                weather.setPressureHpa(dto.getPressureHpa());
-                weather.setWindSpeed(dto.getWindSpeedKph());
-                weather.setSoilMoisture(dto.getSoilMoisturePct());
-                weatherMetricsRepository.save(weather);
-            }
-        }
-
-        // 4. SAVE ML FEATURES REALTIME (All calculated features)
-        MLFeaturesRealtime ml = new MLFeaturesRealtime();
-        ml.setTimestamp(now);
-
-        ml.setTideHeightM(dto.getTideHeightM());
-        ml.setTideTrend(dto.getTideTrend());
-
-        ml.setQcRainMm(dto.getRainMm());
-        ml.setQcLag1Mm(dto.getQcLag1());
-        ml.setQcLag2Mm(dto.getQcLag2());
-        ml.setQc3hrSum(dto.getQc3hrSum());
-        ml.setQc6hrSum(dto.getQc6hrSum());
-
-        ml.setMarulasRainMm(dto.getMarulasRainMm());
-        ml.setMarLag1Mm(dto.getMarLag1());
-        ml.setMarLag2Mm(dto.getMarLag2());
-        ml.setMar3hrSum(dto.getMar3hrSum());
-        ml.setMar24hrSum(dto.getMar24hrSum());
-
-        ml.setPressureHpa(dto.getPressureHpa());
-        ml.setPressTrend(dto.getPressTrend());
-
-        ml.setWindSpeed(dto.getWindSpeedKph());
-        ml.setWindSin(dto.getWindSin());
-        ml.setWindCos(dto.getWindCos());
-
-        ml.setSoilMoisture(dto.getSoilMoisturePct());
-        ml.setPredictedAlertClass(dto.getPredictedAlertClass());
-        mlFeaturesRealtimeRepository.save(ml);
-
-        return savedSensor;
+        return sensorDataRepository.save(sensorData);
     }
 
     public SensorDataDTO getLatestSensorData() {
@@ -183,7 +120,8 @@ public class SensorDataService {
         dto.setWaterLevelM(row.getWaterLevelM());
         dto.setSensorFlowRateMps(row.getSensorFlowRateMps());
         dto.setImageFlowRateMps(row.getImageFlowRateMps());
-        dto.setImageRiseRateMps(row.getImageRiseRateMps());
+        dto.setRiseRateMph(row.getRiseRateMph());
+        dto.setSensorRiseRate(row.getSensorRiseRate());
         dto.setCurrentAlertLevel(row.getCurrentAlertLevel());
         dto.setPredictedLevel(row.getPredictedLevel());
         dto.setPredictedAlertLevel(row.getPredictedAlertLevel());
@@ -200,7 +138,8 @@ public class SensorDataService {
         dto.setWaterLevelM(row.getWaterLevelM());
         dto.setSensorFlowRateMps(row.getSensorFlowRateMps());
         dto.setImageFlowRateMps(row.getImageFlowRateMps());
-        dto.setImageRiseRateMps(row.getImageRiseRateMps());
+        dto.setRiseRateMph(row.getRiseRateMph());
+        dto.setSensorRiseRate(row.getSensorRiseRate());
         dto.setSensorRiseRate(row.getSensorRiseRate());
         dto.setCurrentAlertLevel(row.getCurrentAlertLevel());
         dto.setPredictedLevel(row.getPredictedLevel());
@@ -229,7 +168,7 @@ public class SensorDataService {
             dto.setWaterLevelM(sd.getWaterLevelM());
             dto.setSensorFlowRateMps(sd.getSensorFlowRateMps());
             dto.setImageFlowRateMps(sd.getImageFlowRateMps());
-            dto.setImageRiseRateMps(sd.getImageRiseRateMps());
+            dto.setRiseRateMph(sd.getRiseRateMph());
             dto.setSensorRiseRate(sd.getSensorRiseRate());
             dto.setCurrentAlertLevel(sd.getCurrentAlertLevel());
             dto.setPredictedLevel(sd.getPredictedLevel());
@@ -262,7 +201,7 @@ public class SensorDataService {
         dto.setWaterLevelM(sensorData.getWaterLevelM());
         dto.setSensorFlowRateMps(sensorData.getSensorFlowRateMps());
         dto.setImageFlowRateMps(sensorData.getImageFlowRateMps());
-        dto.setImageRiseRateMps(sensorData.getImageRiseRateMps());
+        dto.setRiseRateMph(sensorData.getRiseRateMph());
         dto.setSensorRiseRate(sensorData.getSensorRiseRate());
         dto.setCurrentAlertLevel(sensorData.getCurrentAlertLevel());
         dto.setPredictedLevel(sensorData.getPredictedLevel());
@@ -355,13 +294,10 @@ public class SensorDataService {
     @Transactional
     public boolean attachSnapshotByTimestamp(String timestampIso, String snapshotBase64) {
         try {
-            String normalized = timestampIso.contains("T") ? timestampIso : timestampIso.replace(" ", "T");
-            LocalDateTime ts = LocalDateTime.parse(normalized.length() > 19 ? normalized.substring(0, 19) : normalized);
-            Optional<SensorData> opt = sensorDataRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(ts);
+            LocalDateTime gridTs = GridTimeUtils.parseAndAlignGridTimestamp(timestampIso);
+            Optional<SensorData> opt = sensorDataRepository.findByTimestamp(gridTs);
             if (opt.isEmpty()) {
-                opt = sensorDataRepository.findFirstByOrderByTimestampDesc();
-            }
-            if (opt.isEmpty()) {
+                System.err.println(" [Storage] No sensor_data row for grid time " + gridTs + " (snapshot not attached).");
                 return false;
             }
             byte[] imageBytes = java.util.Base64.getDecoder().decode(snapshotBase64);

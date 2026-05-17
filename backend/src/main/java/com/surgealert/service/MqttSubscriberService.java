@@ -1,7 +1,6 @@
 package com.surgealert.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.surgealert.controller.SensorDataController;
 import com.surgealert.dto.SensorDataDTO;
 import com.surgealert.entity.SensorData;
 import org.eclipse.paho.client.mqttv3.MqttClient;
@@ -60,13 +59,8 @@ public class MqttSubscriberService {
                     // 1. Parse JSON payload
                     SensorDataDTO dto = objectMapper.readValue(payload, SensorDataDTO.class);
 
-                    // 2. Save Image Base64 (Using direct static variable as originally done)
-                    if (dto.getSnapshotBase64() != null && !dto.getSnapshotBase64().isEmpty()) {
-                        SensorDataController.currentImageBase64 = dto.getSnapshotBase64();
-                    }
-
-                    // 3. Save Data to Database
-                    SensorData savedData = sensorDataService.saveSensorData(dto);
+                    // 2. Save telemetry only (images via HTTPS /edge/sync/snapshot)
+                    SensorData savedData = sensorDataService.saveSensorDataFromMqtt(dto);
                     if (savedData == null)
                         return; // Ignore erroneous reading
 

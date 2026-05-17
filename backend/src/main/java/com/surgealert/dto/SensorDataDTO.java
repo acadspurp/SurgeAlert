@@ -24,9 +24,10 @@ public class SensorDataDTO {
     // Computer Vision Data
     private Double imageFlowRateMps;
     
+    /** Ultrasonic rise in m/h (Pi {@code rise_rate}). */
     @JsonAlias("rise_rate")
-    private Double imageRiseRateMps;
-    
+    private Double riseRateMph;
+
     @JsonAlias("sensor_rise_rate")
     private Double sensorRiseRate;
     
@@ -115,8 +116,14 @@ public class SensorDataDTO {
     public Double getImageFlowRateMps() { return imageFlowRateMps; }
     public void setImageFlowRateMps(Double imageFlowRateMps) { this.imageFlowRateMps = imageFlowRateMps; }
 
-    public Double getImageRiseRateMps() { return imageRiseRateMps; }
-    public void setImageRiseRateMps(Double imageRiseRateMps) { this.imageRiseRateMps = imageRiseRateMps; }
+    public Double getRiseRateMph() { return riseRateMph; }
+    public void setRiseRateMph(Double riseRateMph) { this.riseRateMph = riseRateMph; }
+
+    /** @deprecated Use {@link #getRiseRateMph()} — kept for older frontend payloads. */
+    @JsonProperty("imageRiseRateMps")
+    public Double getImageRiseRateMps() { return riseRateMph; }
+
+    public void setImageRiseRateMps(Double value) { this.riseRateMph = value; }
 
     public String getCurrentAlertLevel() { return currentAlertLevel; }
     public void setCurrentAlertLevel(String currentAlertLevel) { this.currentAlertLevel = currentAlertLevel; }

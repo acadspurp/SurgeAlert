@@ -76,15 +76,19 @@ public class AlertConfidenceService {
 
     private boolean cvValidationGate(SensorDataDTO dto) {
         if (dto == null) return false;
-        if (dto.getImageFlowRateMps() == null || dto.getImageRiseRateMps() == null) return false;
-        return dto.getImageFlowRateMps() >= cvMinFlowMps || dto.getImageRiseRateMps() >= cvMinRiseMps;
+        if (dto.getImageFlowRateMps() == null) return false;
+        Double riseMph = dto.getRiseRateMph();
+        double riseMps = riseMph != null ? riseMph / 3600.0 : 0.0;
+        return dto.getImageFlowRateMps() >= cvMinFlowMps || riseMps >= cvMinRiseMps;
     }
 
     private boolean crossModalConsistencyGate(SensorDataDTO dto) {
-        if (dto == null || dto.getWaterLevelM() == null || dto.getImageRiseRateMps() == null) return false;
+        if (dto == null || dto.getWaterLevelM() == null) return false;
+        Double riseMph = dto.getRiseRateMph();
+        if (riseMph == null) return false;
         boolean sensorRiskHigh = dto.getWaterLevelM() >= 8.5;
-        boolean cvRiskHigh = dto.getImageRiseRateMps() >= cvMinRiseMps;
-        return sensorRiskHigh == cvRiskHigh || (sensorRiskHigh && cvRiskHigh);
+        boolean riseRiskHigh = (riseMph / 3600.0) >= cvMinRiseMps;
+        return sensorRiskHigh == riseRiskHigh || (sensorRiskHigh && riseRiskHigh);
     }
 
     private boolean trendAndPredictionGate(Deque<Double> history, String currentAlertLevel, String predictedAlertLevel) {

@@ -53,7 +53,7 @@ public class DataSeeder implements CommandLineRunner {
             data.setWaterLevelM(wl);
             data.setSensorFlowRateMps(fr);
             data.setImageFlowRateMps(fr * 1.1 + (Math.random() - 0.5) * 0.1);
-            data.setImageRiseRateMps(0.0);
+            data.setRiseRateMph(0.0);
             
             String status = "GREEN";
             if (wl >= 8.5) status = "RED";

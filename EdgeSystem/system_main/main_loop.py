@@ -295,13 +295,15 @@ def main():
                         "current_alert_level": row["current_alert_level"],
                         "predicted_level": row["predicted_level"],
                         "predicted_alert_level": row["predicted_alert_level"],
-                        "is_simulated": False,
+                        "is_simulated": not USE_HARDWARE,
                     }
                     try:
                         mqtt_client.publish(MQTT_TOPIC_SENSOR, json.dumps(payload), qos=1)
-                        synced_ids.append(row["id"])
+                        snap_ok = True
                         if cloud_online and row.get("image_bytes"):
-                            upload_snapshot(row["timestamp"], row["image_bytes"])
+                            snap_ok = upload_snapshot(row["timestamp"], row["image_bytes"])
+                        if snap_ok:
+                            synced_ids.append(row["id"])
                     except Exception:
                         break
                 if synced_ids:

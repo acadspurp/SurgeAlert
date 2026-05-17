@@ -23,8 +23,9 @@ public class SensorData {
     @Column(nullable = false)
     private Double imageFlowRateMps;
 
+    /** Ultrasonic rise rate in meters per hour (m/h); Pi field {@code rise_rate}. */
     @Column(name = "rise_rate", nullable = false)
-    private Double imageRiseRateMps;
+    private Double riseRateMph;
 
     @Column(name = "sensor_rise_rate", nullable = true)
     private Double sensorRiseRate;
@@ -67,8 +68,8 @@ public class SensorData {
     public Double getImageFlowRateMps() { return imageFlowRateMps; }
     public void setImageFlowRateMps(Double imageFlowRateMps) { this.imageFlowRateMps = imageFlowRateMps; }
 
-    public Double getImageRiseRateMps() { return imageRiseRateMps; }
-    public void setImageRiseRateMps(Double imageRiseRateMps) { this.imageRiseRateMps = imageRiseRateMps; }
+    public Double getRiseRateMph() { return riseRateMph; }
+    public void setRiseRateMph(Double riseRateMph) { this.riseRateMph = riseRateMph; }
 
     public String getCurrentAlertLevel() { return currentAlertLevel; }
     public void setCurrentAlertLevel(String currentAlertLevel) { this.currentAlertLevel = currentAlertLevel; }

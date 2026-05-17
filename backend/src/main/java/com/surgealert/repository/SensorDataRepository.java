@@ -17,7 +17,7 @@ public interface SensorDataRepository extends JpaRepository<SensorData, Long> {
         Double getWaterLevelM();
         Double getSensorFlowRateMps();
         Double getImageFlowRateMps();
-        Double getImageRiseRateMps();
+        Double getRiseRateMph();
         Double getSensorRiseRate();
         String getCurrentAlertLevel();
         Double getPredictedLevel();
@@ -27,6 +27,8 @@ public interface SensorDataRepository extends JpaRepository<SensorData, Long> {
     Optional<SensorData> findFirstByOrderByTimestampDesc();
     
     Optional<SensorData> findFirstByTimestampLessThanEqualOrderByTimestampDesc(LocalDateTime timestamp);
+
+    Optional<SensorData> findByTimestamp(LocalDateTime timestamp);
     
     Optional<SensorData> findFirstByWaterLevelMGreaterThanEqualOrderByTimestampDesc(Double minLevel);
     
@@ -42,7 +44,7 @@ public interface SensorDataRepository extends JpaRepository<SensorData, Long> {
               water_level AS waterLevelM,
               sensor_flow_rate_mps AS sensorFlowRateMps,
               image_flow_rate_mps AS imageFlowRateMps,
-              rise_rate AS imageRiseRateMps,
+              rise_rate AS riseRateMph,
               sensor_rise_rate AS sensorRiseRate,
               current_alert_level AS currentAlertLevel,
               predicted_level AS predictedLevel,

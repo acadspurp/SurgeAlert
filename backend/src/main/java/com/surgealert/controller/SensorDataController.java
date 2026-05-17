@@ -264,7 +264,7 @@ public class SensorDataController {
             if (includeRaw) {
                 row.append(",").append(csvCell(numOrBlank(d.getSensorFlowRateMps())))
                    .append(",").append(csvCell(numOrBlank(d.getImageFlowRateMps())))
-                   .append(",").append(csvCell(numOrBlank(d.getImageRiseRateMps())))
+                   .append(",").append(csvCell(numOrBlank(d.getRiseRateMph())))
                    .append(",").append(csvCell(numOrBlank(d.getTideHeightM())))
                    .append(",").append(csvCell(numOrBlank(d.getRainMm())))
                    .append(",").append(csvCell(numOrBlank(d.getPressureHpa())))
