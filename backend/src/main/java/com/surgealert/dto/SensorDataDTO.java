@@ -25,8 +25,11 @@ public class SensorDataDTO {
     @JsonAlias({"rise_rate", "rise_rate_mph", "rise_rate_mh"})
     private Double riseRate;
 
+    @JsonAlias("current_alert_level")
     private String currentAlertLevel;
+    @JsonAlias("predicted_level")
     private Double predictedLevel;
+    @JsonAlias("predicted_alert_level")
     private String predictedAlertLevel;
 
     @JsonAlias("Tide_Height_m")

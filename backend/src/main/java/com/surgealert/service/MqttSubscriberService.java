@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class MqttSubscriberService {
@@ -24,6 +24,8 @@ public class MqttSubscriberService {
 
     @Value("${mqtt.topic.sensor}")
     private String sensorTopic;
+
+    private final AtomicBoolean mqttConnected = new AtomicBoolean(false);
 
     public MqttSubscriberService(MqttClient mqttClient, MqttConnectOptions mqttConnectOptions,
             SensorDataService sensorDataService,
@@ -39,6 +41,7 @@ public class MqttSubscriberService {
     public void init() {
         try {
             mqttClient.connect(mqttConnectOptions);
+            mqttConnected.set(true);
             System.out.println(" [MQTT] Connected to Secure Broker at " + mqttClient.getServerURI());
 
             mqttClient.subscribe(sensorTopic, (topic, message) -> {
@@ -66,8 +69,13 @@ public class MqttSubscriberService {
             });
             System.out.println(" [MQTT] Subscribed to Topic: " + sensorTopic);
         } catch (MqttException e) {
+            mqttConnected.set(false);
             System.err.println(" [MQTT] FATAL: Could not connect to Broker! " + e.getMessage());
         }
+    }
+
+    public boolean isMqttConnected() {
+        return mqttConnected.get() && mqttClient.isConnected();
     }
 
     public void publishSmsToGsm(String phoneNumber, String textMessage) {
@@ -95,6 +103,7 @@ public class MqttSubscriberService {
             if (mqttClient.isConnected()) {
                 mqttClient.disconnect();
             }
+            mqttConnected.set(false);
         } catch (MqttException e) {
             e.printStackTrace();
         }

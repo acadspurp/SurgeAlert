@@ -11,7 +11,10 @@ function ensureApiPathSuffix(url) {
 
 const envApiBaseUrl = ensureApiPathSuffix(import.meta.env.VITE_API_BASE_URL || "");
 
-const PRODUCTION_URL = "https://surgealert-backend-fxqk.onrender.com"; // <-- PUT YOUR BACKEND LINK HERE
+const DEFAULT_PRODUCTION_BACKEND =
+  (import.meta.env.VITE_DEFAULT_PRODUCTION_BACKEND || "https://surgealert-backend-fxqk.onrender.com")
+    .trim()
+    .replace(/\/+$/, "");
 
 function defaultApiBaseUrl() {
   const originFallback = (import.meta.env.VITE_BACKEND_ORIGIN || "").trim().replace(/\/+$/, "");
@@ -19,14 +22,17 @@ function defaultApiBaseUrl() {
     return `${originFallback}/api`;
   }
 
-  // If running locally, use localhost. If on production, use the PRODUCTION_URL
   if (typeof window !== "undefined") {
-    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") {
       return "http://localhost:8080/api";
+    }
+    if (DEFAULT_PRODUCTION_BACKEND) {
+      return `${DEFAULT_PRODUCTION_BACKEND}/api`;
     }
   }
 
-  return `${PRODUCTION_URL}/api`;
+  return "http://localhost:8080/api";
 }
 
 // Normalize trailing slash so endpoint joins stay consistent.

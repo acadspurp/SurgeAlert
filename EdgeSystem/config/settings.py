@@ -60,7 +60,7 @@ MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
 MQTT_PORT = 8883 # Port 8883 is required for MQTTS (SSL/TLS)
 MQTT_USERNAME = os.getenv("MQTT_USERNAME", "")
 MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "")
-MQTT_TOPIC_SENSOR = "surgealert/sensor-data"
+MQTT_TOPIC_SENSOR = os.getenv("MQTT_TOPIC_SENSOR", "surgealert/sensor-data")
 
 # --- TIDES API ---
 WORLDTIDES_API_KEY = os.getenv("WORLDTIDES_API_KEY", "")

@@ -1,5 +1,6 @@
 """Sync ml_features, residents, templates, and model artifacts via backend API."""
 import os
+import time
 from datetime import datetime, timedelta
 
 import requests
@@ -107,22 +108,35 @@ def download_model_if_updated():
         return False
 
 
-def upload_snapshot(timestamp, image_base64):
-    """HTTPS upload for image_bytes (keeps MQTT payloads small)."""
+def upload_snapshot(timestamp, image_base64, max_attempts=4, retry_delay_sec=2.0):
+    """HTTPS upload for image_bytes (keeps MQTT payloads small). Retries if row not ready yet."""
     if not image_base64:
         return False
-    try:
-        url = f"{BACKEND_API_URL}/edge/sync/snapshot"
-        r = requests.post(
-            url,
-            headers=_headers(),
-            json={"timestamp": timestamp, "snapshotBase64": image_base64},
-            timeout=30,
-        )
-        return r.status_code in (200, 201, 204)
-    except Exception as e:
-        print(f" [Sync] Snapshot upload failed: {e}")
-        return False
+    url = f"{BACKEND_API_URL}/edge/sync/snapshot"
+    payload = {"timestamp": timestamp, "snapshotBase64": image_base64}
+    for attempt in range(1, max_attempts + 1):
+        try:
+            r = requests.post(
+                url,
+                headers=_headers(),
+                json=payload,
+                timeout=30,
+            )
+            if r.status_code in (200, 201, 204):
+                return True
+            if r.status_code == 404 and attempt < max_attempts:
+                print(
+                    f" [Sync] Snapshot row not ready (404), retry {attempt}/{max_attempts}..."
+                )
+                time.sleep(retry_delay_sec)
+                continue
+            print(f" [Sync] Snapshot upload HTTP {r.status_code}")
+            return False
+        except Exception as e:
+            print(f" [Sync] Snapshot upload failed (attempt {attempt}): {e}")
+            if attempt < max_attempts:
+                time.sleep(retry_delay_sec)
+    return False
 
 
 def ml_features_to_weather_dict(ml):

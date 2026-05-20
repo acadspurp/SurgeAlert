@@ -1,6 +1,7 @@
 package com.surgealert.controller;
 
 import com.surgealert.repository.UserRepository;
+import com.surgealert.service.MqttSubscriberService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +18,7 @@ import java.util.Map;
 public class SystemStatusController {
 
     private final UserRepository userRepository;
+    private final MqttSubscriberService mqttSubscriberService;
 
     @Value("${worldtides.api.key:MISSING}")
     private String tideKey;
@@ -24,8 +26,12 @@ public class SystemStatusController {
     @Value("${spring.datasource.url}")
     private String dbUrl;
 
-    public SystemStatusController(UserRepository userRepository) {
+    @Value("${mqtt.topic.sensor:surgealert/sensor-data}")
+    private String mqttTopic;
+
+    public SystemStatusController(UserRepository userRepository, MqttSubscriberService mqttSubscriberService) {
         this.userRepository = userRepository;
+        this.mqttSubscriberService = mqttSubscriberService;
     }
 
     @GetMapping("/diagnostic")
@@ -44,6 +50,8 @@ public class SystemStatusController {
         // 2. Check Environment Variables
         status.put("tideApiKeyStatus", (tideKey.equals("MISSING") || tideKey.isBlank()) ? "MISSING" : "CONFIGURED");
         status.put("databaseUrl", dbUrl);
+        status.put("mqttTopic", mqttTopic);
+        status.put("mqttConnected", mqttSubscriberService.isMqttConnected());
         
         // 3. System Info
         status.put("javaVersion", System.getProperty("java.version"));

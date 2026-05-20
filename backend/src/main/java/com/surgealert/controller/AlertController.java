@@ -3,6 +3,7 @@ package com.surgealert.controller;
 import com.surgealert.dto.AlertStatusDTO;
 import com.surgealert.dto.SensorDataDTO;
 import com.surgealert.service.CriticalAlertApprovalService;
+import com.surgealert.service.ManualOverrideService;
 import com.surgealert.service.SensorDataService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,16 +16,16 @@ import java.util.Map;
 @RequestMapping("/api/public/alerts")
 @CrossOrigin(origins = "*")
 public class AlertController {
-
-    public static String overrideLevel = null;
-
     private final SensorDataService sensorDataService;
     private final CriticalAlertApprovalService criticalAlertApprovalService;
+    private final ManualOverrideService manualOverrideService;
 
     public AlertController(SensorDataService sensorDataService,
-            CriticalAlertApprovalService criticalAlertApprovalService) {
+            CriticalAlertApprovalService criticalAlertApprovalService,
+            ManualOverrideService manualOverrideService) {
         this.sensorDataService = sensorDataService;
         this.criticalAlertApprovalService = criticalAlertApprovalService;
+        this.manualOverrideService = manualOverrideService;
     }
 
     @GetMapping("/status")
@@ -38,6 +39,7 @@ public class AlertController {
             response.setLastUpdated(latestData.getTimestamp());
         }
 
+        String overrideLevel = manualOverrideService.getOverrideLevel().orElse(null);
         if (overrideLevel != null) {
             response.setManualOverrideActive(true);
             response.setAlertLevel(overrideLevel);
@@ -65,11 +67,12 @@ public class AlertController {
     public ResponseEntity<Map<String, String>> setOverride(@RequestBody Map<String, String> body) {
         String level = body.get("level");
         if (level == null || level.trim().isEmpty() || level.equalsIgnoreCase("NORMAL")) {
-            overrideLevel = null;
+            manualOverrideService.clearOverride();
             UserController.addLog("Admin cleared manual override. System returned to AUTO.");
         } else {
-            overrideLevel = level.toUpperCase().trim();
-            UserController.addLog("Admin invoked manual override to " + overrideLevel + ".");
+            String normalized = level.toUpperCase().trim();
+            manualOverrideService.setOverrideLevel(normalized);
+            UserController.addLog("Admin invoked manual override to " + normalized + ".");
         }
         return ResponseEntity.ok(Collections.singletonMap("status", "success"));
     }

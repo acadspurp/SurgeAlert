@@ -3,14 +3,12 @@
 .env.local
 .env.*.local
 
-# Allow example templates
-!.env.example
-
 # Python
 __pycache__/
 *.pyc
 venv/
 .venv/
+EdgeSystem/_*.py
 
 # Node
 node_modules/
@@ -31,3 +29,4 @@ backend/target/
 
 # Legacy root target/
 target/
+backend/build_log.txt

@@ -4,6 +4,7 @@ import com.surgealert.security.AuthTokenFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -23,6 +24,8 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
     private final AuthTokenFilter authTokenFilter;
+    @Value("${surgealert.cors.allowed-origin-patterns:http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173}")
+    private String corsAllowedOriginPatterns;
 
     public SecurityConfig(AuthTokenFilter authTokenFilter) {
         this.authTokenFilter = authTokenFilter;
@@ -46,7 +49,11 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/public/alerts/override").hasRole("HEAD_ADMIN")
+                        .requestMatchers("/api/public/alerts/critical/pending/*/approve").hasRole("HEAD_ADMIN")
+                        .requestMatchers("/api/public/alerts/critical/pending/*/reject").hasRole("HEAD_ADMIN")
+                        .anyRequest().permitAll());
         return http.build();
     }
 
@@ -58,7 +65,18 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/**").permitAll()
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/external/**").permitAll()
+                .requestMatchers("/api/edge/sync/**").permitAll()
+                .requestMatchers(
+                        "/api/residents/send-otp",
+                        "/api/residents/verify-otp",
+                        "/api/residents/register",
+                        "/api/residents/unsubscribe-otp"
+                ).permitAll()
+                .requestMatchers("/api/residents/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
+                .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
+                .requestMatchers("/api/sensor-data/reports/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
                 .anyRequest().authenticated()
             )
             .addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
@@ -73,10 +91,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
-        // --- CHANGED TO ALLOW FILE SYSTEM ACCESS (Double-clicking HTML) ---
-        // Using allowedOriginPatterns with "*" allows requests from file:// and any IP
-        configuration.setAllowedOriginPatterns(List.of("*")); 
+        configuration.setAllowedOriginPatterns(
+                Arrays.stream(corsAllowedOriginPatterns.split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .toList()
+        );
         
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));

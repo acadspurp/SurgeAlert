@@ -48,8 +48,8 @@ public class SensorDataController {
 
     @GetMapping("/audit")
     public ResponseEntity<Map<String, Object>> getAuditTrail() {
-        // Assume Edge sends data every 10 seconds. In 24 hours, expected is 8640.
-        long expected = 8640;
+        // Edge duty cycle is 5 minutes (300s). In 24 hours, expected is 288.
+        long expected = 288;
         long actual = sensorDataService.getRecentSensorData(24).size();
         long failed = expected - actual;
         if (failed < 0) failed = 0; // Edge might have started/stopped or sent extras
