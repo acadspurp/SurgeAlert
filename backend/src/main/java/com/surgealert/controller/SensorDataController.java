@@ -36,7 +36,8 @@ public class SensorDataController {
     public ResponseEntity<SensorDataDTO> getLatestSensorData() {
         SensorDataDTO latest = sensorDataService.getLatestSensorData();
         if (latest == null) {
-            return ResponseEntity.notFound().build();
+            // Table exists but hardware has not posted yet — not a missing route.
+            return ResponseEntity.noContent().build();
         }
         return ResponseEntity.ok(latest);
     }

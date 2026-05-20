@@ -16,6 +16,10 @@ export function useLatestSensorPolling() {
                     if (isMounted) setLatestSensor(null);
                     return;
                 }
+                if (response.status === 204) {
+                    setLatestSensor(null);
+                    return;
+                }
                 if (!response.ok) throw new Error('Failed to fetch latest sensor data');
                 const payload = await response.json();
                 const row = normalizeSensorRow(payload);
