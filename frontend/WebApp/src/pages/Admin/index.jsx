@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend, TimeScale, TimeSeriesScale } from 'chart.js';
@@ -13,9 +13,10 @@ import {
     fetchSensorData, overrideAlert, downloadReport,
     fetchAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser, fetchSystemLogs, fetchEvacuationSites,
     fetchAllDatasetRequests, updateDatasetRequestStatus, registerResident, updateCanaryConfig,
-    toggleResidentPriority
+    toggleResidentPriority,
 } from '../../services/api.js';
-import { useSensorMqtt } from '../../hooks/useSensorMqtt.js';
+import { computeHardwareHealth } from '../../utils/edgeConnectivity.js';
+import { useLatestSensorPolling } from '../../hooks/useLatestSensorPolling.js';
 import 'chartjs-adapter-date-fns';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import Papa from 'papaparse';
@@ -42,7 +43,7 @@ import CanaryView from './views/CanaryView';
 
 export default function Admin() {
     const navigate = useNavigate();
-    const mqttData = useSensorMqtt();
+    const mqttData = useLatestSensorPolling();
 
     // Auth Guard
     const user = getUser();
@@ -153,8 +154,11 @@ export default function Admin() {
     const [canaryState, setCanaryState] = useState(null);
     const evacuationSitesRef = useRef([]);
 
-    // Derived State for Hardware Health: Forced to TRUE for simulation/dataset testing mode
-    const hardwareOnline = true;
+    const hardwareHealth = useMemo(
+        () => computeHardwareHealth(lastMqttAt, mqttData, dashData),
+        [lastMqttAt, mqttData, dashData, secondsSinceUpdate]
+    );
+    const hardwareOnline = hardwareHealth.edgeConnected;
 
     const normalizeTideType = (type) => {
         const value = String(type || '').toLowerCase();
@@ -491,14 +495,14 @@ export default function Admin() {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
 
         if (!hardwareOnline) {
-            setDashData(prev => ({
+            setDashData((prev) => ({
                 ...prev,
                 waterLevel: '-- m',
                 flowRate: '-- m/s',
                 status: 'OFFLINE',
                 statusColor: 'text-slate-400',
                 prediction: '-- m',
-                predictedClassification: '--'
+                predictedClassification: '--',
             }));
             return;
         }
@@ -506,7 +510,7 @@ export default function Admin() {
         if (mqttData) {
             setLastMqttAt(Date.now());
             const newDash = { ...dashData };
-            // Apply noise filter (anything below 0.30m is ghost data)
+            // Apply noise filter (anything below 0.10m is ghost data)
             const floatWl = mqttData.waterLevelM;
             const isGhost = floatWl !== null && floatWl !== undefined && floatWl < 0.10;
 
@@ -1016,21 +1020,6 @@ export default function Admin() {
         }
     };
 
-    const getETRText = () => {
-        const levelStr = String(dashData.waterLevel).replace(/[^0-9.-]/g, '');
-        const level = parseFloat(levelStr);
-        const rise = dashData.riseRate;
-        const redThreshold = 5.5;
-        if (Number.isNaN(level) || rise == null || Number.isNaN(rise)) return 'Calculating...';
-        if (rise <= 0) return 'Stable (no rise)';
-        if (level >= redThreshold) return 'Red threshold reached';
-        const hours = (redThreshold - level) / rise;
-        if (!Number.isFinite(hours) || hours <= 0) return 'Red threshold reached';
-        const h = Math.floor(hours);
-        const m = Math.round((hours - h) * 60);
-        return `Red threshold (~${redThreshold}m) in ~${h}h ${m}m at current rise`;
-    };
-
     const getWaterLevelContext = () => {
         const levelStr = String(dashData.waterLevel).replace(/[^0-9.-]/g, '');
         const level = parseFloat(levelStr);
@@ -1213,7 +1202,7 @@ export default function Admin() {
                 </div>
                 {(() => {
                     const viewProps = {
-                        hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, cameraClockDate, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, 
+                        hardwareOnline, hardwareHealth, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, latestLogs, nextTide, cameraImg, cameraLastUpdated, cameraClockDate, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, 
                         reportRaw, setReportRaw, reportCalculated, setReportCalculated, reportAlerts, setReportAlerts,
                         reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, editingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
                         openCreateUserModal, openEditUserModal, saveUserModal,

@@ -114,7 +114,7 @@ class DatabaseManager:
                 CREATE TABLE IF NOT EXISTS otp_cache (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     otp_code TEXT NOT NULL,
-                    phone_number TEXT NOT NULL,
+                    phone_number TEXT NOT NULL UNIQUE,
                     expires_at TEXT NOT NULL
                 )
             """)
@@ -164,6 +164,14 @@ class DatabaseManager:
                 conn.commit()
             except Exception as e:
                 print(f" [DB] residents migration warning: {e}")
+
+            try:
+                cursor.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_otp_cache_phone ON otp_cache(phone_number)"
+                )
+                conn.commit()
+            except Exception as e:
+                print(f" [DB] otp_cache migration warning: {e}")
 
     def _drop_legacy_tables(self):
         """Remove unused Pi tables (images live in sensor_data.image_bytes)."""
@@ -395,8 +403,16 @@ class DatabaseManager:
                 from datetime import timedelta
                 expiry = (datetime.now() + timedelta(minutes=20)).isoformat()
                 for phone, code in otp_map.items():
-                    cursor.execute("INSERT OR REPLACE INTO otp_cache (otp_code, phone_number, expires_at) VALUES (?, ?, ?)",
-                                 (code, phone, expiry))
+                    cursor.execute(
+                        """
+                        INSERT INTO otp_cache (otp_code, phone_number, expires_at)
+                        VALUES (?, ?, ?)
+                        ON CONFLICT(phone_number) DO UPDATE SET
+                            otp_code = excluded.otp_code,
+                            expires_at = excluded.expires_at
+                        """,
+                        (code, phone, expiry),
+                    )
                 conn.commit()
         except Exception as e:
             print(f" [DB] Error syncing OTPs: {e}")

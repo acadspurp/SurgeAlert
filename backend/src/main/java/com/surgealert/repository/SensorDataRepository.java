@@ -33,7 +33,7 @@ public interface SensorDataRepository extends JpaRepository<SensorData, Long> {
     
     List<SensorData> findByTimestampBetween(LocalDateTime start, LocalDateTime end);
     
-    @Query("SELECT s FROM SensorData s WHERE s.timestamp >= :since AND s.waterLevelM >= 0.30 ORDER BY s.timestamp DESC")
+    @Query("SELECT s FROM SensorData s WHERE s.timestamp >= :since AND s.waterLevelM >= 0.10 ORDER BY s.timestamp DESC")
     List<SensorData> findRecentData(LocalDateTime since);
 
     @Query(value = """

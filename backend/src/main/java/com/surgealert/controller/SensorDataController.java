@@ -1,14 +1,6 @@
 package com.surgealert.controller;
 
 import com.surgealert.dto.SensorDataDTO;
-import com.surgealert.entity.SensorData;
-import com.surgealert.service.CanaryRolloutService;
-import com.surgealert.service.CriticalAlertApprovalService;
-import com.surgealert.service.AlertConfidenceService;
-import com.surgealert.service.AlertSmsDispatchService;
-import com.surgealert.service.EmailService;
-import com.surgealert.service.NotificationService;
-import com.surgealert.service.ResidentService;
 import com.surgealert.service.SensorDataService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -29,82 +21,15 @@ import java.util.Map;
 public class SensorDataController {
 
     private final SensorDataService sensorDataService;
-    private final NotificationService notificationService;
-    private final ResidentService residentService;
-    private final CanaryRolloutService canaryRolloutService;
-    private final CriticalAlertApprovalService criticalAlertApprovalService;
-    private final AlertConfidenceService alertConfidenceService;
-    private final AlertSmsDispatchService alertSmsDispatchService;
 
     @Value("${surgealert.reports.max-range-days:31}")
     private int maxReportRangeDays;
 
     // --- LIVE IMAGE STORAGE (Held in RAM) ---
-    // We keep this for speed, but we will add a fallback to the DB
     public static String currentImageBase64 = "";
 
-    // --- SECURITY KEY (Must match Python settings.py) ---
-    private static final String SECRET_API_KEY = System.getenv().getOrDefault("EDGE_API_KEY", "");
-
-    public SensorDataController(SensorDataService sensorDataService,
-                                NotificationService notificationService,
-                                ResidentService residentService,
-                                EmailService emailService,
-                                CanaryRolloutService canaryRolloutService,
-                                CriticalAlertApprovalService criticalAlertApprovalService,
-                                AlertConfidenceService alertConfidenceService,
-                                AlertSmsDispatchService alertSmsDispatchService) {
+    public SensorDataController(SensorDataService sensorDataService) {
         this.sensorDataService = sensorDataService;
-        this.notificationService = notificationService;
-        this.residentService = residentService;
-        this.canaryRolloutService = canaryRolloutService;
-        this.criticalAlertApprovalService = criticalAlertApprovalService;
-        this.alertConfidenceService = alertConfidenceService;
-        this.alertSmsDispatchService = alertSmsDispatchService;
-    }
-
-    @PostMapping
-    public ResponseEntity<Map<String, Object>> saveSensorData(
-            @RequestHeader(value = "X-Edge-ApiKey", required = false) String apiKey,
-            @RequestHeader(value = "X-Sensor-Id", required = false) String sensorId,
-            @RequestHeader(value = "X-User-Role", required = false) String userRole,
-            @RequestBody SensorDataDTO dto) {
-
-        // 1. SECURITY CHECK
-        if (apiKey == null || !apiKey.equals(SECRET_API_KEY)) {
-            return ResponseEntity.status(403).body(Map.of("error", "Unauthorized"));
-        }
-
-        // 2. Save Image to Memory (for Live Feed)
-        // Also saves to DB via service if DTO has it
-        if (dto.getSnapshotBase64() != null && !dto.getSnapshotBase64().isEmpty()) {
-            currentImageBase64 = dto.getSnapshotBase64();
-        }
-
-        // 3. Save Data to Database
-        SensorData savedData = sensorDataService.saveSensorData(dto);
-        if (savedData == null) {
-            Map<String, Object> ignoredResponse = new HashMap<>();
-            ignoredResponse.put("status", "ignored");
-            ignoredResponse.put("reason", "Ghost value / noise (below 0.10m) blocked by Data Guard.");
-            return ResponseEntity.ok(ignoredResponse);
-        }
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("saved_id", savedData.getId());
-        response.put("status", "success");
-        response.put("canary", canaryRolloutService.isCanaryTraffic(sensorId, userRole));
-
-        String level = savedData.getCurrentAlertLevel();
-        boolean dispatched = alertSmsDispatchService.dispatchIfLevelChanged(
-                sensorId, savedData, dto, null);
-        if (dispatched) {
-            response.put("command", "SMS_DISPATCHED");
-        } else {
-            response.put("command", "NO_ACTION");
-        }
-
-        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/latest")

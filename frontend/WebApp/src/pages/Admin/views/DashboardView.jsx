@@ -5,7 +5,7 @@ import HealthRow from '../components/HealthRow';
 import TelemetryCard from '../components/TelemetryCard';
 
 export default function DashboardView(props) {
-    const { hardwareOnline, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, getETRText, latestLogs, nextTide, cameraImg, cameraLastUpdated, cameraClockDate, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, formatTideDateUtc, formatTideTimeUtc,
+    const { hardwareOnline, hardwareHealth, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, latestLogs, nextTide, cameraImg, cameraLastUpdated, cameraClockDate, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, formatTideDateUtc, formatTideTimeUtc,
         openCreateUserModal, openEditUserModal, saveUserModal,
         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
         handleDeleteAdminUser,
@@ -105,14 +105,14 @@ export default function DashboardView(props) {
                             <i className="fa-solid fa-heart-pulse mr-2 text-red-500"></i> Hardware Health
                         </h3>
                         <div className="grid grid-cols-1 gap-3 text-sm">
-                            <HealthRow label="Main Controller" ok={hardwareOnline} />
-                            <HealthRow label="GSM Module" ok={hardwareOnline} />
-                            <HealthRow label="Ultrasonic" ok={hardwareOnline} />
-                            <HealthRow label="Speed Radar" ok={hardwareOnline} />
+                            <HealthRow label="Main Controller" ok={hardwareHealth?.mainController} />
+                            <HealthRow label="GSM Module" ok={hardwareHealth?.gsm} />
+                            <HealthRow label="Ultrasonic" ok={hardwareHealth?.ultrasonic} />
+                            <HealthRow label="Speed Radar" ok={hardwareHealth?.radar} />
                         </div>
 
                         <div className="mt-4 text-xs text-slate-200">
-                            Monitoring connectivity to the Edge System.
+                            Edge contact within 7 min of 5-min cycle. GSM follows Pi→cloud link.
                         </div>
                     </div>
 

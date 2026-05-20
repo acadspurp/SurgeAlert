@@ -20,7 +20,7 @@ public class SmsController {
 
     @PostMapping("/receive")
     public ResponseEntity<?> receiveSms(
-            @RequestHeader(value = "X-Edge-ApiKey", required = false) String apiKey,
+            @RequestHeader(value = "X-Edge-Key", required = false) String apiKey,
             @RequestBody Map<String, String> payload) {
         
         // 1. SECURITY CHECK

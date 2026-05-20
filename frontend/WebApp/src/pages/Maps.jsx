@@ -60,8 +60,7 @@ export default function Maps() {
                                         <Popup>
                                             <div className="text-center">
                                                 <strong className="text-blue-700">{site.name}</strong><br />
-                                                <span className="text-xs text-gray-600">{site.address}</span><br />
-                                                <span className="text-xs font-semibold mt-1 block">Capacity: {site.capacity}</span>
+                                                <span className="text-xs text-gray-600">{site.address}</span>
                                             </div>
                                         </Popup>
                                     </Marker>

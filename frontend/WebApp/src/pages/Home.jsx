@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchAlertStatus, fetchAlertGuide, fetchCameraFeed, fetchWeatherData, fetchTidesData, getWeatherInfo, fetchSystemThresholds, fetchLatestSensorReading } from '../services/api.js';
-import { useSensorMqtt } from '../hooks/useSensorMqtt.js';
+import { useLatestSensorPolling } from '../hooks/useLatestSensorPolling.js';
 import { classifyAlertLevel, gaugeFillPercent, gaugeMarkers } from '../config/alertConfig.js';
 
 import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE } from '../constants/displayTime.js';
@@ -22,7 +22,7 @@ function getAlertColors(levelKey) {
 
 export default function Home() {
     const navigate = useNavigate();
-    const mqttData = useSensorMqtt();
+    const mqttData = useLatestSensorPolling();
 
     // State
     const [waterLevel, setWaterLevel] = useState('--.-- m');
