@@ -76,15 +76,15 @@ public class AlertConfidenceService {
 
     private boolean cvValidationGate(SensorDataDTO dto) {
         if (dto == null) return false;
-        if (dto.getImageFlowRateMps() == null) return false;
-        Double riseMph = dto.getRiseRateMph();
+        if (dto.getImageFlowRate() == null) return false;
+        Double riseMph = dto.getRiseRate();
         double riseMps = riseMph != null ? riseMph / 3600.0 : 0.0;
-        return dto.getImageFlowRateMps() >= cvMinFlowMps || riseMps >= cvMinRiseMps;
+        return dto.getImageFlowRate() >= cvMinFlowMps || riseMps >= cvMinRiseMps;
     }
 
     private boolean crossModalConsistencyGate(SensorDataDTO dto) {
         if (dto == null || dto.getWaterLevelM() == null) return false;
-        Double riseMph = dto.getRiseRateMph();
+        Double riseMph = dto.getRiseRate();
         if (riseMph == null) return false;
         boolean sensorRiskHigh = dto.getWaterLevelM() >= 8.5;
         boolean riseRiskHigh = (riseMph / 3600.0) >= cvMinRiseMps;

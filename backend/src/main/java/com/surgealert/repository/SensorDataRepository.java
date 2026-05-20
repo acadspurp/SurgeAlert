@@ -15,10 +15,9 @@ public interface SensorDataRepository extends JpaRepository<SensorData, Long> {
         Long getId();
         LocalDateTime getTimestamp();
         Double getWaterLevelM();
-        Double getSensorFlowRateMps();
-        Double getImageFlowRateMps();
-        Double getRiseRateMph();
-        Double getSensorRiseRate();
+        Double getSensorFlowRate();
+        Double getImageFlowRate();
+        Double getRiseRate();
         String getCurrentAlertLevel();
         Double getPredictedLevel();
         String getPredictedAlertLevel();
@@ -42,10 +41,9 @@ public interface SensorDataRepository extends JpaRepository<SensorData, Long> {
               id AS id,
               time AS timestamp,
               water_level AS waterLevelM,
-              sensor_flow_rate_mps AS sensorFlowRateMps,
-              image_flow_rate_mps AS imageFlowRateMps,
-              rise_rate AS riseRateMph,
-              sensor_rise_rate AS sensorRiseRate,
+              sensor_flow_rate AS sensorFlowRate,
+              image_flow_rate AS imageFlowRate,
+              rise_rate AS riseRate,
               current_alert_level AS currentAlertLevel,
               predicted_level AS predictedLevel,
               predicted_alert_level AS predictedAlertLevel

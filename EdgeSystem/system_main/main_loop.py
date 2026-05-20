@@ -100,8 +100,8 @@ def _gather_burst(camera, image_processor, rise_tracker, duration_sec):
 
     return {
         "water_level": round(_median(wl_samples), 2),
-        "sensor_flow_rate_mps": round(_median(flow_samples), 3),
-        "image_flow_rate_mps": round(_median(img_flow_samples), 3),
+        "sensor_flow_rate": round(_median(flow_samples), 3),
+        "image_flow_rate": round(_median(img_flow_samples), 3),
         "rise_rate_mph": rise_tracker.get_rise_rate_mph(),
         "raw_vectors": raw_vectors_acc[-20:],
         "last_frame": last_frame,
@@ -119,8 +119,8 @@ def _print_dashboard(reading, cloud_online, ml_stale):
     print("-" * 52)
     print(f"  Grid timestamp   : {reading.get('timestamp')}")
     print(f"  Water Level      : {reading['water_level']:.2f} m")
-    print(f"  Sensor Flow      : {reading['sensor_flow_rate_mps']:.3f} m/s  (radar)")
-    print(f"  Image Flow (CV)  : {reading['image_flow_rate_mps']:.3f} m/s")
+    print(f"  Sensor Flow      : {reading['sensor_flow_rate']:.3f} m/s  (radar)")
+    print(f"  Image Flow (CV)  : {reading['image_flow_rate']:.3f} m/s")
     print(f"  Rise Rate        : {reading['rise_rate']:.4f} m/h  (ultrasonic)")
     print(f"  Alert            : {reading['current_alert_level']}")
     print(f"  Predicted (+1h)  : {reading['predicted_level']:.2f} m  →  {reading['predicted_alert_level']}")
@@ -134,11 +134,11 @@ def _format_offline_sms(template, reading):
         return (
             f"SURGE ALERT {reading['current_alert_level']}: "
             f"Water {reading['water_level']:.2f}m, rise {reading['rise_rate']:.2f} m/h. "
-            f"Flow {reading['sensor_flow_rate_mps']:.2f} m/s."
+            f"Flow {reading['sensor_flow_rate']:.2f} m/s."
         )
     msg = template.replace("{level}", f"{reading['water_level']:.2f}")
     msg = msg.replace("{alert}", reading["current_alert_level"])
-    msg = msg.replace("{flow}", f"{reading['sensor_flow_rate_mps']:.2f}")
+    msg = msg.replace("{flow}", f"{reading['sensor_flow_rate']:.2f}")
     msg = msg.replace("{rise}", f"{reading['rise_rate']:.2f}")
     return msg
 
@@ -251,8 +251,8 @@ def main():
 
             reading = build_cycle_reading(
                 water_level=burst["water_level"],
-                sensor_flow=burst["sensor_flow_rate_mps"],
-                image_flow=burst["image_flow_rate_mps"],
+                sensor_flow=burst["sensor_flow_rate"],
+                image_flow=burst["image_flow_rate"],
                 rise_rate_mph=rise_mph,
                 current_alert=current_alert,
                 predicted_level=pred_level,
@@ -289,8 +289,8 @@ def main():
                     payload = {
                         "timestamp": row["timestamp"],
                         "water_level": row["water_level"],
-                        "sensor_flow_rate_mps": row["sensor_flow_rate_mps"],
-                        "image_flow_rate_mps": row["image_flow_rate_mps"],
+                        "sensor_flow_rate": row["sensor_flow_rate"],
+                        "image_flow_rate": row["image_flow_rate"],
                         "rise_rate": row["rise_rate"],
                         "current_alert_level": row["current_alert_level"],
                         "predicted_level": row["predicted_level"],

@@ -217,7 +217,7 @@ public class SensorDataController {
         Stats frStats = new Stats();
         for (SensorDataDTO d : filtered) {
             wlStats.accept(d.getWaterLevelM());
-            frStats.accept(d.getSensorFlowRateMps());
+            frStats.accept(d.getSensorFlowRate());
         }
 
         StringBuilder csv = new StringBuilder();
@@ -262,9 +262,9 @@ public class SensorDataController {
             row.append(csvCell(d.getTimestamp().toString()));
             if (includeCalculated) row.append(",").append(csvCell(numOrBlank(d.getWaterLevelM())));
             if (includeRaw) {
-                row.append(",").append(csvCell(numOrBlank(d.getSensorFlowRateMps())))
-                   .append(",").append(csvCell(numOrBlank(d.getImageFlowRateMps())))
-                   .append(",").append(csvCell(numOrBlank(d.getRiseRateMph())))
+                row.append(",").append(csvCell(numOrBlank(d.getSensorFlowRate())))
+                   .append(",").append(csvCell(numOrBlank(d.getImageFlowRate())))
+                   .append(",").append(csvCell(numOrBlank(d.getRiseRate())))
                    .append(",").append(csvCell(numOrBlank(d.getTideHeightM())))
                    .append(",").append(csvCell(numOrBlank(d.getRainMm())))
                    .append(",").append(csvCell(numOrBlank(d.getPressureHpa())))

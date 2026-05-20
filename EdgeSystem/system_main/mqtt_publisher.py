@@ -9,8 +9,8 @@ def build_mqtt_payload(reading):
     return {
         "timestamp": reading.get("timestamp"),
         "water_level": reading["water_level"],
-        "sensor_flow_rate_mps": reading["sensor_flow_rate_mps"],
-        "image_flow_rate_mps": reading["image_flow_rate_mps"],
+        "sensor_flow_rate": reading["sensor_flow_rate"],
+        "image_flow_rate": reading["image_flow_rate"],
         "rise_rate": reading["rise_rate"],
         "current_alert_level": reading["current_alert_level"],
         "predicted_level": reading["predicted_level"],

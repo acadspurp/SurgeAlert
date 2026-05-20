@@ -17,24 +17,20 @@ public class SensorData {
     @Column(name = "water_level", nullable = false)
     private Double waterLevelM;
 
-    @Column(nullable = false)
-    private Double sensorFlowRateMps;
+    @Column(name = "sensor_flow_rate", nullable = false)
+    private Double sensorFlowRate;
 
-    @Column(nullable = false)
-    private Double imageFlowRateMps;
+    @Column(name = "image_flow_rate", nullable = false)
+    private Double imageFlowRate;
 
-    /** Ultrasonic rise rate in meters per hour (m/h); Pi field {@code rise_rate}. */
+    /** Ultrasonic rise rate in meters per hour (m/h). */
     @Column(name = "rise_rate", nullable = false)
-    private Double riseRateMph;
-
-    @Column(name = "sensor_rise_rate", nullable = true)
-    private Double sensorRiseRate;
+    private Double riseRate;
 
     @Column(nullable = false)
-    private String currentAlertLevel; // GREEN, YELLOW, ORANGE, RED
+    private String currentAlertLevel;
 
-    // --- NEW COLUMNS FOR AI PREDICTION (Derived from sensors) ---
-    @Column(nullable = true) 
+    @Column(nullable = true)
     private Double predictedLevel;
 
     @Column(nullable = true)
@@ -51,8 +47,6 @@ public class SensorData {
         }
     }
 
-    // --- Getters and Setters ---
-
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -62,14 +56,14 @@ public class SensorData {
     public Double getWaterLevelM() { return waterLevelM; }
     public void setWaterLevelM(Double waterLevelM) { this.waterLevelM = waterLevelM; }
 
-    public Double getSensorFlowRateMps() { return sensorFlowRateMps; }
-    public void setSensorFlowRateMps(Double sensorFlowRateMps) { this.sensorFlowRateMps = sensorFlowRateMps; }
+    public Double getSensorFlowRate() { return sensorFlowRate; }
+    public void setSensorFlowRate(Double sensorFlowRate) { this.sensorFlowRate = sensorFlowRate; }
 
-    public Double getImageFlowRateMps() { return imageFlowRateMps; }
-    public void setImageFlowRateMps(Double imageFlowRateMps) { this.imageFlowRateMps = imageFlowRateMps; }
+    public Double getImageFlowRate() { return imageFlowRate; }
+    public void setImageFlowRate(Double imageFlowRate) { this.imageFlowRate = imageFlowRate; }
 
-    public Double getRiseRateMph() { return riseRateMph; }
-    public void setRiseRateMph(Double riseRateMph) { this.riseRateMph = riseRateMph; }
+    public Double getRiseRate() { return riseRate; }
+    public void setRiseRate(Double riseRate) { this.riseRate = riseRate; }
 
     public String getCurrentAlertLevel() { return currentAlertLevel; }
     public void setCurrentAlertLevel(String currentAlertLevel) { this.currentAlertLevel = currentAlertLevel; }
@@ -82,7 +76,4 @@ public class SensorData {
 
     public byte[] getImageBytes() { return imageBytes; }
     public void setImageBytes(byte[] imageBytes) { this.imageBytes = imageBytes; }
-
-    public Double getSensorRiseRate() { return sensorRiseRate; }
-    public void setSensorRiseRate(Double sensorRiseRate) { this.sensorRiseRate = sensorRiseRate; }
 }

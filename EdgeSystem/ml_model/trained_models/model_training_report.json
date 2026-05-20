@@ -1,0 +1,30 @@
+{
+  "classifier_accuracy": 0.9150163430109595,
+  "classifier_balanced_accuracy": 0.5632048103004073,
+  "classifier_macro_f1": 0.40728650413124,
+  "classifier_macro_recall": 0.5632048103004073,
+  "classifier_macro_precision": 0.378865820148155,
+  "classifier_alert_band_recall": 0.44317160826594787,
+  "classifier_alert_band_f1": 0.22415183867141164,
+  "classifier_alert_band_precision": 0.1742938927395776,
+  "regressor_mae": 0.06535398789456981,
+  "regressor_tide_baseline_mae": 0.10847994616419909,
+  "threshold_only_baseline_accuracy": 1.0,
+  "n_estimators": 362,
+  "train_rows": 20802,
+  "test_rows": 5201,
+  "evaluation": "time_series_holdout_weather_only_classifier",
+  "prototype_targets": {
+    "accuracy": 0.8845,
+    "macro_recall": 0.8215,
+    "macro_f1": 0.587,
+    "macro_precision": 0.6912
+  },
+  "deploy_floors": {
+    "macro_recall": 0.55,
+    "macro_f1": 0.55
+  },
+  "meets_deploy_floors_on_test": false,
+  "uses_alert_detector_blend": true,
+  "uses_two_seed_ensemble": true
+}

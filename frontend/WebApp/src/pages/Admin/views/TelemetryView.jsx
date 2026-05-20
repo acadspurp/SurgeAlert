@@ -20,8 +20,8 @@ export default function TelemetryView(props) {
                         {/* Current Readings */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                             <TelemetryCard title="Ultrasonic WL" value={rawSensorData.length > 0 ? rawSensorData[rawSensorData.length-1].waterLevelM?.toFixed(2) + ' m' : '--'} icon="fa-ruler-vertical" color="blue" />
-                            <TelemetryCard title="Speed Radar Flow" value={rawSensorData.length > 0 ? rawSensorData[rawSensorData.length-1].sensorFlowRateMps?.toFixed(2) + ' m/s' : '--'} icon="fa-gauge-high" color="purple" />
-                            <TelemetryCard title="Optical Flow (CV)" value={rawSensorData.length > 0 ? rawSensorData[rawSensorData.length-1].imageFlowRateMps?.toFixed(2) + ' m/s' : '--'} icon="fa-video" color="teal" />
+                            <TelemetryCard title="Speed Radar Flow" value={rawSensorData.length > 0 ? rawSensorData[rawSensorData.length-1].sensorFlowRate?.toFixed(2) + ' m/s' : '--'} icon="fa-gauge-high" color="purple" />
+                            <TelemetryCard title="Optical Flow (CV)" value={rawSensorData.length > 0 ? rawSensorData[rawSensorData.length-1].imageFlowRate?.toFixed(2) + ' m/s' : '--'} icon="fa-video" color="teal" />
                         </div>
 
                         {/* Calculated Rates */}
@@ -31,7 +31,7 @@ export default function TelemetryView(props) {
                                 {(() => {
                                     if (rawSensorData.length === 0) return "Calculating...";
                                     const latest = rawSensorData[rawSensorData.length-1];
-                                    const rate = latest.riseRateMph ?? latest.imageRiseRateMps ?? 0;
+                                    const rate = latest.riseRate ?? 0;
                                     
                                     if (rate > 0.5) return <><span className="text-red-500">Rising Fast</span> ({rate.toFixed(2)} m/h)</>;
                                     if (rate > 0.1) return <><span className="text-yellow-400">Rising</span> ({rate.toFixed(2)} m/h)</>;

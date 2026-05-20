@@ -65,7 +65,7 @@ export default function Admin() {
     // UI State
     const [activeView, setActiveView] = useState('dashboard');
     const [dashData, setDashData] = useState({
-        waterLevel: '-- m', flowRate: '-- m/s', riseRateMph: null, status: 'Normal', statusColor: 'text-green-600',
+        waterLevel: '-- m', flowRate: '-- m/s', riseRate: null, status: 'Normal', statusColor: 'text-green-600',
         prediction: '-- m', predictedClassification: '--', predColor: 'text-slate-400', subscriberCount: 0,
         batteryLevel: '--',
         qcRain: '-- mm', marulasRain: '-- mm', tideHeight: '-- m', 
@@ -290,12 +290,12 @@ export default function Admin() {
 
                 // Environmental Metrics — PRIMARY source is ml_features_realtime via /admin/environmental/latest
                 if (latest) {
-                    if (latest.sensorFlowRateMps !== null && latest.sensorFlowRateMps !== undefined) {
-                        newDash.flowRate = latest.sensorFlowRateMps.toFixed(2) + ' m/s';
+                    if (latest.sensorFlowRate !== null && latest.sensorFlowRate !== undefined) {
+                        newDash.flowRate = latest.sensorFlowRate.toFixed(2) + ' m/s';
                     }
-                    const rise = latest.riseRateMph ?? latest.imageRiseRateMps;
+                    const rise = latest.riseRate;
                     if (rise !== null && rise !== undefined) {
-                        newDash.riseRateMph = rise;
+                        newDash.riseRate = rise;
                     }
                     if (latest.predictedLevel !== null && latest.predictedLevel !== undefined) {
                         newDash.prediction = latest.predictedLevel.toFixed(2) + ' m';
@@ -414,8 +414,8 @@ export default function Admin() {
                         const latest = merged[merged.length - 1];
                         setDashData((prevDash) => ({
                             ...prevDash,
-                            flowRate: (latest.sensorFlowRateMps !== null && latest.sensorFlowRateMps !== undefined)
-                                ? latest.sensorFlowRateMps.toFixed(2) + ' m/s'
+                            flowRate: (latest.sensorFlowRate !== null && latest.sensorFlowRate !== undefined)
+                                ? latest.sensorFlowRate.toFixed(2) + ' m/s'
                                 : prevDash.flowRate,
                             prediction: (latest.predictedLevel !== null && latest.predictedLevel !== undefined)
                                 ? latest.predictedLevel.toFixed(2) + ' m'
@@ -553,9 +553,9 @@ export default function Admin() {
             const isGhost = floatWl !== null && floatWl !== undefined && floatWl < 0.10;
 
             newDash.waterLevel = (floatWl !== null && !isGhost) ? floatWl.toFixed(2) + ' m' : '-- m';
-            newDash.flowRate = (mqttData.sensorFlowRateMps !== null) ? mqttData.sensorFlowRateMps.toFixed(2) + ' m/s' : '-- m/s';
-            if (mqttData.imageRiseRateMps != null) {
-                newDash.riseRateMph = mqttData.imageRiseRateMps;
+            newDash.flowRate = (mqttData.sensorFlowRate !== null) ? mqttData.sensorFlowRate.toFixed(2) + ' m/s' : '-- m/s';
+            if (mqttData.riseRate != null) {
+                newDash.riseRate = mqttData.riseRate;
             }
 
             const level = mqttData.currentAlertLevel || 'OFFLINE';
@@ -590,13 +590,13 @@ export default function Admin() {
                 else if (mqttData.waterLevelM < prevReadings.current.waterLevel - 0.05) setTrendIndicators(prev => ({ ...prev, waterLevel: '↓' }));
                 else setTrendIndicators(prev => ({ ...prev, waterLevel: '-' }));
             }
-            if (prevReadings.current.flowRate !== null && mqttData.sensorFlowRateMps !== null) {
-                if (mqttData.sensorFlowRateMps > prevReadings.current.flowRate + 0.05) setTrendIndicators(prev => ({ ...prev, flowRate: '↑' }));
-                else if (mqttData.sensorFlowRateMps < prevReadings.current.flowRate - 0.05) setTrendIndicators(prev => ({ ...prev, flowRate: '↓' }));
+            if (prevReadings.current.flowRate !== null && mqttData.sensorFlowRate !== null) {
+                if (mqttData.sensorFlowRate > prevReadings.current.flowRate + 0.05) setTrendIndicators(prev => ({ ...prev, flowRate: '↑' }));
+                else if (mqttData.sensorFlowRate < prevReadings.current.flowRate - 0.05) setTrendIndicators(prev => ({ ...prev, flowRate: '↓' }));
                 else setTrendIndicators(prev => ({ ...prev, flowRate: '-' }));
             }
             prevReadings.current.waterLevel = mqttData.waterLevelM;
-            prevReadings.current.flowRate = mqttData.sensorFlowRateMps;
+            prevReadings.current.flowRate = mqttData.sensorFlowRate;
 
             loadChartData(Math.max(telemetryTime, aiTime), 'TELEMETRY');
             loadChartData(cvTime, 'CV');
@@ -947,14 +947,14 @@ export default function Admin() {
     const telemetryChartData = {
         datasets: [
             { ...lineDatasetOpts, label: 'Water Level (m)', data: telemetryForChart.map(d => ({ x: d.timestamp, y: d.waterLevelM })), yAxisID: 'y', borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.25 },
-            { ...lineDatasetOpts, label: 'Flow Rate (m/s)', data: telemetryForChart.map(d => ({ x: d.timestamp, y: d.sensorFlowRateMps })), yAxisID: 'y1', borderColor: '#f59e0b', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.25, fill: false }
+            { ...lineDatasetOpts, label: 'Flow Rate (m/s)', data: telemetryForChart.map(d => ({ x: d.timestamp, y: d.sensorFlowRate })), yAxisID: 'y1', borderColor: '#f59e0b', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.25, fill: false }
         ]
     };
 
     // CV Chart — sensor_data: image_flow_rate_mps
     const cvChartData = {
         datasets: [
-            { ...lineDatasetOpts, label: 'Optical Flow (m/s)', data: cvForChart.map(d => ({ x: d.timestamp, y: d.imageFlowRateMps })), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.25 }
+            { ...lineDatasetOpts, label: 'Optical Flow (m/s)', data: cvForChart.map(d => ({ x: d.timestamp, y: d.imageFlowRate })), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.25 }
         ]
     };
 
@@ -1061,7 +1061,7 @@ export default function Admin() {
     const getETRText = () => {
         const levelStr = String(dashData.waterLevel).replace(/[^0-9.-]/g, '');
         const level = parseFloat(levelStr);
-        const rise = dashData.riseRateMph;
+        const rise = dashData.riseRate;
         const redThreshold = 5.5;
         if (Number.isNaN(level) || rise == null || Number.isNaN(rise)) return 'Calculating...';
         if (rise <= 0) return 'Stable (no rise)';

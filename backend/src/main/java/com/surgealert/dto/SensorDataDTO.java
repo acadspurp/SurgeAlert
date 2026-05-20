@@ -4,56 +4,38 @@ import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 
-/**
- * Data Transfer Object for Sensor Data.
- * This class supports both:
- * 1. Deserialization from Raspberry Pi (uses Snake_Case via @JsonAlias)
- * 2. Serialization to Frontend React (uses CamelCase by default)
- */
 public class SensorDataDTO {
 
     private Long id;
     private LocalDateTime timestamp;
 
-    // Raw Sensor Data
     @JsonAlias("water_level")
     private Double waterLevelM;
-    
-    private Double sensorFlowRateMps;
-    
-    // Computer Vision Data
-    private Double imageFlowRateMps;
-    
-    /** Ultrasonic rise in m/h (Pi {@code rise_rate}). */
-    @JsonAlias("rise_rate")
-    private Double riseRateMph;
 
-    @JsonAlias("sensor_rise_rate")
-    private Double sensorRiseRate;
-    
-    // Status
+    @JsonAlias({"sensor_flow_rate", "sensor_flow_rate_mps"})
+    private Double sensorFlowRate;
+
+    @JsonAlias({"image_flow_rate", "image_flow_rate_mps"})
+    private Double imageFlowRate;
+
+    /** Ultrasonic rise rate in m/h (column {@code rise_rate}). */
+    @JsonAlias({"rise_rate", "rise_rate_mph"})
+    private Double riseRate;
+
     private String currentAlertLevel;
-    
-    // --- AI PREDICTION ---
     private Double predictedLevel;
     private String predictedAlertLevel;
 
-    // --- ENVIRONMENTAL METRICS ---
     @JsonAlias("Tide_Height_m")
     private Double tideHeightM;
-
     @JsonAlias("QC_Rain_mm")
     private Double rainMm;
-    
     @JsonAlias("Marulas_Rain_mm")
     private Double marulasRainMm;
-
     @JsonAlias("Pressure_hPa")
     private Double pressureHpa;
-
     @JsonAlias("Wind_Speed")
     private Double windSpeedKph;
-
     @JsonAlias("QC_Lag1")
     private Double qcLag1;
     @JsonAlias("QC_Lag2")
@@ -68,38 +50,28 @@ public class SensorDataDTO {
     private Double mar6hrSum;
     @JsonAlias("Mar_24hr_Sum")
     private Double mar24hrSum;
-
     @JsonAlias("Tide_Trend")
     private Double tideTrend;
-
     @JsonAlias("Press_Trend")
     private Double pressTrend;
-
     @JsonAlias("Wind_Sin")
     private Double windSin;
     @JsonAlias("Wind_Cos")
     private Double windCos;
-
     @JsonAlias("QC_3hr_Sum")
     private Double qc3hrSum;
     @JsonAlias("QC_6hr_Sum")
     private Double qc6hrSum;
-
     @JsonAlias("predicted_alert_class")
     private Integer predictedAlertClass;
-
     @JsonAlias("Soil_Moisture")
     private Double soilMoisturePct;
-
     @JsonAlias("is_simulated")
     private Boolean isSimulated;
 
-    // Image
     private String snapshotBase64;
 
     public SensorDataDTO() {}
-
-    // --- Getters and Setters ---
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -110,20 +82,14 @@ public class SensorDataDTO {
     public Double getWaterLevelM() { return waterLevelM; }
     public void setWaterLevelM(Double waterLevelM) { this.waterLevelM = waterLevelM; }
 
-    public Double getSensorFlowRateMps() { return sensorFlowRateMps; }
-    public void setSensorFlowRateMps(Double sensorFlowRateMps) { this.sensorFlowRateMps = sensorFlowRateMps; }
+    public Double getSensorFlowRate() { return sensorFlowRate; }
+    public void setSensorFlowRate(Double sensorFlowRate) { this.sensorFlowRate = sensorFlowRate; }
 
-    public Double getImageFlowRateMps() { return imageFlowRateMps; }
-    public void setImageFlowRateMps(Double imageFlowRateMps) { this.imageFlowRateMps = imageFlowRateMps; }
+    public Double getImageFlowRate() { return imageFlowRate; }
+    public void setImageFlowRate(Double imageFlowRate) { this.imageFlowRate = imageFlowRate; }
 
-    public Double getRiseRateMph() { return riseRateMph; }
-    public void setRiseRateMph(Double riseRateMph) { this.riseRateMph = riseRateMph; }
-
-    /** @deprecated Use {@link #getRiseRateMph()} — kept for older frontend payloads. */
-    @JsonProperty("imageRiseRateMps")
-    public Double getImageRiseRateMps() { return riseRateMph; }
-
-    public void setImageRiseRateMps(Double value) { this.riseRateMph = value; }
+    public Double getRiseRate() { return riseRate; }
+    public void setRiseRate(Double riseRate) { this.riseRate = riseRate; }
 
     public String getCurrentAlertLevel() { return currentAlertLevel; }
     public void setCurrentAlertLevel(String currentAlertLevel) { this.currentAlertLevel = currentAlertLevel; }
@@ -151,9 +117,6 @@ public class SensorDataDTO {
 
     public Double getMarulasRainMm() { return marulasRainMm; }
     public void setMarulasRainMm(Double marulasRainMm) { this.marulasRainMm = marulasRainMm; }
-
-    public Double getSensorRiseRate() { return sensorRiseRate; }
-    public void setSensorRiseRate(Double sensorRiseRate) { this.sensorRiseRate = sensorRiseRate; }
 
     public Double getMar24hrSum() { return mar24hrSum; }
     public void setMar24hrSum(Double mar24hrSum) { this.mar24hrSum = mar24hrSum; }
@@ -203,8 +166,6 @@ public class SensorDataDTO {
     public Boolean getIsSimulated() { return isSimulated; }
     public void setIsSimulated(Boolean isSimulated) { this.isSimulated = isSimulated; }
 
-    // --- FRONTEND LEGACY COMPATIBILITY ---
-    // In case some components use the Snake_Case fields in GET responses
     @JsonProperty("QC_Rain_mm") public Double getLegacyQcRain() { return rainMm; }
     @JsonProperty("Marulas_Rain_mm") public Double getLegacyMarRain() { return marulasRainMm; }
     @JsonProperty("Tide_Height_m") public Double getLegacyTide() { return tideHeightM; }

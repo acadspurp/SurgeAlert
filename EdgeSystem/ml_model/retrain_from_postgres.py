@@ -56,7 +56,7 @@ def _load_training_frame(conn_url, days=90):
         SELECT
             s.time AS ts,
             s.water_level,
-            COALESCE(s.sensor_rise_rate, s.rise_rate) AS rise_rate,
+            s.rise_rate AS rise_rate,
             s.current_alert_level,
             m."Tide_Height_m" AS tide_height_m,
             m."QC_Rain_mm" AS qc_rain_mm,

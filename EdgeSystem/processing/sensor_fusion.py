@@ -1,10 +1,10 @@
 """Fuses ultrasonic, radar, and CV readings into validated telemetry."""
 
 
-def fuse_flow_rates(sensor_flow_mps, image_flow_mps):
+def fuse_flow_rates(sensor_flow, image_flow):
     """Weighted blend when radar and CV agree; otherwise trust radar."""
-    s = sensor_flow_mps or 0.0
-    i = image_flow_mps or 0.0
+    s = sensor_flow or 0.0
+    i = image_flow or 0.0
     if s <= 0 and i <= 0:
         return 0.0
     if s <= 0:
@@ -30,9 +30,9 @@ def build_cycle_reading(
     return {
         "timestamp": cycle_timestamp,
         "water_level": round(float(water_level or 0), 2),
-        "sensor_flow_rate_mps": round(float(sensor_flow or 0), 3),
-        "image_flow_rate_mps": round(float(image_flow or 0), 3),
-        "fused_flow_rate_mps": fuse_flow_rates(sensor_flow, image_flow),
+        "sensor_flow_rate": round(float(sensor_flow or 0), 3),
+        "image_flow_rate": round(float(image_flow or 0), 3),
+        "fused_flow_rate": fuse_flow_rates(sensor_flow, image_flow),
         "rise_rate": round(float(rise_rate_mph or 0), 4),
         "current_alert_level": current_alert or "GREEN",
         "predicted_level": round(float(predicted_level or water_level or 0), 2),

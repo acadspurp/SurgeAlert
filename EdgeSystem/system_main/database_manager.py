@@ -38,8 +38,8 @@ class DatabaseManager:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT NOT NULL,
                     water_level REAL,
-                    sensor_flow_rate_mps REAL,
-                    image_flow_rate_mps REAL,
+                    sensor_flow_rate REAL,
+                    image_flow_rate REAL,
                     rise_rate REAL,
                     predicted_level REAL,
                     current_alert_level TEXT,
@@ -139,6 +139,16 @@ class DatabaseManager:
                 sd_cols = [column[1] for column in cursor.fetchall()]
                 if "image_bytes" not in sd_cols:
                     cursor.execute("ALTER TABLE sensor_data ADD COLUMN image_bytes TEXT")
+                for old_name, new_name in (
+                    ("sensor_flow_rate_mps", "sensor_flow_rate"),
+                    ("image_flow_rate_mps", "image_flow_rate"),
+                ):
+                    cursor.execute("PRAGMA table_info(sensor_data)")
+                    cols = [c[1] for c in cursor.fetchall()]
+                    if old_name in cols and new_name not in cols:
+                        cursor.execute(
+                            f"ALTER TABLE sensor_data RENAME COLUMN {old_name} TO {new_name}"
+                        )
                 conn.commit()
             except Exception as e:
                 print(f" [DB] sensor_data migration warning: {e}")
@@ -175,15 +185,15 @@ class DatabaseManager:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO sensor_data 
-                    (timestamp, water_level, sensor_flow_rate_mps, image_flow_rate_mps, 
+                    (timestamp, water_level, sensor_flow_rate, image_flow_rate, 
                      rise_rate, predicted_level, current_alert_level, predicted_alert_level,
                      raw_cv_vectors, image_bytes, is_synced)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
                 """, (
                     timestamp,
                     reading["water_level"],
-                    reading["sensor_flow_rate_mps"],
-                    reading["image_flow_rate_mps"],
+                    reading["sensor_flow_rate"],
+                    reading["image_flow_rate"],
                     reading["rise_rate"],
                     reading["predicted_level"],
                     reading["current_alert_level"],

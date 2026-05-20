@@ -158,8 +158,8 @@ public class EdgeSyncController {
         sensorDataRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(now).ifPresent(sd -> {
             data.put("water_level", sd.getWaterLevelM());
             data.put("alert_level", sd.getCurrentAlertLevel());
-            data.put("flow_rate", sd.getSensorFlowRateMps());
-            data.put("rise_rate", sd.getRiseRateMph());
+            data.put("flow_rate", sd.getSensorFlowRate());
+            data.put("rise_rate", sd.getRiseRate());
             data.put("timestamp", sd.getTimestamp().toString());
         });
 
