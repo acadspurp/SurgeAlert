@@ -96,7 +96,7 @@ export async function fetchAlertStatus() {
 
 // --- SYSTEM CONFIG / THRESHOLDS ---
 // Always enforces 3.50 / 4.50 / 5.50 — rejects stale Render values.
-const CORRECT_THRESHOLDS = { sensorDepthM: 6.1, thresholds: { yellow: 3.50, orange: 4.50, red: 5.50 } };
+const CORRECT_THRESHOLDS = { sensorDepthM: 6.0, thresholds: { yellow: 3.50, orange: 4.50, red: 5.50 } };
 export async function fetchSystemThresholds() {
     try {
         const response = await fetch(`${API_BASE_URL}/public/config/thresholds`);

@@ -5,7 +5,7 @@ import HealthRow from '../components/HealthRow';
 import TelemetryCard from '../components/TelemetryCard';
 
 export default function DashboardView(props) {
-    const { hardwareOnline, hardwareHealth, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, latestLogs, nextTide, cameraImg, cameraLastUpdated, cameraClockDate, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, formatTideDateUtc, formatTideTimeUtc,
+    const { hardwareOnline, hardwareHealth, secondsSinceUpdate, isHeadAdmin, overrideContext, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, latestLogs, nextTide, cameraImg, cameraLastUpdated, cameraClockDate, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, formatTideDateUtc, formatTideTimeUtc,
         openCreateUserModal, openEditUserModal, saveUserModal,
         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
         handleDeleteAdminUser,
@@ -24,6 +24,16 @@ export default function DashboardView(props) {
         timeZone: 'Asia/Manila'
     });
 
+    const alertLevelClass = (level) => {
+        if (!level) return 'text-slate-400';
+        if (level === 'CRITICAL') return 'text-purple-400 font-black';
+        if (level === 'RED') return 'text-red-400';
+        if (level === 'ORANGE') return 'text-orange-400';
+        if (level === 'YELLOW') return 'text-yellow-400';
+        if (level === 'GREEN' || level === 'NORMAL') return 'text-green-400';
+        return 'text-slate-300';
+    };
+
     return (
         <>
             {/* 1. DASHBOARD */}
@@ -38,6 +48,21 @@ export default function DashboardView(props) {
                     </div>
                 </div>
 
+                {overrideContext?.active && (
+                    <div className="mb-6 rounded-xl border border-amber-500/60 bg-amber-950/50 px-4 py-3 text-sm text-amber-50 shadow-md">
+                        <strong className="text-amber-200">Manual override active.</strong>{' '}
+                        Public alert:{' '}
+                        <span className={`font-bold ${alertLevelClass(overrideContext.official)}`}>
+                            {overrideContext.official}
+                        </span>
+                        {' '}— Live sensor:{' '}
+                        <span className={`font-bold ${alertLevelClass(overrideContext.sensor)}`}>
+                            {overrideContext.sensor || '—'}
+                        </span>
+                        {' '}({dashData.waterLevel})
+                    </div>
+                )}
+
                 {/* HEAD ADMIN OVERRIDE BANNER */}
                 {isHeadAdmin && (
                     <div className="relative z-10 mb-8 overflow-hidden rounded-2xl border border-red-900 bg-[#1e293b] bg-gradient-to-r from-red-900/60 to-[#1e293b] shadow-lg">
@@ -47,9 +72,18 @@ export default function DashboardView(props) {
                         </div>
                         <div className="flex flex-col items-stretch justify-between gap-4 p-4 sm:p-6 md:flex-row md:items-center">
                             <div className="min-w-0 md:mb-0">
-                                <p className="text-sm text-slate-300">Current Logic Status: <span className="font-bold">{dashData.status}</span></p>
+                                <p className="text-sm text-slate-300">
+                                    Official (public) alert:{' '}
+                                    <span className={`font-bold ${alertLevelClass(dashData.status)}`}>{dashData.status}</span>
+                                </p>
+                                <p className="mt-1 text-sm text-slate-300">
+                                    Live sensor alert:{' '}
+                                    <span className={`font-bold ${alertLevelClass(overrideContext?.sensor)}`}>
+                                        {overrideContext?.sensor || '—'}
+                                    </span>
+                                </p>
                                 <p className="mt-1 flex flex-wrap items-center text-sm text-slate-300">
-                                    <span className="mr-1">AI Recommended Status:</span>
+                                    <span className="mr-1">AI band from +1h prediction:</span>
                                     <span className={`font-bold ${aiRecommendedStatus === 'CRITICAL' ? 'text-purple-600 font-black animate-pulse' : aiRecommendedStatus === 'RED' ? 'text-red-600' : aiRecommendedStatus === 'ORANGE' ? 'text-orange-500' : aiRecommendedStatus === 'YELLOW' ? 'text-yellow-600' : 'text-green-600'}`}>
                                         {aiRecommendedStatus}
                                     </span>
@@ -77,7 +111,18 @@ export default function DashboardView(props) {
 
                 {/* TOP CARDS */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                    <DashboardCard title="Water Level" value={dashData.waterLevel} icon="fa-water" color="blue" trend={trendIndicators.waterLevel} subtitle={`${getWaterLevelContext()}`} />
+                    <DashboardCard
+                        title="Water Level"
+                        value={dashData.waterLevel}
+                        icon="fa-water"
+                        color="blue"
+                        trend={trendIndicators.waterLevel}
+                        subtitle={
+                            overrideContext?.active
+                                ? `${getWaterLevelContext()} · Override: ${overrideContext.official}`
+                                : `${getWaterLevelContext()}`
+                        }
+                    />
                     <DashboardCard title="Current Flow Speed" value={dashData.flowRate} icon="fa-gauge-high" color="indigo" trend={trendIndicators.flowRate} subtitle={`${getFlowContext()}`} />
                 
                     <DashboardCard title="ML Predicted Water Level (+1h)" value={dashData.prediction} icon="fa-brain" color="purple" subtitle="Where the water level is heading." />

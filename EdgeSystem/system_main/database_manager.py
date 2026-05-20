@@ -32,7 +32,7 @@ class DatabaseManager:
                 )
             """)
 
-            # 2. Sensor Data (Standardized Names + Site Specific)
+            # 2. Sensor Data (telemetry only; env features live in ml_features_realtime)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS sensor_data (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,26 +45,6 @@ class DatabaseManager:
                     predicted_level REAL,
                     current_alert_level TEXT,
                     predicted_alert_level TEXT,
-                    Tide_Height_m REAL,
-                    Tide_Trend REAL,
-                    QC_Rain_mm REAL,
-                    QC_Lag1 REAL,
-                    QC_Lag2 REAL,
-                    QC_3hr_Sum REAL,
-                    QC_6hr_Sum REAL,
-                    Marulas_Rain_mm REAL,
-                    Mar_Lag1 REAL,
-                    Mar_Lag2 REAL,
-                    Mar_3hr_Sum REAL,
-                    Mar_6hr_Sum REAL,
-                    Mar_24hr_Sum REAL,
-                    Pressure_hPa REAL,
-                    Press_Trend REAL,
-                    Wind_Speed REAL,
-                    Wind_Sin REAL,
-                    Wind_Cos REAL,
-                    Soil_Moisture REAL,
-                    predicted_alert_class INTEGER,
                     raw_cv_vectors TEXT,
                     image_bytes TEXT,
                     is_synced INTEGER DEFAULT 0
@@ -157,6 +137,11 @@ class DatabaseManager:
                 print(f" [DB] sensor_data migration warning: {e}")
 
             try:
+                self._trim_sensor_data_env_columns(conn)
+            except Exception as e:
+                print(f" [DB] sensor_data trim migration warning: {e}")
+
+            try:
                 cursor.execute("PRAGMA table_info(residents)")
                 res_cols = [column[1] for column in cursor.fetchall()]
                 if "is_priority" not in res_cols:
@@ -172,6 +157,54 @@ class DatabaseManager:
                 conn.commit()
             except Exception as e:
                 print(f" [DB] otp_cache migration warning: {e}")
+
+    _SENSOR_DATA_COLUMNS = (
+        "id", "timestamp", "water_level", "sensor_flow_rate", "image_flow_rate",
+        "rise_rate", "fused_flow_rate", "predicted_level", "current_alert_level",
+        "predicted_alert_level", "raw_cv_vectors", "image_bytes", "is_synced",
+    )
+    _SENSOR_DATA_LEGACY_ENV_COLS = (
+        "Tide_Height_m", "Tide_Trend", "QC_Rain_mm", "QC_Lag1", "QC_Lag2",
+        "QC_3hr_Sum", "QC_6hr_Sum", "Marulas_Rain_mm", "Mar_Lag1", "Mar_Lag2",
+        "Mar_3hr_Sum", "Mar_6hr_Sum", "Mar_24hr_Sum", "Pressure_hPa", "Press_Trend",
+        "Wind_Speed", "Wind_Sin", "Wind_Cos", "Soil_Moisture", "predicted_alert_class",
+    )
+
+    def _trim_sensor_data_env_columns(self, conn):
+        """Drop unused env/ML columns from sensor_data (kept in ml_features_realtime)."""
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(sensor_data)")
+        cols = [row[1] for row in cursor.fetchall()]
+        if not cols or not any(c in cols for c in self._SENSOR_DATA_LEGACY_ENV_COLS):
+            return
+
+        src = [c for c in self._SENSOR_DATA_COLUMNS if c in cols]
+        col_defs = ", ".join(
+            f"{name} {dtype}" for name, dtype in (
+                ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+                ("timestamp", "TEXT NOT NULL"),
+                ("water_level", "REAL"),
+                ("sensor_flow_rate", "REAL"),
+                ("image_flow_rate", "REAL"),
+                ("rise_rate", "REAL"),
+                ("fused_flow_rate", "REAL"),
+                ("predicted_level", "REAL"),
+                ("current_alert_level", "TEXT"),
+                ("predicted_alert_level", "TEXT"),
+                ("raw_cv_vectors", "TEXT"),
+                ("image_bytes", "TEXT"),
+                ("is_synced", "INTEGER DEFAULT 0"),
+            )
+        )
+        cursor.execute(f"CREATE TABLE sensor_data_new ({col_defs})")
+        cursor.execute(
+            f"INSERT INTO sensor_data_new ({', '.join(src)}) "
+            f"SELECT {', '.join(src)} FROM sensor_data"
+        )
+        cursor.execute("DROP TABLE sensor_data")
+        cursor.execute("ALTER TABLE sensor_data_new RENAME TO sensor_data")
+        conn.commit()
+        print(" [DB] Trimmed legacy environmental columns from sensor_data.")
 
     def _drop_legacy_tables(self):
         """Remove unused Pi tables (images live in sensor_data.image_bytes)."""

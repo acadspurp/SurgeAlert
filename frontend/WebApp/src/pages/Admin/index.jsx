@@ -65,6 +65,11 @@ export default function Admin() {
 
     // UI State
     const [activeView, setActiveView] = useState('dashboard');
+    const [overrideContext, setOverrideContext] = useState({
+        active: false,
+        official: null,
+        sensor: null,
+    });
     const [dashData, setDashData] = useState({
         waterLevel: '-- m', flowRate: '-- m/s', riseRate: null, status: 'Normal', statusColor: 'text-green-600',
         prediction: '-- m', predictedClassification: '--', predColor: 'text-slate-400', subscriberCount: 0,
@@ -254,10 +259,15 @@ export default function Admin() {
             setDashData((prev) => {
                 const newDash = { ...prev };
                 
-                // Alert Status
-                newDash.waterLevel = (statusData.waterLevelM !== null && statusData.waterLevelM !== undefined) ? statusData.waterLevelM.toFixed(2) + ' m' : '--';
+                const sensorWlM = (latest?.waterLevelM ?? statusData.waterLevelM);
+                newDash.waterLevel = (sensorWlM !== null && sensorWlM !== undefined) ? sensorWlM.toFixed(2) + ' m' : '--';
                 const level = statusData.alertLevel || 'OFFLINE';
                 newDash.status = level;
+                setOverrideContext({
+                    active: Boolean(statusData.manualOverrideActive),
+                    official: level,
+                    sensor: statusData.sensorAlertLevel || latest?.currentAlertLevel || null,
+                });
                 if (level === 'CRITICAL') newDash.statusColor = 'text-purple-600 font-black animate-pulse';
                 else if (level === 'RED') newDash.statusColor = 'text-red-600';
                 else if (level === 'ORANGE') newDash.statusColor = 'text-orange-500';
@@ -520,14 +530,11 @@ export default function Admin() {
                 newDash.riseRate = mqttData.riseRate;
             }
 
-            const level = mqttData.currentAlertLevel || 'OFFLINE';
-            newDash.status = isGhost ? 'NORMAL (GHOST FILTERED)' : level;
-            if (isGhost) newDash.statusColor = 'text-green-600';
-            else if (level === 'RED') newDash.statusColor = 'text-red-600';
-            else if (level === 'ORANGE') newDash.statusColor = 'text-orange-500';
-            else if (level === 'YELLOW') newDash.statusColor = 'text-yellow-500';
-            else if (level === 'GREEN') newDash.statusColor = 'text-green-600';
-            else newDash.statusColor = 'text-slate-400';
+            const sensorLevel = isGhost ? null : (mqttData.currentAlertLevel || null);
+            setOverrideContext((prev) => ({
+                ...prev,
+                sensor: sensorLevel ?? prev.sensor,
+            }));
 
             if (mqttData.predictedLevel !== null && mqttData.predictedLevel !== undefined) {
                 newDash.prediction = mqttData.predictedLevel.toFixed(2) + ' m';
@@ -1202,7 +1209,7 @@ export default function Admin() {
                 </div>
                 {(() => {
                     const viewProps = {
-                        hardwareOnline, hardwareHealth, secondsSinceUpdate, isHeadAdmin, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, latestLogs, nextTide, cameraImg, cameraLastUpdated, cameraClockDate, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, 
+                        hardwareOnline, hardwareHealth, secondsSinceUpdate, isHeadAdmin, overrideContext, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, latestLogs, nextTide, cameraImg, cameraLastUpdated, cameraClockDate, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, 
                         reportRaw, setReportRaw, reportCalculated, setReportCalculated, reportAlerts, setReportAlerts,
                         reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, editingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
                         openCreateUserModal, openEditUserModal, saveUserModal,

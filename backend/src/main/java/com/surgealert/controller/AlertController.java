@@ -32,20 +32,24 @@ public class AlertController {
         SensorDataDTO latestData = sensorDataService.getLatestSensorData();
         AlertStatusDTO response = new AlertStatusDTO();
 
-        // 1. If there's an override, apply it IMMEDIATELY
+        if (latestData != null) {
+            response.setWaterLevelM(latestData.getWaterLevelM());
+            response.setSensorAlertLevel(latestData.getCurrentAlertLevel());
+            response.setLastUpdated(latestData.getTimestamp());
+        }
+
         if (overrideLevel != null) {
-            response.setWaterLevelM(latestData != null ? latestData.getWaterLevelM() : 0.0);
+            response.setManualOverrideActive(true);
             response.setAlertLevel(overrideLevel);
-            response.setLastUpdated(LocalDateTime.now());
+            if (response.getLastUpdated() == null) {
+                response.setLastUpdated(LocalDateTime.now());
+            }
             response.setDescription("MANUAL OVERRIDE ACTIVE.");
             return ResponseEntity.ok(response);
         }
 
         if (latestData != null) {
-            // Online: Return actual data
-            response.setWaterLevelM(latestData.getWaterLevelM());
             response.setAlertLevel(latestData.getCurrentAlertLevel());
-            response.setLastUpdated(latestData.getTimestamp());
             response.setDescription("Live data from monitoring station.");
         } else {
             // Offline: Return nulls/offline status

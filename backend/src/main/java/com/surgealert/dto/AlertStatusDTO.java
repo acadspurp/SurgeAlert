@@ -5,6 +5,9 @@ import java.time.LocalDateTime;
 public class AlertStatusDTO {
     private Double waterLevelM;
     private String alertLevel;
+    /** Live Pi/MQTT alert before override is applied. */
+    private String sensorAlertLevel;
+    private boolean manualOverrideActive;
     private String description;
     private LocalDateTime lastUpdated;
 
@@ -22,6 +25,12 @@ public class AlertStatusDTO {
 
     public String getAlertLevel() { return alertLevel; }
     public void setAlertLevel(String alertLevel) { this.alertLevel = alertLevel; }
+
+    public String getSensorAlertLevel() { return sensorAlertLevel; }
+    public void setSensorAlertLevel(String sensorAlertLevel) { this.sensorAlertLevel = sensorAlertLevel; }
+
+    public boolean isManualOverrideActive() { return manualOverrideActive; }
+    public void setManualOverrideActive(boolean manualOverrideActive) { this.manualOverrideActive = manualOverrideActive; }
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
