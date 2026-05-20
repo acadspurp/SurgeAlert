@@ -8,7 +8,6 @@ import com.surgealert.service.SensorDataService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.Map;
 
@@ -43,9 +42,7 @@ public class AlertController {
         if (overrideLevel != null) {
             response.setManualOverrideActive(true);
             response.setAlertLevel(overrideLevel);
-            if (response.getLastUpdated() == null) {
-                response.setLastUpdated(LocalDateTime.now());
-            }
+            // Do not stamp lastUpdated with "now" — that falsely marks hardware as online.
             response.setDescription("MANUAL OVERRIDE ACTIVE.");
             return ResponseEntity.ok(response);
         }
@@ -54,11 +51,10 @@ public class AlertController {
             response.setAlertLevel(latestData.getCurrentAlertLevel());
             response.setDescription("Live data from monitoring station.");
         } else {
-            // Offline: Return nulls/offline status
             response.setWaterLevelM(null);
             response.setAlertLevel("OFFLINE");
-            response.setLastUpdated(LocalDateTime.now());
-            response.setDescription("System is currently offline.");
+            response.setLastUpdated(null);
+            response.setDescription("No sensor telemetry received from Edge yet.");
         }
         return ResponseEntity.ok(response);
     }

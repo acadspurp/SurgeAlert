@@ -160,8 +160,8 @@ export default function Admin() {
     const evacuationSitesRef = useRef([]);
 
     const hardwareHealth = useMemo(
-        () => computeHardwareHealth(lastMqttAt, mqttData, dashData),
-        [lastMqttAt, mqttData, dashData, secondsSinceUpdate]
+        () => computeHardwareHealth(lastMqttAt, mqttData),
+        [lastMqttAt, mqttData, secondsSinceUpdate]
     );
     const hardwareOnline = hardwareHealth.edgeConnected;
 
@@ -235,10 +235,11 @@ export default function Admin() {
                 latest = await fetchLatestSensorReading();
             }
             
-            if (statusData && statusData.lastUpdated) {
-                setLastMqttAt(new Date(statusData.lastUpdated).getTime());
-            } else if (latest && latest.timestamp) {
+            // Heartbeat only from persisted sensor_data (not alert status / override timestamps).
+            if (latest?.timestamp) {
                 setLastMqttAt(new Date(latest.timestamp).getTime());
+            } else {
+                setLastMqttAt(null);
             }
             let subCount;
             try {
@@ -517,8 +518,8 @@ export default function Admin() {
             return;
         }
 
-        if (mqttData) {
-            setLastMqttAt(Date.now());
+        if (mqttData?.timestamp) {
+            setLastMqttAt(new Date(mqttData.timestamp).getTime());
             const newDash = { ...dashData };
             // Apply noise filter (anything below 0.10m is ghost data)
             const floatWl = mqttData.waterLevelM;

@@ -2,10 +2,11 @@
 export const EDGE_STALE_SECONDS = 420;
 
 /**
- * Derive hardware health from last successful telemetry contact with the backend.
- * GSM cannot be probed separately from the dashboard — online when edge reaches cloud.
+ * Derive hardware health from the last real sensor_data row (Edge → MQTT → DB).
+ * Do not use alert status timestamps or dashboard env strings — those are not hardware heartbeats.
+ * GSM cannot be probed from the cloud; it is inferred only when Edge telemetry is fresh.
  */
-export function computeHardwareHealth(lastContactMs, telemetry, dashData) {
+export function computeHardwareHealth(lastContactMs, telemetry) {
     const ageSec =
         lastContactMs != null && lastContactMs > 0
             ? (Date.now() - lastContactMs) / 1000
@@ -13,7 +14,7 @@ export function computeHardwareHealth(lastContactMs, telemetry, dashData) {
     const edgeConnected =
         ageSec !== null && ageSec <= EDGE_STALE_SECONDS;
 
-    if (!edgeConnected) {
+    if (!edgeConnected || !telemetry) {
         return {
             edgeConnected: false,
             mainController: false,
@@ -24,17 +25,8 @@ export function computeHardwareHealth(lastContactMs, telemetry, dashData) {
         };
     }
 
-    const parseDashNum = (str) => {
-        const n = parseFloat(String(str || '').replace(/[^0-9.-]/g, ''));
-        return Number.isFinite(n) ? n : null;
-    };
-
-    const wl =
-        telemetry?.waterLevelM ??
-        parseDashNum(dashData?.waterLevel);
-    const flow =
-        telemetry?.sensorFlowRate ??
-        parseDashNum(dashData?.flowRate);
+    const wl = telemetry.waterLevelM;
+    const flow = telemetry.sensorFlowRate;
     const ghost = wl != null && wl < 0.10;
 
     return {
@@ -42,7 +34,7 @@ export function computeHardwareHealth(lastContactMs, telemetry, dashData) {
         mainController: true,
         gsm: true,
         ultrasonic: wl != null && !ghost,
-        radar: flow != null,
+        radar: flow != null && flow !== undefined,
         ageSec,
     };
 }

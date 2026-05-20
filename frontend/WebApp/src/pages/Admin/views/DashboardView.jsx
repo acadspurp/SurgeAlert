@@ -157,7 +157,7 @@ export default function DashboardView(props) {
                         </div>
 
                         <div className="mt-4 text-xs text-slate-200">
-                            Edge contact within 7 min of 5-min cycle. GSM follows Pi→cloud link.
+                            Online only after a real sensor_data row from Edge (within 7 min). GSM follows Pi→cloud link.
                         </div>
                     </div>
 
