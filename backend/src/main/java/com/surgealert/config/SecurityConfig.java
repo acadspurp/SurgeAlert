@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -74,6 +75,18 @@ public class SecurityConfig {
                         "/api/residents/register",
                         "/api/residents/unsubscribe-otp"
                 ).permitAll()
+                // Belt-and-suspenders: if the @Order(0) chain does not match on deploy, these must stay public.
+                .requestMatchers(HttpMethod.GET,
+                        "/api/sensor-data/latest",
+                        "/api/sensor-data/recent",
+                        "/api/public/alerts/status",
+                        "/api/public/alerts/camera",
+                        "/api/public/config/**",
+                        "/api/public/evacuation-sites",
+                        "/api/public/action-plans",
+                        "/api/public/system/diagnostic"
+                ).permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/public/alerts/critical/pending/**").permitAll()
                 .requestMatchers("/api/residents/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
                 .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
                 .requestMatchers("/api/sensor-data/reports/**").hasAnyRole("ADMIN", "HEAD_ADMIN")

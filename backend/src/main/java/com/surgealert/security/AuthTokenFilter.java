@@ -24,19 +24,14 @@ public class AuthTokenFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        String method = request.getMethod();
-        return path.startsWith("/api/auth/")
+        if (path == null) {
+            return false;
+        }
+        return path.startsWith("/api/public/")
                 || path.startsWith("/api/external/")
+                || path.startsWith("/api/auth/")
                 || path.equals("/api/sensor-data/latest")
-                || path.equals("/api/sensor-data/recent")
-                || path.equals("/api/public/alerts/status")
-                || path.equals("/api/public/alerts/camera")
-                || path.equals("/api/public/config/thresholds")
-                || path.equals("/api/public/system/diagnostic")
-                || path.equals("/api/public/evacuation-sites")
-                || path.equals("/api/public/action-plans")
-                || ("GET".equalsIgnoreCase(method) && path.equals("/api/public/alerts/critical/pending"))
-                || ("GET".equalsIgnoreCase(method) && path.startsWith("/api/public/alerts/critical/pending/"));
+                || path.startsWith("/api/sensor-data/recent");
     }
 
     @Override
