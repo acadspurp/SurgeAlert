@@ -29,6 +29,9 @@ public class WeatherMetrics {
     @Column(name = "wind_speed", nullable = true)
     private Double windSpeed;
 
+    @Column(name = "wind_direction_deg", nullable = true)
+    private Double windDirectionDeg;
+
     @Column(name = "soil_moisture", nullable = true)
     private Double soilMoisture;
 
@@ -60,6 +63,9 @@ public class WeatherMetrics {
 
     public Double getWindSpeed() { return windSpeed; }
     public void setWindSpeed(Double windSpeed) { this.windSpeed = windSpeed; }
+
+    public Double getWindDirectionDeg() { return windDirectionDeg; }
+    public void setWindDirectionDeg(Double windDirectionDeg) { this.windDirectionDeg = windDirectionDeg; }
 
     public Double getSoilMoisture() { return soilMoisture; }
     public void setSoilMoisture(Double soilMoisture) { this.soilMoisture = soilMoisture; }

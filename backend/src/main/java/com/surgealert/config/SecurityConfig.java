@@ -66,6 +66,8 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // Without this, failed handlers forward to /error and get 403 instead of the real DB/500 body.
+                .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/external/**").permitAll()
                 .requestMatchers("/api/edge/sync/**").permitAll()

@@ -2,10 +2,8 @@ package com.surgealert.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.surgealert.dto.TideResponse;
-import com.surgealert.entity.MLFeaturesRealtime;
 import com.surgealert.entity.TideMetrics;
 import com.surgealert.entity.WeatherMetrics;
-import com.surgealert.repository.MLFeaturesRealtimeRepository;
 import com.surgealert.repository.TideMetricsRepository;
 import com.surgealert.repository.WeatherMetricsRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,7 +12,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 import java.util.Optional;
 import jakarta.annotation.PostConstruct;
 
@@ -24,7 +21,7 @@ public class DataCollectionScheduler {
     private final ExternalApiService externalApiService;
     private final TideMetricsRepository tideRepository;
     private final WeatherMetricsRepository weatherRepository;
-    private final MLFeaturesRealtimeRepository mlRepository;
+    private final MlFeaturesFromMetricsService mlFeaturesFromMetricsService;
 
     @Value("${surgealert.coords.qc.lat:14.7153}")
     private double qcLat;
@@ -41,11 +38,11 @@ public class DataCollectionScheduler {
     public DataCollectionScheduler(ExternalApiService externalApiService,
                                    TideMetricsRepository tideRepository,
                                    WeatherMetricsRepository weatherRepository,
-                                   MLFeaturesRealtimeRepository mlRepository) {
+                                   MlFeaturesFromMetricsService mlFeaturesFromMetricsService) {
         this.externalApiService = externalApiService;
         this.tideRepository = tideRepository;
         this.weatherRepository = weatherRepository;
-        this.mlRepository = mlRepository;
+        this.mlFeaturesFromMetricsService = mlFeaturesFromMetricsService;
     }
 
     /**
@@ -61,7 +58,7 @@ public class DataCollectionScheduler {
         System.out.println("[Scheduler] Backend started — checking tide + weather data.");
 
         // Always refresh weather (it's hourly, so it's always stale after a restart)
-        performWeatherAndMlFetch();
+        performWeatherFetch();
 
         // Fetch tides if today's data is absent or the last fetch was unsuccessful
         LocalDateTime todayStart = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
@@ -74,6 +71,8 @@ public class DataCollectionScheduler {
         } else {
             System.out.println("[Scheduler] Tide data already present for today — skipping startup fetch.");
         }
+
+        mlFeaturesFromMetricsService.syncLatestFromMetricsTables();
     }
 
     /**
@@ -84,6 +83,7 @@ public class DataCollectionScheduler {
     public void dailyTideFetch() {
         System.out.println(" [Scheduler] Starting daily Tide fetch...");
         tideFetchSuccess = performTideFetch();
+        mlFeaturesFromMetricsService.syncLatestFromMetricsTables();
     }
 
     /**
@@ -104,8 +104,17 @@ public class DataCollectionScheduler {
      */
     @Scheduled(cron = "0 0 * * * *")
     public void hourlyWeatherFetch() {
-        System.out.println(" [Scheduler] Starting hourly Weather and ML Feature processing...");
-        performWeatherAndMlFetch();
+        System.out.println(" [Scheduler] Starting hourly weather_metrics fetch...");
+        performWeatherFetch();
+    }
+
+    /**
+     * Rebuild ml_features_realtime from DB tables shortly after each weather hour.
+     */
+    @Scheduled(cron = "0 5 * * * *")
+    public void hourlyMlFeaturesFromMetrics() {
+        System.out.println(" [Scheduler] Syncing ml_features_realtime from weather_metrics + tide_metrics...");
+        mlFeaturesFromMetricsService.syncLatestFromMetricsTables();
     }
 
     private boolean performTideFetch() {
@@ -134,21 +143,22 @@ public class DataCollectionScheduler {
         return true;
     }
 
-    private void performWeatherAndMlFetch() {
-        // 1. Fetch QC Weather (La Mesa) and Marulas Weather using configured coordinates
+    private void performWeatherFetch() {
         JsonNode qcData = externalApiService.fetchWeatherAt(qcLat, qcLon);
         JsonNode marData = externalApiService.fetchWeatherAt(marLat, marLon);
 
-        if (qcData == null || marData == null) return;
+        if (qcData == null || marData == null) {
+            System.err.println(" [Scheduler] Weather API returned no data — weather_metrics not updated.");
+            return;
+        }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now().withMinute(0).withSecond(0).withNano(0);
         int hourIdx = now.getHour();
 
         try {
-            // --- WEATHER METRICS ---
             WeatherMetrics weather = new WeatherMetrics();
             weather.setTimestamp(now);
-            
+
             double qcRain = qcData.get("hourly").get("precipitation").get(hourIdx).asDouble();
             double marRain = marData.get("hourly").get("precipitation").get(hourIdx).asDouble();
             double pressure = marData.get("hourly").get("surface_pressure").get(hourIdx).asDouble();
@@ -160,66 +170,20 @@ public class DataCollectionScheduler {
             weather.setMarulasRainMm(marRain);
             weather.setPressureHpa(pressure);
             weather.setWindSpeed(windSpeed);
+            weather.setWindDirectionDeg(windDir);
             weather.setSoilMoisture(soilMoisture);
-            
+
             double mar24h = 0;
-            for(int i=0; i<24; i++) mar24h += marData.get("hourly").get("precipitation").get(i).asDouble();
+            for (int i = 0; i < 24; i++) {
+                mar24h += marData.get("hourly").get("precipitation").get(i).asDouble();
+            }
             weather.setMar24hrSum(mar24h);
             weatherRepository.save(weather);
+            System.out.println(" [Scheduler] weather_metrics row saved @ " + now);
 
-            // --- ML FEATURES REALTIME (Targeted Columns Only) ---
-            MLFeaturesRealtime ml = new MLFeaturesRealtime();
-            ml.setTimestamp(now);
-
-            ml.setQcRainMm(qcRain);
-            ml.setQcLag1Mm(getRainfallAt(now.minusHours(1), "QC"));
-            ml.setQcLag2Mm(getRainfallAt(now.minusHours(2), "QC"));
-            ml.setQc3hrSum(getRainfallSum(now, 3, "QC"));
-            ml.setQc6hrSum(getRainfallSum(now, 6, "QC"));
-
-            ml.setMarulasRainMm(marRain);
-            ml.setMarLag1Mm(getRainfallAt(now.minusHours(1), "MARULAS"));
-            ml.setMarLag2Mm(getRainfallAt(now.minusHours(2), "MARULAS"));
-            ml.setMar3hrSum(getRainfallSum(now, 3, "MARULAS"));
-            ml.setMar24hrSum(mar24h);
-
-            ml.setPressureHpa(pressure);
-            
-            // Calculate Pressure Trend (Current - Last Hour)
-            Double lastPressure = weatherRepository.findFirstByTimestampBeforeOrderByTimestampDesc(now.minusMinutes(30))
-                    .map(WeatherMetrics::getPressureHpa).orElse(pressure);
-            ml.setPressTrend(pressure - lastPressure);
-
-            ml.setWindSpeed(windSpeed);
-            ml.setSoilMoisture(soilMoisture);
-
-            double rad = Math.toRadians(windDir);
-            ml.setWindSin(Math.sin(rad));
-            ml.setWindCos(Math.cos(rad));
-
-            tideRepository.findFirstByOrderByTimestampDesc().ifPresent(t -> {
-                ml.setTideHeightM(t.getTideHeightM());
-                ml.setTideTrend(t.getTideTrend());
-            });
-
-            mlRepository.save(ml);
-            System.out.println(" [Scheduler] ML Features table updated.");
+            mlFeaturesFromMetricsService.syncFromMetricsTables(now);
         } catch (Exception e) {
-            System.err.println(" [Scheduler] Error: " + e.getMessage());
+            System.err.println(" [Scheduler] Weather fetch error: " + e.getMessage());
         }
-    }
-
-    private Double getRainfallAt(LocalDateTime time, String location) {
-        return weatherRepository.findFirstByTimestampBeforeOrderByTimestampDesc(time)
-                .map(w -> location.equals("QC") ? w.getQcRainMm() : w.getMarulasRainMm())
-                .orElse(0.0);
-    }
-
-    private Double getRainfallSum(LocalDateTime now, int hours, String location) {
-        LocalDateTime start = now.minusHours(hours);
-        List<WeatherMetrics> recent = weatherRepository.findByTimestampAfter(start);
-        return recent.stream()
-                .mapToDouble(w -> location.equals("QC") ? (w.getQcRainMm() != null ? w.getQcRainMm() : 0.0) : (w.getMarulasRainMm() != null ? w.getMarulasRainMm() : 0.0))
-                .sum();
     }
 }

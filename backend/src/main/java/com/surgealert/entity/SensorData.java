@@ -3,6 +3,10 @@ package com.surgealert.entity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
+/**
+ * Hardware telemetry (water level, flow, alerts). Table is auto-created on startup;
+ * rows are written by Edge MQTT ({@code sensor/data}) or future HTTP ingest — not from weather APIs.
+ */
 @Entity
 @Table(name = "sensor_data")
 public class SensorData {
