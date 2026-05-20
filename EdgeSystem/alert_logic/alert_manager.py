@@ -14,6 +14,7 @@ from config.settings import (
     WATER_LEVEL_YELLOW_THRESHOLD,
 )
 from ml_model.classifier_wrappers import EnsembleSurgeClassifier, SurgeAlertClassifier  # noqa: F401 — joblib
+from alert_logic.flow_alert import apply_flow_escalation
 from ml_model.dataset_utils import (
     CLASSIFIER_FEATURE_COLUMNS,
     FEATURE_COLUMNS,
@@ -98,6 +99,20 @@ class AlertManager:
             return "YELLOW"
 
         return "GREEN"
+
+    def determine_alert_level_with_flow(
+        self,
+        water_level,
+        predicted_level=None,
+        rise_rate_per_hour=0.0,
+        fused_flow_mps=0.0,
+    ):
+        base = self.determine_alert_level(
+            water_level,
+            predicted_level=predicted_level,
+            rise_rate_per_hour=rise_rate_per_hour,
+        )
+        return apply_flow_escalation(base, water_level, fused_flow_mps)
 
     @staticmethod
     def _class_index_to_name(index: int) -> str:

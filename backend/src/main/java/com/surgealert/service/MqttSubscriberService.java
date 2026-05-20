@@ -19,30 +19,19 @@ public class MqttSubscriberService {
     private final MqttClient mqttClient;
     private final MqttConnectOptions mqttConnectOptions;
     private final SensorDataService sensorDataService;
-    private final NotificationService notificationService;
-    private final ResidentService residentService;
-    private final CriticalAlertApprovalService criticalAlertApprovalService;
-    private final AlertConfidenceService alertConfidenceService;
-    private final OtpDeliveryService otpDeliveryService;
+    private final AlertSmsDispatchService alertSmsDispatchService;
     private final ObjectMapper objectMapper;
 
     @Value("${mqtt.topic.sensor}")
     private String sensorTopic;
 
     public MqttSubscriberService(MqttClient mqttClient, MqttConnectOptions mqttConnectOptions,
-            SensorDataService sensorDataService, NotificationService notificationService,
-            ResidentService residentService, EmailService emailService,
-            CriticalAlertApprovalService criticalAlertApprovalService,
-            AlertConfidenceService alertConfidenceService,
-            OtpDeliveryService otpDeliveryService) {
+            SensorDataService sensorDataService,
+            AlertSmsDispatchService alertSmsDispatchService) {
         this.mqttClient = mqttClient;
         this.mqttConnectOptions = mqttConnectOptions;
         this.sensorDataService = sensorDataService;
-        this.notificationService = notificationService;
-        this.residentService = residentService;
-        this.criticalAlertApprovalService = criticalAlertApprovalService;
-        this.alertConfidenceService = alertConfidenceService;
-        this.otpDeliveryService = otpDeliveryService;
+        this.alertSmsDispatchService = alertSmsDispatchService;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -64,38 +53,13 @@ public class MqttSubscriberService {
                     if (savedData == null)
                         return; // Ignore erroneous reading
 
-                    // 4. Alert & Email Logic
-                    String level = savedData.getCurrentAlertLevel();
-                    String messageToSend = notificationService.getAlertMessage(level, savedData.getWaterLevelM());
-
-                    boolean isCritical = level.equalsIgnoreCase("YELLOW") ||
-                            level.equalsIgnoreCase("ORANGE") ||
-                            level.equalsIgnoreCase("RED");
-
-                    if (isCritical && messageToSend != null) {
-                        AlertConfidenceService.ConfidenceResult confidence = alertConfidenceService.evaluate(
-                                "mqtt-ingest",
-                                dto,
-                                level,
-                                savedData.getPredictedAlertLevel());
-                        if (criticalAlertApprovalService.requiresApproval(level) && !confidence.highConfidence()) {
-                            criticalAlertApprovalService.createPendingAlert("mqtt-ingest", messageToSend,
-                                    savedData.getWaterLevelM());
-                            return;
-                        }
-                        // Broadcast SMS to all residents via Hybrid system
-                        List<String> allPhoneNumbers = residentService.getAllActivePhoneNumbers();
-                        for (String phone : allPhoneNumbers) {
-                            if (phone != null && !phone.isBlank()) {
-                                OtpDeliveryService.DeliveryResult res = otpDeliveryService.deliverOtp(phone,
-                                        messageToSend);
-                                if ("GSM_FALLBACK".equals(res.channel())) {
-                                    publishSmsToGsm(phone, messageToSend);
-                                }
-                            }
-                        }
-                    }
-                    System.out.println(" [MQTT] Successfully processed sensor payload block - Alert Level: " + level);
+                    alertSmsDispatchService.dispatchIfLevelChanged(
+                            "mqtt-ingest",
+                            savedData,
+                            dto,
+                            this::publishSmsToGsm);
+                    System.out.println(" [MQTT] Successfully processed sensor payload - Alert Level: "
+                            + savedData.getCurrentAlertLevel());
                 } catch (Exception e) {
                     System.err.println(" [MQTT] Error processing MQTT message: " + e.getMessage());
                 }

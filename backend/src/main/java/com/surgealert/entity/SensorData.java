@@ -23,6 +23,10 @@ public class SensorData {
     @Column(name = "image_flow_rate", nullable = false)
     private Double imageFlowRate;
 
+    /** Radar + CV fused flow (m/s). */
+    @Column(name = "fused_flow_rate")
+    private Double fusedFlowRate;
+
     /** Ultrasonic rise rate in meters per hour (m/h). */
     @Column(name = "rise_rate", nullable = false)
     private Double riseRate;
@@ -61,6 +65,9 @@ public class SensorData {
 
     public Double getImageFlowRate() { return imageFlowRate; }
     public void setImageFlowRate(Double imageFlowRate) { this.imageFlowRate = imageFlowRate; }
+
+    public Double getFusedFlowRate() { return fusedFlowRate; }
+    public void setFusedFlowRate(Double fusedFlowRate) { this.fusedFlowRate = fusedFlowRate; }
 
     public Double getRiseRate() { return riseRate; }
     public void setRiseRate(Double riseRate) { this.riseRate = riseRate; }

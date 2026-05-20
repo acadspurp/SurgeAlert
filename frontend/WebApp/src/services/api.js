@@ -6,6 +6,7 @@ import {
     trimRowsToLastHours,
     loadShiftedSensorRowsFromPublicCsv,
     getLatestFromPublicCsvShifted,
+    isCsvDemoFallbackEnabled,
 } from '../utils/sensorTimeseries.js';
 
 async function refreshAccessToken() {
@@ -331,7 +332,7 @@ export async function saveTemplate(type, template) {
 
 // --- ADMIN: LATEST SINGLE SENSOR READING (merges tide + weather from DB) ---
 export async function fetchLatestSensorReading() {
-    const fromCsv = () => getLatestFromPublicCsvShifted();
+    const fromCsv = () => (isCsvDemoFallbackEnabled() ? getLatestFromPublicCsvShifted() : null);
     try {
         // Public endpoint for dashboard use; avoid attaching stale Bearer tokens.
         const response = await fetch(`${API_BASE_URL}/sensor-data/latest`);
@@ -364,13 +365,14 @@ export async function fetchLatestEnvironmental() {
 export async function fetchSensorData(hours = 24) {
     const coalesceRecent = async (maybeRows) => {
         const normalized = normalizeSensorRows(Array.isArray(maybeRows) ? maybeRows : []);
-        if (countValidTimestampRows(normalized) === 0) {
+        if (countValidTimestampRows(normalized) === 0 && isCsvDemoFallbackEnabled()) {
             try {
                 return await loadShiftedSensorRowsFromPublicCsv(hours);
             } catch {
                 return [];
             }
         }
+        if (countValidTimestampRows(normalized) === 0) return [];
         return trimRowsToLastHours(normalized, hours);
     };
 
@@ -387,6 +389,7 @@ export async function fetchSensorData(hours = 24) {
         const data = await response.json();
         return await coalesceRecent(data);
     } catch {
+        if (!isCsvDemoFallbackEnabled()) return [];
         try {
             return await loadShiftedSensorRowsFromPublicCsv(hours);
         } catch {

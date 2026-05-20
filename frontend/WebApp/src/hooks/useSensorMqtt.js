@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../config.js';
+import { normalizeSensorRow } from '../utils/sensorTimeseries.js';
 
 export function useSensorMqtt() {
     const [mqttData, setMqttData] = useState(null);
@@ -17,8 +18,9 @@ export function useSensorMqtt() {
                 }
                 if (!response.ok) throw new Error('Failed to fetch latest sensor data');
                 const payload = await response.json();
+                const row = normalizeSensorRow(payload);
                 if (isMounted) {
-                    setMqttData(payload);
+                    setMqttData(row);
                 }
             } catch (error) {
                 console.error("Polling error:", error);

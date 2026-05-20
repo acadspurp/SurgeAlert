@@ -5,6 +5,7 @@ import com.surgealert.entity.SensorData;
 import com.surgealert.service.CanaryRolloutService;
 import com.surgealert.service.CriticalAlertApprovalService;
 import com.surgealert.service.AlertConfidenceService;
+import com.surgealert.service.AlertSmsDispatchService;
 import com.surgealert.service.EmailService;
 import com.surgealert.service.NotificationService;
 import com.surgealert.service.ResidentService;
@@ -33,6 +34,7 @@ public class SensorDataController {
     private final CanaryRolloutService canaryRolloutService;
     private final CriticalAlertApprovalService criticalAlertApprovalService;
     private final AlertConfidenceService alertConfidenceService;
+    private final AlertSmsDispatchService alertSmsDispatchService;
 
     @Value("${surgealert.reports.max-range-days:31}")
     private int maxReportRangeDays;
@@ -50,13 +52,15 @@ public class SensorDataController {
                                 EmailService emailService,
                                 CanaryRolloutService canaryRolloutService,
                                 CriticalAlertApprovalService criticalAlertApprovalService,
-                                AlertConfidenceService alertConfidenceService) {
+                                AlertConfidenceService alertConfidenceService,
+                                AlertSmsDispatchService alertSmsDispatchService) {
         this.sensorDataService = sensorDataService;
         this.notificationService = notificationService;
         this.residentService = residentService;
         this.canaryRolloutService = canaryRolloutService;
         this.criticalAlertApprovalService = criticalAlertApprovalService;
         this.alertConfidenceService = alertConfidenceService;
+        this.alertSmsDispatchService = alertSmsDispatchService;
     }
 
     @PostMapping
@@ -82,7 +86,7 @@ public class SensorDataController {
         if (savedData == null) {
             Map<String, Object> ignoredResponse = new HashMap<>();
             ignoredResponse.put("status", "ignored");
-            ignoredResponse.put("reason", "Ghost value / noise (below 0.30m) blocked by Data Guard.");
+            ignoredResponse.put("reason", "Ghost value / noise (below 0.10m) blocked by Data Guard.");
             return ResponseEntity.ok(ignoredResponse);
         }
 
@@ -91,46 +95,11 @@ public class SensorDataController {
         response.put("status", "success");
         response.put("canary", canaryRolloutService.isCanaryTraffic(sensorId, userRole));
 
-        // 4. Check Logic for Alerts
         String level = savedData.getCurrentAlertLevel();
-        
-        // Get message template
-        String messageToSend = notificationService.getAlertMessage(level, savedData.getWaterLevelM());
-
-        // --- LOGIC: ONLY SEND IF YELLOW, ORANGE, OR RED ---
-        // We strictly block "GREEN" here.
-        boolean isCritical = level.equalsIgnoreCase("YELLOW") ||
-                             level.equalsIgnoreCase("ORANGE") ||
-                             level.equalsIgnoreCase("RED");
-
-        if (isCritical && messageToSend != null) {
-            AlertConfidenceService.ConfidenceResult confidence = alertConfidenceService.evaluate(
-                    sensorId,
-                    dto,
-                    level,
-                    savedData.getPredictedAlertLevel()
-            );
-            response.put("redConfidenceHigh", confidence.highConfidence());
-            response.put("confidenceFailedGates", confidence.failedGates());
-
-            if (criticalAlertApprovalService.requiresApproval(level) && !confidence.highConfidence()) {
-                CriticalAlertApprovalService.PendingCriticalAlert pending = criticalAlertApprovalService
-                        .createPendingAlert(sensorId == null ? "edge-unknown" : sensorId, messageToSend, savedData.getWaterLevelM());
-                response.put("command", "AWAITING_HUMAN_CONFIRMATION");
-                response.put("pendingAlertId", pending.id());
-                response.put("pendingUntil", pending.expiresAt().toString());
-                return ResponseEntity.ok(response);
-            }
-
-            // B. SMS Command (Tell Python to send SMS via Hardware)
-            List<String> phoneNumbers = residentService.getAllActivePhoneNumbers();
-            if (!phoneNumbers.isEmpty()) {
-                response.put("command", "SEND_SMS");
-                response.put("message", messageToSend);
-                response.put("recipients", phoneNumbers);
-            } else {
-                response.put("command", "NO_RECIPIENTS");
-            }
+        boolean dispatched = alertSmsDispatchService.dispatchIfLevelChanged(
+                sensorId, savedData, dto, null);
+        if (dispatched) {
+            response.put("command", "SMS_DISPATCHED");
         } else {
             response.put("command", "NO_ACTION");
         }
@@ -244,7 +213,8 @@ public class SensorDataController {
         if (includeRaw) {
             header.append(",").append(csvCell("Radar Flow (m/s)"))
                   .append(",").append(csvCell("Optical Flow (m/s)"))
-                  .append(",").append(csvCell("Rise Rate (m/s)"))
+                  .append(",").append(csvCell("Fused Flow (m/s)"))
+                  .append(",").append(csvCell("Rise Rate (m/h)"))
                   .append(",").append(csvCell("Tide_Height_m"))
                   .append(",").append(csvCell("Rain_mm"))
                   .append(",").append(csvCell("Pressure_hPa"))
@@ -264,6 +234,7 @@ public class SensorDataController {
             if (includeRaw) {
                 row.append(",").append(csvCell(numOrBlank(d.getSensorFlowRate())))
                    .append(",").append(csvCell(numOrBlank(d.getImageFlowRate())))
+                   .append(",").append(csvCell(numOrBlank(d.getFusedFlowRate())))
                    .append(",").append(csvCell(numOrBlank(d.getRiseRate())))
                    .append(",").append(csvCell(numOrBlank(d.getTideHeightM())))
                    .append(",").append(csvCell(numOrBlank(d.getRainMm())))

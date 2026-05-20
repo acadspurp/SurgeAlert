@@ -52,8 +52,9 @@ from system_main.sms_manager import SMSManager
 
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="paho.mqtt")
 
-_last_alert_sent = {}
-ALERT_SMS_COOLDOWN_SEC = 600
+_last_sent_alert_level = None
+
+_ALERT_RANK = {"GREEN": 0, "YELLOW": 1, "ORANGE": 2, "RED": 3}
 
 
 def _create_mqtt_client(client_id="SurgeAlertEdge"):
@@ -121,6 +122,7 @@ def _print_dashboard(reading, cloud_online, ml_stale):
     print(f"  Water Level      : {reading['water_level']:.2f} m")
     print(f"  Sensor Flow      : {reading['sensor_flow_rate']:.3f} m/s  (radar)")
     print(f"  Image Flow (CV)  : {reading['image_flow_rate']:.3f} m/s")
+    print(f"  Fused Flow       : {reading.get('fused_flow_rate', 0):.3f} m/s")
     print(f"  Rise Rate        : {reading['rise_rate']:.4f} m/h  (ultrasonic)")
     print(f"  Alert            : {reading['current_alert_level']}")
     print(f"  Predicted (+1h)  : {reading['predicted_level']:.2f} m  →  {reading['predicted_alert_level']}")
@@ -130,28 +132,56 @@ def _print_dashboard(reading, cloud_online, ml_stale):
 
 
 def _format_offline_sms(template, reading):
+    fused = reading.get("fused_flow_rate", reading.get("sensor_flow_rate", 0))
     if not template:
         return (
             f"SURGE ALERT {reading['current_alert_level']}: "
             f"Water {reading['water_level']:.2f}m, rise {reading['rise_rate']:.2f} m/h. "
-            f"Flow {reading['sensor_flow_rate']:.2f} m/s."
+            f"Flow {fused:.2f} m/s."
         )
     msg = template.replace("{level}", f"{reading['water_level']:.2f}")
     msg = msg.replace("{alert}", reading["current_alert_level"])
-    msg = msg.replace("{flow}", f"{reading['sensor_flow_rate']:.2f}")
+    msg = msg.replace("{flow}", f"{fused:.2f}")
     msg = msg.replace("{rise}", f"{reading['rise_rate']:.2f}")
     return msg
+
+
+def _alert_rank(level):
+    return _ALERT_RANK.get((level or "GREEN").upper(), 0)
+
+
+def _should_block_sms_by_prediction(current_level, reading):
+    """Hold SMS if ML +1h alert is materially lower than current (not used in message body)."""
+    pred = (reading.get("predicted_alert_level") or "GREEN").upper()
+    if _alert_rank(pred) + 1 < _alert_rank(current_level):
+        print(
+            f" [SMS] Skipped: predicted alert {pred} vs current {current_level}."
+        )
+        return True
+    return False
+
+
+def _alert_level_changed(new_level):
+    """True when alert level differs from last dispatched SMS level."""
+    global _last_sent_alert_level
+    level = (new_level or "GREEN").upper()
+    if _last_sent_alert_level is None:
+        return level in ("YELLOW", "ORANGE", "RED")
+    return _last_sent_alert_level != level
+
+
+def _commit_alert_level_dispatched(new_level):
+    global _last_sent_alert_level
+    _last_sent_alert_level = (new_level or "GREEN").upper()
 
 
 def _maybe_send_offline_alerts(sms, db, reading, cloud_online):
     if cloud_online or not sms:
         return
     level = (reading.get("current_alert_level") or "GREEN").upper()
-    if level not in ("ORANGE", "RED"):
+    if not _alert_level_changed(level):
         return
-
-    now = time.time()
-    if now - _last_alert_sent.get(level, 0) < ALERT_SMS_COOLDOWN_SEC:
+    if _should_block_sms_by_prediction(level, reading):
         return
 
     template = db.get_template(level) or db.get_template("CRITICAL")
@@ -166,8 +196,10 @@ def _maybe_send_offline_alerts(sms, db, reading, cloud_online):
         if sms.send_gsm_only(phone, message):
             sent += 1
     if sent:
-        _last_alert_sent[level] = now
-        print(f" [SMS] Offline GSM: sent {level} alert to {sent} resident(s), priority first.")
+        _commit_alert_level_dispatched(level)
+        print(
+            f" [SMS] Offline GSM: level change → {level}, sent to {sent} resident(s)."
+        )
 
 
 def main():
@@ -236,17 +268,33 @@ def main():
             burst = _gather_burst(camera, image_processor, rise_tracker, GATHER_DURATION_SEC)
 
             rise_mph = burst["rise_rate_mph"]
+            reading_preview = build_cycle_reading(
+                water_level=burst["water_level"],
+                sensor_flow=burst["sensor_flow_rate"],
+                image_flow=burst["image_flow_rate"],
+                rise_rate_mph=rise_mph,
+                current_alert="GREEN",
+                predicted_level=burst["water_level"],
+                predicted_alert="GREEN",
+                cycle_timestamp=cycle_ts,
+            )
+            fused_flow = reading_preview["fused_flow_rate"]
+
             pred_level, pred_alert = predictor.predict_one_hour(
                 burst["water_level"],
                 rise_mph,
                 ml_features=ml_features,
                 features_stale=ml_stale,
+                sensor_flow=burst["sensor_flow_rate"],
+                image_flow=burst["image_flow_rate"],
+                fused_flow=fused_flow,
             )
 
-            current_alert = alert_mgr.determine_alert_level(
+            current_alert = alert_mgr.determine_alert_level_with_flow(
                 burst["water_level"],
                 predicted_level=pred_level,
                 rise_rate_per_hour=rise_mph,
+                fused_flow_mps=fused_flow,
             )
 
             reading = build_cycle_reading(
@@ -291,7 +339,9 @@ def main():
                         "water_level": row["water_level"],
                         "sensor_flow_rate": row["sensor_flow_rate"],
                         "image_flow_rate": row["image_flow_rate"],
+                        "fused_flow_rate": row.get("fused_flow_rate"),
                         "rise_rate": row["rise_rate"],
+                        "rise_rate_mh": row["rise_rate"],
                         "current_alert_level": row["current_alert_level"],
                         "predicted_level": row["predicted_level"],
                         "predicted_alert_level": row["predicted_alert_level"],

@@ -90,8 +90,9 @@ ML_FEATURES_MAX_AGE_HOURS = 6         # stale cache warning threshold
 LOCAL_SYNCED_RETAIN_DAYS = 7          # purge synced local rows older than this
 
 # --- SYSTEM CONFIGURATION ---
-# Set True = Use Real Sensors (Pi Camera, Ultrasonic, HLK Radar)
-USE_HARDWARE = True
+# True = production (real camera, is_simulated=false on cloud ingest).
+# False = lab/demo (simulated sensors, is_simulated=true, no cloud DB writes).
+USE_HARDWARE = os.getenv("USE_HARDWARE", "true").lower() == "true"
 
 # --- DEPLOYMENT ENVIRONMENT ---
 # Set to "RIVER" to support high water levels (like 17.75m)
@@ -119,7 +120,7 @@ else:
     # ✏️  TO UPDATE THE DEPTH: Change the value below.
     #     This file is tracked by git, so the change will persist after every push.
     #     Mirror the same value in: backend/src/main/resources/application.properties
-    #                              → surgealert.sensor.depth-m=6.1
+    #                              → surgealert.sensor.depth-m=6.0
     SENSOR_HEIGHT_FROM_MUDPLAIN = float(os.getenv("SENSOR_DEPTH_M", "6.0"))
 
     PIXELS_TO_METERS = 0.01
@@ -128,6 +129,10 @@ else:
     WATER_LEVEL_RED_THRESHOLD = float(os.getenv("RED_THRESHOLD", 5.50))
     WATER_LEVEL_ORANGE_THRESHOLD = float(os.getenv("ORANGE_THRESHOLD", 4.50))
     WATER_LEVEL_YELLOW_THRESHOLD = float(os.getenv("YELLOW_THRESHOLD", 3.50))
+
+    # Fused flow (m/s) escalation when water level >= Orange
+    FLOW_ESCALATE_ORANGE_MPS = float(os.getenv("FLOW_ESCALATE_ORANGE_MPS", "0.50"))
+    FLOW_ESCALATE_RED_MPS = float(os.getenv("FLOW_ESCALATE_RED_MPS", "0.80"))
 
     # Real river uses real tide height (1:1 ratio)
     TIDE_SCALING_FACTOR = 1.0

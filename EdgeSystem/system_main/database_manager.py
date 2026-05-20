@@ -41,6 +41,7 @@ class DatabaseManager:
                     sensor_flow_rate REAL,
                     image_flow_rate REAL,
                     rise_rate REAL,
+                    fused_flow_rate REAL,
                     predicted_level REAL,
                     current_alert_level TEXT,
                     predicted_alert_level TEXT,
@@ -139,6 +140,8 @@ class DatabaseManager:
                 sd_cols = [column[1] for column in cursor.fetchall()]
                 if "image_bytes" not in sd_cols:
                     cursor.execute("ALTER TABLE sensor_data ADD COLUMN image_bytes TEXT")
+                if "fused_flow_rate" not in sd_cols:
+                    cursor.execute("ALTER TABLE sensor_data ADD COLUMN fused_flow_rate REAL")
                 for old_name, new_name in (
                     ("sensor_flow_rate_mps", "sensor_flow_rate"),
                     ("image_flow_rate_mps", "image_flow_rate"),
@@ -186,15 +189,16 @@ class DatabaseManager:
                 cursor.execute("""
                     INSERT INTO sensor_data 
                     (timestamp, water_level, sensor_flow_rate, image_flow_rate, 
-                     rise_rate, predicted_level, current_alert_level, predicted_alert_level,
+                     rise_rate, fused_flow_rate, predicted_level, current_alert_level, predicted_alert_level,
                      raw_cv_vectors, image_bytes, is_synced)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
                 """, (
                     timestamp,
                     reading["water_level"],
                     reading["sensor_flow_rate"],
                     reading["image_flow_rate"],
                     reading["rise_rate"],
+                    reading.get("fused_flow_rate"),
                     reading["predicted_level"],
                     reading["current_alert_level"],
                     reading["predicted_alert_level"],

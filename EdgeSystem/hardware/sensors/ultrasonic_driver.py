@@ -1,6 +1,6 @@
 import time
 import random
-from config.settings import TRIG_PIN, ECHO_PIN
+from config.settings import TRIG_PIN, ECHO_PIN, USE_HARDWARE
 
 try:
     import RPi.GPIO as GPIO
@@ -29,7 +29,7 @@ from config.settings import SMOOTHING_WINDOW
 reading_queue = collections.deque(maxlen=SMOOTHING_WINDOW)
 
 def get_distance():
-    if not IS_PI:
+    if not USE_HARDWARE or not IS_PI:
         # Simulated distance (m) for dev / non-Pi hosts
         import math
         t = time.time()

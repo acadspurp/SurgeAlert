@@ -247,33 +247,6 @@ export default function Admin() {
                         : (envData?.Tide_Height_m !== null && envData?.Tide_Height_m !== undefined) ? envData.Tide_Height_m
                             : null;
 
-            // 4. Fallback: fetch external weather/tide if DB tables are also empty
-            let weatherFallback = null;
-            let tideFallback = null;
-            const dbHasEnv = envData && (resolvedEnvTideHeight !== null || envData.qcRainMm !== null || envData.pressureHpa !== null);
-            if (!dbHasEnv) {
-                try {
-                    weatherFallback = await fetchWeatherData();
-                } catch (e) { /* weather API unavailable */ }
-                try {
-                    let tideData = await fetchTidesData(false);
-                    let tideEvents = buildTideEvents(tideData);
-                    const hasFutureHigh = tideEvents.some((event) => event.type === 'High' && (event.dt * 1000) > Date.now());
-                    const hasFutureLow = tideEvents.some((event) => event.type === 'Low' && (event.dt * 1000) > Date.now());
-                    if ((!hasFutureHigh || !hasFutureLow) && !tideData?.error) {
-                        tideData = await fetchTidesData(true);
-                        tideEvents = buildTideEvents(tideData);
-                    }
-                    if (tideEvents.length > 0) {
-                        const now = Date.now() / 1000;
-                        const closest = tideEvents.reduce((a, b) =>
-                            Math.abs(a.dt - now) < Math.abs(b.dt - now) ? a : b
-                        );
-                        tideFallback = closest?.height ?? null;
-                    }
-                } catch (e) { /* tide API unavailable */ }
-            }
-
             setDashData((prev) => {
                 const newDash = { ...prev };
                 
@@ -330,21 +303,6 @@ export default function Admin() {
                     if (envData.windSpeed !== null && envData.windSpeed !== undefined) {
                         newDash.wind = envData.windSpeed.toFixed(1) + ' kph';
                     }
-                }
-
-                // Last resort: live external APIs
-                if (!dbHasEnv) {
-                    if (weatherFallback?.current_weather) {
-                        const cw = weatherFallback.current_weather;
-                        if (newDash.pressure === '-- hPa' && weatherFallback.hourly?.surface_pressure) {
-                            const p = weatherFallback.hourly.surface_pressure[0];
-                            if (p !== null && p !== undefined) newDash.pressure = p.toFixed(0) + ' hPa';
-                        }
-                        if (newDash.wind === '-- kph' && cw.windspeed !== undefined)
-                            newDash.wind = cw.windspeed.toFixed(1) + ' kph';
-                    }
-                    if (tideFallback !== null)
-                        newDash.tideHeight = tideFallback.toFixed(2) + ' m (tide)';
                 }
 
                 if (subCount !== undefined) newDash.subscriberCount = subCount;
@@ -1077,10 +1035,10 @@ export default function Admin() {
         const levelStr = String(dashData.waterLevel).replace(/[^0-9.-]/g, '');
         const level = parseFloat(levelStr);
         if (Number.isNaN(level)) return '—';
-        if (level < 15) return 'Normal Flow';
-        if (level < 16) return 'Caution Zone';
-        if (level < 18) return 'Prepare Zone';
-        return 'Danger Zone';
+        if (level < 3.5) return 'Normal';
+        if (level < 4.5) return 'Caution (Yellow)';
+        if (level < 5.5) return 'Prepare (Orange)';
+        return 'Danger (Red)';
     };
 
     const getFlowContext = () => {

@@ -25,7 +25,7 @@ public class SensorDataService {
 
     // Reads from application.properties → surgealert.sensor.depth-m →
     // SENSOR_DEPTH_M in .env
-    @Value("${surgealert.sensor.depth-m:6.1}")
+    @Value("${surgealert.sensor.depth-m:6.0}")
     private double sensorDepthM;
 
     @Value("${surgealert.thresholds.yellow:3.50}")
@@ -75,15 +75,17 @@ public class SensorDataService {
                 ? GridTimeUtils.alignToFiveMinuteGrid(dto.getTimestamp())
                 : GridTimeUtils.alignToFiveMinuteGrid(LocalDateTime.now(MANILA_ZONE));
 
-        Double riseMph = dto.getRiseRateMph() != null ? dto.getRiseRateMph() : 0.0;
+        Double riseMph = dto.getRiseRate() != null ? dto.getRiseRate() : 0.0;
 
         SensorData sensorData = sensorDataRepository.findByTimestamp(gridTs).orElseGet(SensorData::new);
         sensorData.setTimestamp(gridTs);
         sensorData.setWaterLevelM(dto.getWaterLevelM());
-        sensorData.setSensorFlowRateMps(dto.getSensorFlowRateMps() != null ? dto.getSensorFlowRateMps() : 0.0);
-        sensorData.setImageFlowRateMps(dto.getImageFlowRateMps() != null ? dto.getImageFlowRateMps() : 0.0);
-        sensorData.setRiseRateMph(riseMph);
-        sensorData.setSensorRiseRate(riseMph);
+        sensorData.setSensorFlowRate(dto.getSensorFlowRate() != null ? dto.getSensorFlowRate() : 0.0);
+        sensorData.setImageFlowRate(dto.getImageFlowRate() != null ? dto.getImageFlowRate() : 0.0);
+        if (dto.getFusedFlowRate() != null) {
+            sensorData.setFusedFlowRate(dto.getFusedFlowRate());
+        }
+        sensorData.setRiseRate(riseMph);
 
         String alertLevel = dto.getCurrentAlertLevel();
         if (alertLevel == null || alertLevel.isEmpty()) {
@@ -118,10 +120,10 @@ public class SensorDataService {
         dto.setId(row.getId());
         dto.setTimestamp(row.getTimestamp());
         dto.setWaterLevelM(row.getWaterLevelM());
-        dto.setSensorFlowRateMps(row.getSensorFlowRateMps());
-        dto.setImageFlowRateMps(row.getImageFlowRateMps());
-        dto.setRiseRateMph(row.getRiseRateMph());
-        dto.setSensorRiseRate(row.getSensorRiseRate());
+        dto.setSensorFlowRate(row.getSensorFlowRate());
+        dto.setImageFlowRate(row.getImageFlowRate());
+        dto.setFusedFlowRate(row.getFusedFlowRate());
+        dto.setRiseRate(row.getRiseRate());
         dto.setCurrentAlertLevel(row.getCurrentAlertLevel());
         dto.setPredictedLevel(row.getPredictedLevel());
         dto.setPredictedAlertLevel(row.getPredictedAlertLevel());
@@ -136,11 +138,9 @@ public class SensorDataService {
         dto.setId(row.getId());
         dto.setTimestamp(row.getTimestamp());
         dto.setWaterLevelM(row.getWaterLevelM());
-        dto.setSensorFlowRateMps(row.getSensorFlowRateMps());
-        dto.setImageFlowRateMps(row.getImageFlowRateMps());
-        dto.setRiseRateMph(row.getRiseRateMph());
-        dto.setSensorRiseRate(row.getSensorRiseRate());
-        dto.setSensorRiseRate(row.getSensorRiseRate());
+        dto.setSensorFlowRate(row.getSensorFlowRate());
+        dto.setImageFlowRate(row.getImageFlowRate());
+        dto.setRiseRate(row.getRiseRate());
         dto.setCurrentAlertLevel(row.getCurrentAlertLevel());
         dto.setPredictedLevel(row.getPredictedLevel());
         dto.setPredictedAlertLevel(row.getPredictedAlertLevel());
@@ -166,10 +166,10 @@ public class SensorDataService {
             dto.setId(sd.getId());
             dto.setTimestamp(sd.getTimestamp());
             dto.setWaterLevelM(sd.getWaterLevelM());
-            dto.setSensorFlowRateMps(sd.getSensorFlowRateMps());
-            dto.setImageFlowRateMps(sd.getImageFlowRateMps());
-            dto.setRiseRateMph(sd.getRiseRateMph());
-            dto.setSensorRiseRate(sd.getSensorRiseRate());
+            dto.setSensorFlowRate(sd.getSensorFlowRate());
+            dto.setImageFlowRate(sd.getImageFlowRate());
+            dto.setFusedFlowRate(sd.getFusedFlowRate());
+            dto.setRiseRate(sd.getRiseRate());
             dto.setCurrentAlertLevel(sd.getCurrentAlertLevel());
             dto.setPredictedLevel(sd.getPredictedLevel());
             dto.setPredictedAlertLevel(sd.getPredictedAlertLevel());
@@ -199,10 +199,9 @@ public class SensorDataService {
         dto.setId(sensorData.getId());
         dto.setTimestamp(sensorData.getTimestamp());
         dto.setWaterLevelM(sensorData.getWaterLevelM());
-        dto.setSensorFlowRateMps(sensorData.getSensorFlowRateMps());
-        dto.setImageFlowRateMps(sensorData.getImageFlowRateMps());
-        dto.setRiseRateMph(sensorData.getRiseRateMph());
-        dto.setSensorRiseRate(sensorData.getSensorRiseRate());
+        dto.setSensorFlowRate(sensorData.getSensorFlowRate());
+        dto.setImageFlowRate(sensorData.getImageFlowRate());
+        dto.setRiseRate(sensorData.getRiseRate());
         dto.setCurrentAlertLevel(sensorData.getCurrentAlertLevel());
         dto.setPredictedLevel(sensorData.getPredictedLevel());
         dto.setPredictedAlertLevel(sensorData.getPredictedAlertLevel());

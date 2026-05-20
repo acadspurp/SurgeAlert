@@ -18,8 +18,11 @@ public class SensorDataDTO {
     @JsonAlias({"image_flow_rate", "image_flow_rate_mps"})
     private Double imageFlowRate;
 
+    @JsonAlias("fused_flow_rate")
+    private Double fusedFlowRate;
+
     /** Ultrasonic rise rate in m/h (column {@code rise_rate}). */
-    @JsonAlias({"rise_rate", "rise_rate_mph"})
+    @JsonAlias({"rise_rate", "rise_rate_mph", "rise_rate_mh"})
     private Double riseRate;
 
     private String currentAlertLevel;
@@ -87,6 +90,9 @@ public class SensorDataDTO {
 
     public Double getImageFlowRate() { return imageFlowRate; }
     public void setImageFlowRate(Double imageFlowRate) { this.imageFlowRate = imageFlowRate; }
+
+    public Double getFusedFlowRate() { return fusedFlowRate; }
+    public void setFusedFlowRate(Double fusedFlowRate) { this.fusedFlowRate = fusedFlowRate; }
 
     public Double getRiseRate() { return riseRate; }
     public void setRiseRate(Double riseRate) { this.riseRate = riseRate; }

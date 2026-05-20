@@ -62,8 +62,10 @@ export function normalizeSensorRow(row) {
             : (row.sensorFlowRateMps != null ? parseNum(row.sensorFlowRateMps) : parseNum(row.sensor_flow_rate)),
         imageFlowRate: row.imageFlowRate != null ? parseNum(row.imageFlowRate)
             : (row.imageFlowRateMps != null ? parseNum(row.imageFlowRateMps) : parseNum(row.image_flow_rate)),
+        fusedFlowRate: row.fusedFlowRate != null ? parseNum(row.fusedFlowRate) : parseNum(row.fused_flow_rate),
         riseRate: row.riseRate != null ? parseNum(row.riseRate)
-            : (row.riseRateMph != null ? parseNum(row.riseRateMph) : parseNum(row.rise_rate)),
+            : (row.riseRateMh != null ? parseNum(row.riseRateMh)
+                : (row.riseRateMph != null ? parseNum(row.riseRateMph) : parseNum(row.rise_rate))),
         currentAlertLevel: row.currentAlertLevel ?? row.current_alert_level,
         predictedLevel: row.predictedLevel != null ? parseNum(row.predictedLevel) : parseNum(row.predicted_level),
         predictedAlertLevel: row.predictedAlertLevel ?? row.predicted_alert_level,
@@ -101,6 +103,11 @@ export function shiftSensorRowsAlignEndToNow(rows) {
     }));
 }
 
+/** When false (default), charts do not use shifted public/sensor_data.csv in production. */
+export function isCsvDemoFallbackEnabled() {
+    return import.meta.env.VITE_DEMO_MODE === 'true';
+}
+
 function publicCsvUrl() {
     const base = import.meta.env.BASE_URL || '/';
     const prefix = base.endsWith('/') ? base : `${base}/`;
@@ -108,6 +115,7 @@ function publicCsvUrl() {
 }
 
 export async function loadShiftedSensorRowsFromPublicCsv(hours) {
+    if (!isCsvDemoFallbackEnabled()) return [];
     const res = await fetch(publicCsvUrl());
     if (!res.ok) throw new Error(`sensor_data.csv HTTP ${res.status}`);
     const text = await res.text();
@@ -120,6 +128,7 @@ export async function loadShiftedSensorRowsFromPublicCsv(hours) {
 }
 
 export async function getLatestFromPublicCsvShifted() {
+    if (!isCsvDemoFallbackEnabled()) return null;
     try {
         const res = await fetch(publicCsvUrl());
         if (!res.ok) return null;

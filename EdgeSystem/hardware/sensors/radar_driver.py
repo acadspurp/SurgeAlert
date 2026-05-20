@@ -2,7 +2,7 @@ import serial
 import threading
 import time
 import random
-from config.settings import RADAR_PORT, RADAR_BAUDRATE
+from config.settings import RADAR_PORT, RADAR_BAUDRATE, USE_HARDWARE
 
 _current_speed_mps = 0.0
 _running = False
@@ -42,7 +42,7 @@ def _read_serial_loop():
             time.sleep(0.1)
 
 def get_flow_rate():
-    if not _running:
+    if not USE_HARDWARE or not _running:
         import math
         return round(0.4 + 0.2 * abs(math.sin(time.time() / 90.0)), 3)
     return _current_speed_mps
