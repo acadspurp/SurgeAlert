@@ -43,7 +43,7 @@ def resolve_ml_features(db_manager):
     Returns (features_dict, is_stale).
     """
     fresh = fetch_ml_features_realtime()
-    has_features = any(
+    has_features = bool(fresh) and any(
         fresh.get(k) is not None
         for k in ("Tide_Height_m", "QC_Rain_mm", "Pressure_hPa", "timestamp")
     )

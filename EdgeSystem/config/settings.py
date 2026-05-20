@@ -10,7 +10,7 @@ DATABASE_PATH = os.path.join(DATABASE_DIR, DATABASE_NAME)
 MODEL_DIR = os.path.join(BASE_DIR, 'ml_model', 'trained_models')
 MODEL_PATH = os.path.join(MODEL_DIR, 'flood_prediction_model.joblib')
 
-def _load_env_file(env_path):
+def _load_env_file(env_path, override=False):
     """Minimal .env loader so Edge can run without shell-exported variables."""
     if not os.path.exists(env_path):
         return
@@ -22,13 +22,15 @@ def _load_env_file(env_path):
             key, value = line.split("=", 1)
             key = key.strip()
             value = value.strip().strip('"').strip("'")
-            if key and key not in os.environ:
+            if not key:
+                continue
+            if override or key not in os.environ:
                 os.environ[key] = value
 
 
-# Load root .env first (shared by backend/frontend/edge), then local Edge override if present.
-_load_env_file(os.path.join(BASE_DIR, "..", ".env"))
-_load_env_file(os.path.join(BASE_DIR, ".env"))
+# Root shared defaults, then EdgeSystem/.env wins on Pi (BACKEND_IP, MQTT_BROKER, etc.).
+_load_env_file(os.path.join(BASE_DIR, "..", ".env"), override=False)
+_load_env_file(os.path.join(BASE_DIR, ".env"), override=True)
 
 # --- SECURITY & NETWORK ---
 # If deploying to Cloud (Render), set BACKEND_IP to your Render URL (e.g., surgealert.onrender.com)
@@ -60,7 +62,7 @@ MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
 MQTT_PORT = 8883 # Port 8883 is required for MQTTS (SSL/TLS)
 MQTT_USERNAME = os.getenv("MQTT_USERNAME", "")
 MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "")
-MQTT_TOPIC_SENSOR = os.getenv("MQTT_TOPIC_SENSOR", "surgealert/sensor-data")
+MQTT_TOPIC_SENSOR = os.getenv("MQTT_TOPIC_SENSOR", "sensor/data")
 
 # --- TIDES API ---
 WORLDTIDES_API_KEY = os.getenv("WORLDTIDES_API_KEY", "")
