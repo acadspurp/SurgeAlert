@@ -21,7 +21,9 @@ from config.settings import (
     CYCLE_INTERVAL_SEC,
     ENVIRONMENT_MODE,
     GATHER_DURATION_SEC,
-    LEVEL_SCALE_FACTOR,
+    FLOW_SCALE_FACTOR,
+    RISE_RATE_SCALE_FACTOR,
+    WATER_LEVEL_SCALE_FACTOR,
     MQTT_BROKER,
     MQTT_PASSWORD,
     MQTT_PORT,
@@ -226,7 +228,10 @@ def _apply_level_scale(burst):
 
 def main():
     print("--- SURGE ALERT EDGE SYSTEM (LIVE SENSORS) ---")
-    print(f" Mode: {ENVIRONMENT_MODE}  |  level scale: {LEVEL_SCALE_FACTOR}")
+    print(
+        f" Mode: {ENVIRONMENT_MODE}  |  scale wl/rr/flow: "
+        f"{WATER_LEVEL_SCALE_FACTOR}/{RISE_RATE_SCALE_FACTOR}/{FLOW_SCALE_FACTOR}"
+    )
     print(f" Cycle: sleep {SLEEP_DURATION_SEC}s → gather {GATHER_DURATION_SEC}s (5 min grid)")
 
     db = DatabaseManager()

@@ -4,13 +4,15 @@ Deployment profiles for EdgeSystem — single source for calibration.
 Edit RIVER or POOL below. Switch mode in config/settings.py: ENVIRONMENT_MODE = "RIVER" | "POOL"
 
 RIVER sensor_height_m (6.0): mirror backend application.properties → surgealert.sensor.depth-m
-POOL: 3×2×1 m tank, ultrasonic 1.2 m; level_scale_factor=6 (0.5 m pool → 3.0 m on MQTT/alerts)
+POOL: 3×2×1 m tank, ultrasonic 1.2 m. Tune water_level / rise_rate / flow scale factors separately.
 """
 
 PROFILES = {
     "RIVER": {
         "sensor_height_m": 6.0,
-        "level_scale_factor": 1.0,
+        "water_level_scale_factor": 1.0,
+        "rise_rate_scale_factor": 1.0,
+        "flow_scale_factor": 1.0,
         "smoothing_window": 5,
         "max_delta_m_per_cycle": 0.75,
         "water_level_yellow_threshold": 3.50,
@@ -39,7 +41,9 @@ PROFILES = {
     },
     "POOL": {
         "sensor_height_m": 1.2,
-        "level_scale_factor": 6.0,
+        "water_level_scale_factor": 6.0,
+        "rise_rate_scale_factor": 6.0,
+        "flow_scale_factor": 6.0,
         "smoothing_window": 5,
         "max_delta_m_per_cycle": 0.10,
         "water_level_yellow_threshold": 3.50,

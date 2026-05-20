@@ -91,7 +91,9 @@ if ENVIRONMENT_MODE not in PROFILES:
 
 _profile = PROFILES[ENVIRONMENT_MODE]
 
-LEVEL_SCALE_FACTOR = float(_profile["level_scale_factor"])
+WATER_LEVEL_SCALE_FACTOR = float(_profile["water_level_scale_factor"])
+RISE_RATE_SCALE_FACTOR = float(_profile["rise_rate_scale_factor"])
+FLOW_SCALE_FACTOR = float(_profile["flow_scale_factor"])
 SENSOR_HEIGHT_FROM_MUDPLAIN = float(_profile["sensor_height_m"])
 SMOOTHING_WINDOW = int(_profile["smoothing_window"])
 MAX_DELTA_M_PER_CYCLE = float(_profile["max_delta_m_per_cycle"])

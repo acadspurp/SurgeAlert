@@ -3,30 +3,27 @@ from collections import deque
 from statistics import median
 
 from config.settings import (
-    LEVEL_SCALE_FACTOR,
+    FLOW_SCALE_FACTOR,
     MAX_DELTA_M_PER_CYCLE,
     REFERENCE_HEIGHT_M,
+    RISE_RATE_SCALE_FACTOR,
     SMOOTHING_WINDOW,
+    WATER_LEVEL_SCALE_FACTOR,
 )
 
 
 def scale_telemetry_for_reporting(
     water_level, rise_rate_mph, sensor_flow_rate, image_flow_rate
 ):
-    """Apply LEVEL_SCALE_FACTOR so POOL telemetry matches river units (×6)."""
-    factor = float(LEVEL_SCALE_FACTOR)
-    if factor == 1.0:
-        return (
-            round(float(water_level or 0), 2),
-            round(float(rise_rate_mph or 0), 4),
-            round(float(sensor_flow_rate or 0), 3),
-            round(float(image_flow_rate or 0), 3),
-        )
+    """Apply per-field scale factors (POOL → river-equivalent units on MQTT/alerts)."""
+    wl_f = float(WATER_LEVEL_SCALE_FACTOR)
+    rr_f = float(RISE_RATE_SCALE_FACTOR)
+    flow_f = float(FLOW_SCALE_FACTOR)
     return (
-        round(float(water_level or 0) * factor, 2),
-        round(float(rise_rate_mph or 0) * factor, 4),
-        round(float(sensor_flow_rate or 0) * factor, 3),
-        round(float(image_flow_rate or 0) * factor, 3),
+        round(float(water_level or 0) * wl_f, 2),
+        round(float(rise_rate_mph or 0) * rr_f, 4),
+        round(float(sensor_flow_rate or 0) * flow_f, 3),
+        round(float(image_flow_rate or 0) * flow_f, 3),
     )
 
 _recent_levels = deque(maxlen=max(3, SMOOTHING_WINDOW))

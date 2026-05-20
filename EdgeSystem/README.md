@@ -24,6 +24,7 @@ Loads `../.env` then `EdgeSystem/.env` (Pi overrides win).
 | Setting | Where |
 |---------|--------|
 | `ENVIRONMENT_MODE` | `config/settings.py` — `RIVER` or `POOL` |
+| Pool scaling | `deployment_profiles.py` — `water_level_scale_factor`, `rise_rate_scale_factor`, `flow_scale_factor` |
 | `BACKEND_IP` | Render URL or `127.0.0.1` |
 | `EDGE_API_KEY` | Must match backend (`X-Edge-Key`) |
 | `MQTT_BROKER`, `MQTT_USERNAME`, `MQTT_PASSWORD` | HiveMQ Cloud hostname + creds |
