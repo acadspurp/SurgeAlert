@@ -262,6 +262,7 @@ def main():
             cloud_online = fetch_offline_bundle(db)
             if cloud_online and download_model_if_updated():
                 alert_mgr.reload_model()
+                predictor.alert_manager.reload_model()
             ml_features, ml_stale = resolve_ml_features(db)
 
             print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Wake — gathering {GATHER_DURATION_SEC}s...")

@@ -1,80 +1,64 @@
-# SurgeAlert - EdgeSystem
+# SurgeAlert EdgeSystem
 
-This repository contains the Python-based on-site data collection and processing unit for the SurgeAlert Flood Monitoring and Early Warning System. This system is designed to run on a low-power edge device, such as a Raspberry Pi, deployed at the Tullahan River.
+On-site Python runtime for Raspberry Pi: ultrasonic water level, radar flow, camera optical flow, alert bands (GREEN/YELLOW/ORANGE/RED), optional XGBoost +1h prediction, MQTT telemetry, HTTPS snapshots, offline GSM SMS.
 
----
+## Run
 
-## Core Features
+```bash
+cd EdgeSystem
+python -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python -m system_main.main_loop
+```
 
-- **Real-time Data Collection**: Gathers water level and flow data from sensors.
-- **Computer Vision Analysis**: Captures and analyzes live video to calculate water flow and rise rate using Shi-Tomasi and Lucas-Kanade optical flow algorithms.
-- **Automated Alerting**: Determines the current flood alert level (Green, Yellow, Orange, Red) based on predefined rules.
-- **SMS Notifications**: Automatically disseminates critical alerts to registered residents via SMS.
-- **Local Data Logging**: Stores all sensor readings and alert history in a local SQLite database for future analysis and ML model training.
-- **Web App Integration**: Sends real-time status updates to the central `SurgeAlertWebApp` for public display.
+Stop with `Ctrl+C`. Console prints a dashboard each 5-minute cycle (sleep 4m30s → gather 30s).
 
----
+## Configuration
 
-## Technology Stack
+Loads `../.env` then `EdgeSystem/.env` (Pi overrides win). Common keys:
 
-- **Language**: Python 3
-- **Core Libraries**:
-  - OpenCV
-  - NumPy
-  - Requests
-  - (Future: Scikit-learn, Pandas)
-- **Database**: SQLite 3
+| Variable | Purpose |
+|----------|---------|
+| `BACKEND_IP` | Render URL or `127.0.0.1` |
+| `EDGE_API_KEY` | Must match backend (`X-Edge-Key`) |
+| `MQTT_BROKER`, `MQTT_USERNAME`, `MQTT_PASSWORD` | HiveMQ Cloud hostname + creds |
+| `MQTT_TOPIC_SENSOR` | Default `sensor/data` |
+| `USE_HARDWARE` | Omit or `true` on Pi; `false` = simulated sensors, cloud skips DB ingest |
+| `SENSOR_DEPTH_M`, `YELLOW/ORANGE/RED_THRESHOLD` | Calibration (mirror backend `application.properties`) |
 
----
+Port **8883** and TLS are fixed in code for non-local brokers (HiveMQ).
 
-## Setup and Installation
+## Data flow
 
-1.  **Prerequisites**:
-    - Python 3.8+
-    - `pip` package installer
-    - Git
+1. Sensors + camera → fusion, rise rate, thresholds (+ ML if model loaded).
+2. SQLite `database/surgealert.db` (offline cache).
+3. MQTT `sensor/data` → backend Postgres.
+4. HTTPS `/api/edge/sync/snapshot` for images (not on MQTT).
+5. If backend unreachable: GSM SMS on alert **level change** (residents/templates from `/api/edge/sync/all`).
 
-2.  **Clone the Repository**:
-    ```bash
-    git clone <your-repository-url>
-    ```
+## Machine learning
 
-3.  **Navigate to Directory**:
-    ```bash
-    cd EdgeSystem
-    ```
+- **Runtime model:** `ml_model/trained_models/flood_prediction_model.joblib` (classifier + regressor bundle).
+- **Train locally:** `python -m ml_model.train_model`
+- **Pi update when online:** `GET /api/edge/sync/model` when backend publishes a new version.
 
-4.  **Install Dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
+Scheduled Sunday retraining from Postgres is planned later; use `train_model.py` for new artifacts.
 
-5.  **Setup Sample Images for Simulation**:
-    - Place a sample image of the river named `sample_water.jpg` inside `simulation/camera/sample_images/`.
-    - For optical flow testing, create a subfolder `river_sequence/` in the same directory and populate it with a sequence of images (e.g., frames from a video).
+## Hardware (Pi)
 
----
+- Ultrasonic: GPIO (see `config/settings.py`)
+- Radar: `/dev/ttyUSB0`
+- GSM (offline SMS): `/dev/ttyUSB2` (hardcoded in `sms_manager.py`)
+- Camera: OpenCV index `0` when `USE_HARDWARE=true`
 
-## How to Run
+## Layout
 
-The system can be run in two modes, controlled by the `USE_HARDWARE` flag in `config/settings.py`.
-
-### Running in Simulation Mode
-
-This mode is for development and testing without physical hardware.
-
-1.  Ensure `USE_HARDWARE = False` in `config/settings.py`.
-2.  Run the main application from the `EdgeSystem` root directory:
-    ```bash
-    python -m system_main.main_loop
-    ```
-3.  An OpenCV window will show the simulated video feed with tracking points. The console will display real-time data and alerts.
-4.  Press `Ctrl+C` in the terminal to stop the system.
-
-### Running in Hardware Mode
-
-This mode is for deployment on the Raspberry Pi with sensors connected.
-
-1.  Complete the driver code in the `hardware/` directory for your specific sensors.
-2.  Set `USE_HARDWARE = True` in `config/settings.py`.
-3.  Run the main application: `python -m system_main.main_loop`.
+```
+system_main/     main_loop, MQTT, sync, SQLite, SMS
+hardware/        ultrasonic, radar, camera drivers
+processing/      water level, CV flow, fusion, rise rate
+alert_logic/     thresholds + flow escalation
+ml_model/        train_model, level_predictor, trained_models/
+config/          settings.py
+```

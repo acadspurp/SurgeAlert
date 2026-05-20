@@ -1,120 +1,47 @@
-# SurgeAlert — Modular Flood Monitoring System
+# SurgeAlert Web App
 
-SurgeAlert is a web-based flood monitoring and early-warning system designed for Barangay Marulas, Valenzuela City. This version uses a clean, lightweight, and flat modular structure, making the codebase easy to understand, maintain, and extend.
+Vite + React SPA: public flood status, maps, registration/login, and admin dashboards (telemetry, residents, templates, reports, AI metrics).
 
----
+## Run
 
-## 📁 Project Structure
+```bash
+cd frontend/WebApp
+npm install
+npm run dev
+```
 
-The project is organized into a simple, flat structure where each JavaScript module has a distinct responsibility.
+Build for production (e.g. Cloudflare Pages):
 
-SurgeAlert/
-│
-├── js/
-│ ├── alert.js # Logic for water level simulation and dynamic UI updates.
-│ ├── api.js # Fetches 5-day weather forecast data from Open-Meteo.
-│ ├── auth.js # Handles all Firebase authentication (login, logout, state observer).
-│ ├── config.js # Stores shared constants like view names and alert guide text.
-│ ├── main.js # The main entry point; initializes the app and event listeners.
-│ ├── map.js # Initializes the Leaflet.js interactive map and evacuation markers.
-│ ├── tides.js # Fetches daily tide data from the WorldTides API.
-│ └── ui.js # Manages UI interactions like switching views and handling forms.
-│
-├── index.html # The single HTML file for the entire application.
-├── styles.css # All styling, variables, and animations for the project.
-└── README.md # This file.
+```bash
+npm run build
+npm run preview
+```
 
----
+## Configuration
 
-## 🚀 Features
+Create `.env` or set hosting env vars:
 
-### 🌧️ Real-Time Water Level Display
-- Simulates rising and falling river levels with a dynamic display.
-- Automatically assigns alert status and detailed action guides:
-  - 🟢 **Green — Normal**
-  - 🟡 **Yellow — Caution**
-  - 🟠 **Orange — Prepare**
-  - 🔴 **Red — Evacuate**
+| Variable | Purpose |
+|----------|---------|
+| `VITE_API_BASE_URL` | Backend API including `/api`, e.g. `https://your-backend.onrender.com/api` |
+| `VITE_BACKEND_ORIGIN` | Optional origin fallback |
+| `VITE_DEFAULT_PRODUCTION_BACKEND` | Fallback when API base unset |
+| `VITE_DEMO_MODE` | `true` for demo/synthetic charts |
 
-### ☁️ 5-Day Weather Forecast
-- Fetches and displays a 5-day forecast using the free Open-Meteo API.
-- Shows the day, a weather icon, a short description, and the max/min temperatures.
-- Lightweight and requires no API key.
+## Stack
 
-### 🌊 Daily Tide Forecast
-- Displays high and low tide times for the current day from the WorldTides API.
-- Helps residents understand how tides may affect the river's drainage.
+- React, React Router, Tailwind CSS v4
+- Chart.js, Leaflet, Zod
+- REST via `src/services/api.js`; optional live MQTT hook (`useSensorMqtt.js`)
 
-### 🗺️ Interactive Evacuation Map
-- Powered by Leaflet.js for a fast and interactive experience.
-- Shows predefined evacuation centers in the area.
-- Users can click on markers to view the name of the location.
+## Structure
 
-### 🔐 User Authentication (Firebase)
-- Simple and secure Login / Logout system using Firebase Authentication.
-- Automatically detects user auth state to update the UI.
-- Ready to be expanded with role-based access or user profiles.
+```
+src/
+  pages/          Home, Maps, Login, Register, Admin/*
+  services/       api.js, auth.js
+  hooks/          sensor polling, MQTT, Manila clock
+  config.js       API base URL resolution
+```
 
-### 📦 Modular JavaScript Architecture
-Each feature is cleanly separated into its own JavaScript module within the `js/` directory. This flat structure makes the project **easy to understand, maintain, and expand** without complex folder navigation.
-
----
-
-## 🛠️ Technologies Used
-
-- **JavaScript (ES Modules)**
-- **HTML5 & TailwindCSS**
-- **Firebase Authentication**
-- **Leaflet.js** (Interactive Maps)
-- **Open-Meteo API** (Weather Data)
-- **World Tides API** (Tide Data)
-
----
-
-## ▶️ How to Run the Project
-
-Because this project uses ES Modules, you cannot run it by opening the `index.html` file directly in your browser (`file:///...`). You must serve it from a local web server.
-
-### **Option 1: Using the VS Code Live Server Extension**
-1.  Install the **Live Server** extension from the Visual Studio Code marketplace.
-2.  Right-click on `index.html` in your file explorer and select "Open with Live Server".
-
-### **Option 2: Using Python (If installed)**
-1.  Open your terminal or command prompt in the project's root directory.
-2.  Run the following command:
-    ```sh
-    python -m http.server
-    ```
-3.  Open your web browser and go to: **`http://localhost:8000`**
-
----
-
-## 🔧 Customization
-
--   **Change Alert Thresholds & Water Level Logic:**
-    -   Modify the `if/else` conditions in `js/alert.js`.
-
--   **Update Alert Text & Action Guides:**
-    -   Edit the `ALERT_GUIDE` object in `js/config.js`.
-
--   **Modify Map Locations:**
-    -   Update the `evacuationSites` array in `js/map.js`.
-
--   **Change API Keys or Endpoints:**
-    -   Edit the constants in `js/tides.js` or `js/api.js`.
-
----
-
-## 🚧 Future Improvements
-
--   [ ] **SMS Alert Integration** (via Twilio or other services)
--   [ ] **Real IoT Sensor Data** (replace simulation with data from an ESP32, etc.)
--   [ ] **Admin Dashboard** for managing users and alerts.
--   [ ] **Push Notifications** for real-time browser alerts.
--   [ ] **Offline Support** (Progressive Web App - PWA).
-
----
-
-## 📜 License
-
-This project is licensed under the MIT License.
+Admin views read live sensor and system health from the backend; public pages show current alert level and forecasts backed by API data (not the old client-side water simulation).
