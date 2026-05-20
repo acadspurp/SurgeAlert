@@ -16,6 +16,7 @@ import {
     toggleResidentPriority,
 } from '../../services/api.js';
 import { computeHardwareHealth } from '../../utils/edgeConnectivity.js';
+import { isCsvDemoFallbackEnabled } from '../../utils/sensorTimeseries.js';
 import { useLatestSensorPolling } from '../../hooks/useLatestSensorPolling.js';
 import 'chartjs-adapter-date-fns';
 import annotationPlugin from 'chartjs-plugin-annotation';
@@ -235,8 +236,10 @@ export default function Admin() {
                 latest = await fetchLatestSensorReading();
             }
             
-            // Heartbeat only from persisted sensor_data (not alert status / override timestamps).
-            if (latest?.timestamp) {
+            // Heartbeat only from live DB sensor_data (never CSV demo or alert API timestamps).
+            const liveSensorHeartbeat =
+                latest?.timestamp && !isCsvDemoFallbackEnabled();
+            if (liveSensorHeartbeat) {
                 setLastMqttAt(new Date(latest.timestamp).getTime());
             } else {
                 setLastMqttAt(null);
