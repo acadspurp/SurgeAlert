@@ -215,6 +215,14 @@ export async function registerResident(userData) {
 }
 
 // --- OTP ---
+export async function fetchOtpConfig() {
+    const response = await fetch(`${API_BASE_URL}/public/config/otp`, { mode: 'cors' });
+    if (!response.ok) {
+        return { strictVerification: true, ttlMinutes: 10 };
+    }
+    return await response.json();
+}
+
 export async function sendOtp(phoneNumber) {
     const response = await fetch(`${API_BASE_URL}/residents/send-otp`, {
         method: 'POST',
@@ -236,7 +244,10 @@ export async function verifyOtp(phoneNumber, code) {
         body: JSON.stringify({ phoneNumber, code })
     });
 
-    if (!response.ok) throw new Error("Invalid OTP");
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || 'Invalid or expired OTP');
+    }
     return true;
 }
 

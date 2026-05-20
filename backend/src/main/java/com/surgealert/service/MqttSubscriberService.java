@@ -3,6 +3,7 @@ package com.surgealert.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surgealert.dto.SensorDataDTO;
 import com.surgealert.entity.SensorData;
+import com.surgealert.util.PhilippinePhoneUtil;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
@@ -81,9 +82,14 @@ public class MqttSubscriberService {
     public void publishSmsToGsm(String phoneNumber, String textMessage) {
         try {
             if (mqttClient.isConnected()) {
-                // Ensure text is properly escaped for JSON
+                String tenDigit = PhilippinePhoneUtil.normalizeToTenDigit(phoneNumber);
+                if (tenDigit == null) {
+                    System.err.println(" [MQTT] Cannot publish SMS; invalid phone: " + phoneNumber);
+                    return;
+                }
+                String dial = PhilippinePhoneUtil.toGsmDial(tenDigit);
                 String safeText = textMessage != null ? textMessage.replace("\"", "\\\"").replace("\n", "\\n") : "";
-                String payload = String.format("{\"number\":\"%s\", \"message\":\"%s\"}", phoneNumber, safeText);
+                String payload = String.format("{\"number\":\"%s\", \"message\":\"%s\"}", dial, safeText);
                 org.eclipse.paho.client.mqttv3.MqttMessage message = new org.eclipse.paho.client.mqttv3.MqttMessage(
                         payload.getBytes());
                 message.setQos(1);

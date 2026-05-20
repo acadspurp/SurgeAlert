@@ -1,10 +1,11 @@
 package com.surgealert.controller;
 
-import com.surgealert.dto.ResidentAdminDTO;
 import com.surgealert.dto.ResidentRequest;
 import com.surgealert.service.NotificationService;
 import com.surgealert.service.OtpDeliveryService;
 import com.surgealert.service.ResidentService;
+import com.surgealert.util.PhilippinePhoneUtil;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +24,9 @@ public class ResidentController {
     private final OtpDeliveryService otpDeliveryService;
     private final com.surgealert.service.MqttSubscriberService mqttSubscriberService;
 
+    @Value("${surgealert.otp.strict-verification:true}")
+    private boolean strictOtpVerification;
+
     public ResidentController(ResidentService residentService, NotificationService notificationService,
             OtpDeliveryService otpDeliveryService, com.surgealert.service.MqttSubscriberService mqttSubscriberService) {
         this.residentService = residentService;
@@ -33,18 +37,22 @@ public class ResidentController {
 
     @PostMapping("/send-otp")
     public ResponseEntity<?> sendOtp(@RequestBody Map<String, String> payload) {
-        String phone = payload.get("phoneNumber");
-        String otp = residentService.generateOtp(phone);
+        String tenDigit = PhilippinePhoneUtil.normalizeToTenDigit(payload.get("phoneNumber"));
+        if (tenDigit == null) {
+            return ResponseEntity.badRequest().body("Invalid Philippine mobile number");
+        }
+        String otp = residentService.generateOtp(tenDigit);
         String otpMessage = notificationService.getOtpMessage(otp);
-        OtpDeliveryService.DeliveryResult delivery = otpDeliveryService.deliverOtp(phone, otpMessage);
+        OtpDeliveryService.DeliveryResult delivery = otpDeliveryService.deliverOtp(tenDigit, otpMessage);
 
         if ("GSM_FALLBACK".equals(delivery.channel())) {
-            mqttSubscriberService.publishSmsToGsm(phone, otpMessage);
+            mqttSubscriberService.publishSmsToGsm(tenDigit, otpMessage);
+        } else if ("INVALID_PHONE".equals(delivery.status())) {
+            return ResponseEntity.badRequest().body(delivery.detail());
         }
 
         return ResponseEntity.ok(Map.of(
                 "status", "OTP_ISSUED",
-
                 "deliveryChannel", delivery.channel(),
                 "detail", delivery.detail()
         ));
@@ -52,28 +60,40 @@ public class ResidentController {
 
     @PostMapping("/verify-otp")
     public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> payload) {
-        String phone = payload.get("phoneNumber");
-        String code = payload.get("code");
-        if (residentService.verifyOtp(phone, code)) {
-            return ResponseEntity.ok(Collections.singletonMap("status", "verified"));
-        } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid OTP");
+        String tenDigit = PhilippinePhoneUtil.normalizeToTenDigit(payload.get("phoneNumber"));
+        if (tenDigit == null) {
+            return ResponseEntity.badRequest().body("Invalid Philippine mobile number");
         }
+        String code = payload.get("code");
+        if (residentService.verifyOtp(tenDigit, code, true)) {
+            return ResponseEntity.ok(Collections.singletonMap("status", "verified"));
+        }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid or expired OTP");
     }
 
     @PostMapping("/register")
     public ResponseEntity<?> registerResident(@RequestBody ResidentRequest request) {
         try {
-            residentService.registerResident(request);
-            
-            // Send Success SMS
-            String successMsg = notificationService.getRegistrationSuccessMessage();
-            String phone = request.getPhoneNumber();
-            OtpDeliveryService.DeliveryResult delivery = otpDeliveryService.deliverOtp(phone, successMsg);
-            if ("GSM_FALLBACK".equals(delivery.channel())) {
-                mqttSubscriberService.publishSmsToGsm(phone, successMsg);
+            String tenDigit = PhilippinePhoneUtil.normalizeToTenDigit(request.getPhoneNumber());
+            if (tenDigit == null) {
+                return ResponseEntity.badRequest().body("Invalid Philippine mobile number");
             }
-            
+            request.setPhoneNumber(tenDigit);
+
+            if (strictOtpVerification && !residentService.isVerifiedForRegistration(tenDigit)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("OTP verification required before registration");
+            }
+
+            residentService.registerResident(request);
+            residentService.consumeRegistrationVerification(tenDigit);
+
+            String successMsg = notificationService.getRegistrationSuccessMessage();
+            OtpDeliveryService.DeliveryResult delivery = otpDeliveryService.deliverOtp(tenDigit, successMsg);
+            if ("GSM_FALLBACK".equals(delivery.channel())) {
+                mqttSubscriberService.publishSmsToGsm(tenDigit, successMsg);
+            }
+
             return ResponseEntity.status(HttpStatus.CREATED).body("Resident registered successfully");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
@@ -83,7 +103,11 @@ public class ResidentController {
     @DeleteMapping("/{phoneNumber}")
     public ResponseEntity<?> unregisterResident(@PathVariable String phoneNumber) {
         try {
-            residentService.unregisterResident(phoneNumber);
+            String tenDigit = PhilippinePhoneUtil.normalizeToTenDigit(phoneNumber);
+            if (tenDigit == null) {
+                return ResponseEntity.badRequest().body("Invalid Philippine mobile number");
+            }
+            residentService.unregisterResident(tenDigit);
             return ResponseEntity.ok("Phone number unregistered successfully");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
@@ -92,22 +116,24 @@ public class ResidentController {
 
     @PostMapping("/unsubscribe-otp")
     public ResponseEntity<?> unsubscribeOtp(@RequestBody Map<String, String> payload) {
-        String phone = payload.get("phoneNumber");
+        String tenDigit = PhilippinePhoneUtil.normalizeToTenDigit(payload.get("phoneNumber"));
+        if (tenDigit == null) {
+            return ResponseEntity.badRequest().body("Invalid Philippine mobile number");
+        }
         String code = payload.get("code");
 
-        if (residentService.verifyOtp(phone, code)) {
-            boolean success = residentService.unregisterResidentByPhoneSilently(phone);
+        if (residentService.verifyOtp(tenDigit, code, false)) {
+            boolean success = residentService.unregisterResidentByPhoneSilently(tenDigit);
             if (success) {
                 return ResponseEntity.ok(Collections.singletonMap("status", "unsubscribed"));
-            } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Collections.singletonMap("error", "Phone not found anymore"));
             }
-        } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Collections.singletonMap("error", "Invalid OTP"));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Collections.singletonMap("error", "Phone not found anymore"));
         }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Collections.singletonMap("error", "Invalid or expired OTP"));
     }
 
-    /** Admin UI uses masked phone only; delete by database id instead. */
     @DeleteMapping("/id/{id}")
     public ResponseEntity<?> unregisterResidentById(@PathVariable Long id) {
         try {
@@ -129,7 +155,7 @@ public class ResidentController {
     }
 
     @GetMapping("/active")
-    public ResponseEntity<List<ResidentAdminDTO>> getActiveResidents() {
+    public ResponseEntity<List<com.surgealert.dto.ResidentAdminDTO>> getActiveResidents() {
         return ResponseEntity.ok(residentService.getAllActiveResidentsForAdmin());
     }
 }

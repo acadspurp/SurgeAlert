@@ -38,6 +38,12 @@ public class ConfigController {
     @Value("${surgealert.thresholds.red:5.50}")
     private double redThreshold;
 
+    @Value("${surgealert.otp.strict-verification:true}")
+    private boolean strictOtpVerification;
+
+    @Value("${surgealert.otp.ttl-minutes:10}")
+    private int otpTtlMinutes;
+
     @GetMapping("/thresholds")
     public ResponseEntity<Map<String, Object>> getThresholds() {
         Map<String, Object> response = new LinkedHashMap<>();
@@ -49,6 +55,14 @@ public class ConfigController {
         thresholds.put("red", redThreshold);
         response.put("thresholds", thresholds);
 
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/otp")
+    public ResponseEntity<Map<String, Object>> getOtpConfig() {
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("strictVerification", strictOtpVerification);
+        response.put("ttlMinutes", otpTtlMinutes);
         return ResponseEntity.ok(response);
     }
 

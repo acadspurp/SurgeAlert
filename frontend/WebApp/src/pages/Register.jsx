@@ -1,19 +1,28 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { sendOtp, verifyOtp, registerResident, unsubscribeOtp } from '../services/api.js';
+import { fetchOtpConfig, sendOtp, verifyOtp, registerResident, unsubscribeOtp } from '../services/api.js';
 
 export default function Register() {
     const navigate = useNavigate();
 
-    // Form state
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
     const [consent, setConsent] = useState(false);
     const [otpCode, setOtpCode] = useState('');
+    const [strictVerification, setStrictVerification] = useState(true);
+    const [otpTtlMinutes, setOtpTtlMinutes] = useState(10);
 
-    // Flow State: 'subscribe_phone', 'subscribe_otp', 'unsubscribe_phone', 'unsubscribe_otp', 'success_sub', 'success_unsub'
-    const [step, setStep] = useState('subscribe_phone'); 
+    const [step, setStep] = useState('subscribe_phone');
     const [sending, setSending] = useState(false);
+
+    useEffect(() => {
+        fetchOtpConfig()
+            .then((cfg) => {
+                setStrictVerification(Boolean(cfg?.strictVerification));
+                if (cfg?.ttlMinutes) setOtpTtlMinutes(cfg.ttlMinutes);
+            })
+            .catch(() => setStrictVerification(true));
+    }, []);
 
     const validateAndNormalizePhone = (p) => {
         if (/^9\d{9}$/.test(p)) return p;
@@ -21,9 +30,8 @@ export default function Register() {
         return null;
     };
 
-    const isValidManualOtp = (value) => /^\d{6}$/.test(String(value || ''));
+    const isValidOtpFormat = (value) => /^\d{6}$/.test(String(value || ''));
 
-    // --- SUBSCRIBE HANDLERS ---
     const handleSubPhoneSubmit = async (e) => {
         e.preventDefault();
         const normalized = validateAndNormalizePhone(phone);
@@ -31,16 +39,21 @@ export default function Register() {
             alert("Invalid Phone Number. Use 10 digits starting with 9 (e.g. 9123...) or 11 digits starting with 09 (e.g. 0912...).");
             return;
         }
+        setSending(true);
         try {
-            setSending(true);
             const data = await sendOtp(normalized);
             const via = data?.deliveryChannel ? ` via ${data.deliveryChannel}` : '';
             alert(`Verification code sent${via}. Please check your messages.`);
+            setStep('subscribe_otp');
         } catch (err) {
             console.error(err);
-            alert("OTP delivery is temporarily unavailable. Enter any 6-digit code to continue.");
+            if (strictVerification) {
+                alert("Could not send verification code. Check your number and try again, or contact support.");
+            } else {
+                alert("OTP delivery is temporarily unavailable. Enter any 6-digit code to continue.");
+                setStep('subscribe_otp');
+            }
         } finally {
-            setStep('subscribe_otp');
             setSending(false);
         }
     };
@@ -48,11 +61,16 @@ export default function Register() {
     const handleSubOtpSubmit = async (e) => {
         e.preventDefault();
         const normalized = validateAndNormalizePhone(phone);
-        if (!isValidManualOtp(otpCode)) {
-            alert("Please enter any 6-digit OTP code.");
+        if (!isValidOtpFormat(otpCode)) {
+            alert(strictVerification
+                ? `Please enter the 6-digit code from your SMS (valid ${otpTtlMinutes} minutes).`
+                : "Please enter any 6-digit OTP code.");
             return;
         }
         try {
+            if (strictVerification) {
+                await verifyOtp(normalized, otpCode);
+            }
             await registerResident({ fullName: name, phoneNumber: normalized });
             setStep('success_sub');
         } catch (error) {
@@ -60,7 +78,6 @@ export default function Register() {
         }
     };
 
-    // --- UNSUBSCRIBE HANDLERS ---
     const handleUnsubPhoneSubmit = async (e) => {
         e.preventDefault();
         const normalized = validateAndNormalizePhone(phone);
@@ -68,8 +85,8 @@ export default function Register() {
             alert("Invalid Phone Number. Use 10 digits starting with 9 (e.g. 9123...) or 11 digits starting with 09 (e.g. 0912...).");
             return;
         }
+        setSending(true);
         try {
-            setSending(true);
             const data = await sendOtp(normalized);
             const via = data?.deliveryChannel ? ` via ${data.deliveryChannel}` : '';
             alert(`Verification code sent${via}. Please check your messages.`);
@@ -85,8 +102,11 @@ export default function Register() {
     const handleUnsubOtpSubmit = async (e) => {
         e.preventDefault();
         const normalized = validateAndNormalizePhone(phone);
+        if (!isValidOtpFormat(otpCode)) {
+            alert(`Please enter the 6-digit code from your SMS (valid ${otpTtlMinutes} minutes).`);
+            return;
+        }
         try {
-            await verifyOtp(normalized, otpCode);
             await unsubscribeOtp(normalized, otpCode);
             setStep('success_unsub');
         } catch (error) {
@@ -94,7 +114,6 @@ export default function Register() {
         }
     };
 
-    // --- NAVIGATION ---
     const resetTo = (newStep) => {
         setStep(newStep);
         setOtpCode('');
@@ -102,11 +121,14 @@ export default function Register() {
         setConsent(false);
     };
 
+    const subscribeOtpHint = strictVerification
+        ? `Enter the code from your SMS (expires in ${otpTtlMinutes} minutes)`
+        : 'Enter OTP (demo mode: any 6 digits if SMS unavailable)';
+
     return (
         <div id="register-view" className="py-10">
             <div className="max-w-md mx-auto custom-card">
-                
-                {/* --- SUBSCRIBE FLOW --- */}
+
                 {step === 'subscribe_phone' && (
                     <div id="phone-step">
                         <h2 className="text-2xl font-semibold mb-2 text-center section-title">Subscribe for Alerts</h2>
@@ -153,10 +175,11 @@ export default function Register() {
                 {step === 'subscribe_otp' && (
                     <div id="otp-step">
                         <h2 className="text-2xl font-semibold mb-2 text-center section-title">Verify Number</h2>
+                        <p className="text-center text-gray-500 text-sm mb-4">{subscribeOtpHint}</p>
                         <form onSubmit={handleSubOtpSubmit}>
                             <div className="mb-4">
                                 <label className="block text-center mb-2">Enter OTP</label>
-                                <input type="text" className="custom-input text-center text-2xl tracking-widest" maxLength="6" required value={otpCode} onChange={(e) => setOtpCode(e.target.value)} />
+                                <input type="text" className="custom-input text-center text-2xl tracking-widest" maxLength="6" required value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))} />
                             </div>
                             <button type="submit" className="custom-btn btn-green w-full mb-2">Verify & Subscribe</button>
                             <button type="button" onClick={() => resetTo('subscribe_phone')} className="w-full text-blue-600 py-2 text-sm text-center block">Change Phone</button>
@@ -174,8 +197,6 @@ export default function Register() {
                     </div>
                 )}
 
-
-                {/* --- UNSUBSCRIBE FLOW --- */}
                 {step === 'unsubscribe_phone' && (
                     <div id="unsub-phone-step">
                         <h2 className="text-2xl font-semibold mb-2 text-center section-title">Unsubscribe</h2>
@@ -202,10 +223,11 @@ export default function Register() {
                 {step === 'unsubscribe_otp' && (
                     <div id="unsub-otp-step">
                         <h2 className="text-2xl font-semibold mb-2 text-center section-title">Verify Unsubscribe</h2>
+                        <p className="text-center text-gray-500 text-sm mb-4">{`Enter the code from your SMS (expires in ${otpTtlMinutes} minutes)`}</p>
                         <form onSubmit={handleUnsubOtpSubmit}>
                             <div className="mb-4">
                                 <label className="block text-center mb-2">Enter OTP</label>
-                                <input type="text" className="custom-input text-center text-2xl tracking-widest" maxLength="6" required value={otpCode} onChange={(e) => setOtpCode(e.target.value)} />
+                                <input type="text" className="custom-input text-center text-2xl tracking-widest" maxLength="6" required value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))} />
                             </div>
                             <button type="submit" className="custom-btn btn-red w-full mb-2">Confirm Unsubscribe</button>
                             <button type="button" onClick={() => resetTo('unsubscribe_phone')} className="w-full text-blue-600 py-2 text-sm text-center block">Cancel</button>

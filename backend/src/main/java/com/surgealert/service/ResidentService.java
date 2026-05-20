@@ -4,9 +4,12 @@ import com.surgealert.dto.ResidentAdminDTO;
 import com.surgealert.dto.ResidentRequest;
 import com.surgealert.entity.Resident;
 import com.surgealert.repository.ResidentRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -18,29 +21,66 @@ public class ResidentService {
 
     private final ResidentRepository residentRepository;
 
-    // In-memory storage for OTPs (Key: PhoneNumber, Value: OTP)
-    private final Map<String, String> otpStorage = new ConcurrentHashMap<>();
+    @Value("${surgealert.otp.ttl-minutes:10}")
+    private int otpTtlMinutes;
+
+    // Active OTP codes (phone -> entry)
+    private final Map<String, OtpEntry> otpStorage = new ConcurrentHashMap<>();
+    // Phones that passed verify-otp and may register while strict mode is on
+    private final Map<String, Instant> verifiedForRegistration = new ConcurrentHashMap<>();
 
     public ResidentService(ResidentRepository residentRepository) {
         this.residentRepository = residentRepository;
     }
 
+    public int getOtpTtlMinutes() {
+        return otpTtlMinutes;
+    }
+
     // --- OTP LOGIC ---
     public String generateOtp(String phoneNumber) {
-        // Generate random 6-digit code
+        purgeExpired();
         String otp = String.format("%06d", new Random().nextInt(999999));
-        otpStorage.put(phoneNumber, otp);
-        // Avoid printing OTP/phone values in logs.
+        Instant expiresAt = Instant.now().plusSeconds(otpTtlMinutes * 60L);
+        otpStorage.put(phoneNumber, new OtpEntry(otp, expiresAt));
         return otp;
     }
 
-    public boolean verifyOtp(String phoneNumber, String code) {
-        String validCode = otpStorage.get(phoneNumber);
-        if (validCode != null && validCode.equals(code)) {
-            otpStorage.remove(phoneNumber); // One-time use
-            return true;
+    /** @param markForRegistration when true (subscribe verify), allows /register while strict mode is on */
+    public boolean verifyOtp(String phoneNumber, String code, boolean markForRegistration) {
+        purgeExpired();
+        OtpEntry entry = otpStorage.get(phoneNumber);
+        if (entry == null || entry.isExpired()) {
+            if (entry != null) {
+                otpStorage.remove(phoneNumber);
+            }
+            return false;
         }
-        return false;
+        if (!entry.code.equals(code)) {
+            return false;
+        }
+        otpStorage.remove(phoneNumber);
+        if (markForRegistration) {
+            verifiedForRegistration.put(phoneNumber, Instant.now().plusSeconds(otpTtlMinutes * 60L));
+        }
+        return true;
+    }
+
+    public boolean isVerifiedForRegistration(String phoneNumber) {
+        purgeExpired();
+        Instant until = verifiedForRegistration.get(phoneNumber);
+        if (until == null) {
+            return false;
+        }
+        if (Instant.now().isAfter(until)) {
+            verifiedForRegistration.remove(phoneNumber);
+            return false;
+        }
+        return true;
+    }
+
+    public void consumeRegistrationVerification(String phoneNumber) {
+        verifiedForRegistration.remove(phoneNumber);
     }
 
     // --- REGISTRATION LOGIC ---
@@ -52,13 +92,11 @@ public class ResidentService {
         Resident resident = new Resident();
         resident.setPhoneNumber(request.getPhoneNumber());
         resident.setIsPriority(request.getIsPriority() != null ? request.getIsPriority() : false);
-        
-        // REDACT NAME BEFORE SAVING
+
         String rawName = request.getFullName();
         if (rawName != null && !rawName.trim().isEmpty()) {
             String[] parts = rawName.trim().split("\\s+");
             if (parts.length > 1) {
-                // "Juan Dela Cruz" -> "J. Cruz"
                 resident.setFullName(parts[0].charAt(0) + ". " + parts[parts.length - 1]);
             } else {
                 resident.setFullName(rawName.trim());
@@ -102,8 +140,6 @@ public class ResidentService {
         residentRepository.delete(resident);
     }
 
-    // --- USED FOR SMS ALERTS (INTERNAL USE - RETURNS RAW DATA) ---
-    // PRIORITIZED: Returns numbers sorted by isPriority DESC
     public List<String> getAllActivePhoneNumbers() {
         return residentRepository.findByIsActiveTrue().stream()
                 .sorted((a, b) -> Boolean.compare(b.getIsPriority(), a.getIsPriority()))
@@ -111,7 +147,6 @@ public class ResidentService {
                 .collect(Collectors.toList());
     }
 
-    /** Edge Pi offline SMS: phone + priority flag. */
     public List<Map<String, Object>> getActiveResidentsForEdgeSync() {
         return residentRepository.findByIsActiveTrue().stream()
                 .sorted((a, b) -> Boolean.compare(
@@ -126,21 +161,15 @@ public class ResidentService {
                 .collect(Collectors.toList());
     }
 
-    // --- USED FOR ADMIN DASHBOARD (EXTERNAL USE - RETURNS MASKED DATA) ---
     public List<ResidentAdminDTO> getAllActiveResidentsForAdmin() {
         return residentRepository.findByIsActiveTrue().stream()
                 .map(this::maskResidentData)
                 .collect(Collectors.toList());
     }
 
-    // MASKING HELPER
     private ResidentAdminDTO maskResidentData(Resident resident) {
         String rawPhone = resident.getPhoneNumber() != null ? resident.getPhoneNumber() : "";
-        
-        // Mask Phone: Keep only last 4 digits
         String maskedPhone = "******" + (rawPhone.length() > 4 ? rawPhone.substring(rawPhone.length() - 4) : rawPhone);
-
-        // Note: Name is already redacted in DB at registration time
         return new ResidentAdminDTO(
                 resident.getId(),
                 resident.getFullName(),
@@ -150,7 +179,21 @@ public class ResidentService {
         );
     }
 
+    /** Non-expired OTPs only — edge Pi offline cache. */
     public Map<String, String> getActiveOtps() {
-        return new java.util.HashMap<>(otpStorage);
+        purgeExpired();
+        Map<String, String> active = new HashMap<>();
+        otpStorage.forEach((phone, entry) -> {
+            if (!entry.isExpired()) {
+                active.put(phone, entry.code);
+            }
+        });
+        return active;
+    }
+
+    private void purgeExpired() {
+        Instant now = Instant.now();
+        otpStorage.entrySet().removeIf(e -> e.getValue().isExpired());
+        verifiedForRegistration.entrySet().removeIf(e -> now.isAfter(e.getValue()));
     }
 }

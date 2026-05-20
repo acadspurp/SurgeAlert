@@ -49,12 +49,7 @@ else:
     BACKEND_API_URL = f"http://{BACKEND_IP}:{BACKEND_PORT}/api"
 EDGE_API_KEY = os.getenv("EDGE_API_KEY", "")
 
-# --- HYBRID SMS/OTP DELIVERY ---
-SMS_ONLINE_PRIMARY = os.getenv("SMS_ONLINE_PRIMARY", "true").lower() == "true"
-SEMAPHORE_ENABLED = os.getenv("SEMAPHORE_ENABLED", "false").lower() == "true"
-SEMAPHORE_API_KEY = os.getenv("SEMAPHORE_API_KEY", "")
-SEMAPHORE_API_URL = os.getenv("SEMAPHORE_API_URL", "https://api.semaphore.co/api/v4/messages")
-SEMAPHORE_SENDER_NAME = os.getenv("SEMAPHORE_SENDER_NAME", "SurgeAlert")
+# --- EDGE SMS (GSM SIM7600 only; Semaphore runs on backend when enabled) ---
 
 # --- SECURE MQTT SETTINGS ---
 MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")

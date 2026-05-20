@@ -257,7 +257,7 @@ def main():
                     data = json.loads(msg.payload.decode())
                     num, txt = data.get("number"), data.get("message")
                     if num and txt:
-                        sms.send_sms(num, txt)
+                        sms.send_gsm_only(num, txt)
                 except Exception as e:
                     print(f" [SMS] MQTT outbound error: {e}")
 
