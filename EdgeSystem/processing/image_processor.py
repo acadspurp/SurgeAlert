@@ -1,8 +1,17 @@
 import cv2
 import numpy as np
 import time
-from config.settings import MAX_CORNERS, QUALITY_LEVEL, MIN_DISTANCE, \
-    LK_WINDOW_SIZE, LK_MAX_LEVEL, LK_CRITERIA, PIXELS_TO_METERS
+from config.settings import (
+    CV_MIN_DIST_TO_WATER_M,
+    LK_CRITERIA,
+    LK_MAX_LEVEL,
+    LK_WINDOW_SIZE,
+    MAX_CORNERS,
+    MIN_DISTANCE,
+    PIXELS_TO_METERS,
+    QUALITY_LEVEL,
+    SENSOR_HEIGHT_FROM_MUDPLAIN,
+)
 
 class ImageProcessor:
     def __init__(self):
@@ -66,10 +75,9 @@ class ImageProcessor:
         # Result Conversion (Dynamic Scale based on water level)
         # Higher water = closer to camera = more pixels per meter
         # We assume PIXELS_TO_METERS is calibrated at mudplain (water_level=0)
-        from config.settings import SENSOR_HEIGHT_FROM_MUDPLAIN
-        
-        # Calculate distance from camera to water
-        dist_to_water = max(0.5, SENSOR_HEIGHT_FROM_MUDPLAIN - water_level)
+        dist_to_water = max(
+            CV_MIN_DIST_TO_WATER_M, SENSOR_HEIGHT_FROM_MUDPLAIN - water_level
+        )
         
         # Adjust scale: factor decreases as water rises (closer objects look bigger/faster)
         dynamic_scale = PIXELS_TO_METERS * (dist_to_water / SENSOR_HEIGHT_FROM_MUDPLAIN)

@@ -1,5 +1,11 @@
 """Fuses ultrasonic, radar, and CV readings into validated telemetry."""
 
+from config.settings import (
+    FUSION_CV_WEIGHT,
+    FUSION_DISAGREE_RATIO,
+    FUSION_RADAR_WEIGHT,
+)
+
 
 def fuse_flow_rates(sensor_flow, image_flow):
     """Weighted blend when radar and CV agree; otherwise trust radar."""
@@ -11,9 +17,9 @@ def fuse_flow_rates(sensor_flow, image_flow):
         return round(i, 3)
     if i <= 0:
         return round(s, 3)
-    if abs(s - i) / max(s, i, 0.01) > 0.5:
+    if abs(s - i) / max(s, i, 0.01) > FUSION_DISAGREE_RATIO:
         return round(s, 3)
-    return round(0.65 * s + 0.35 * i, 3)
+    return round(FUSION_RADAR_WEIGHT * s + FUSION_CV_WEIGHT * i, 3)
 
 
 def build_cycle_reading(

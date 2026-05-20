@@ -1,5 +1,7 @@
 import os
 
+from config.deployment_profiles import PROFILES
+
 # --- PATHS ---
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATABASE_DIR = os.path.join(BASE_DIR, 'database')
@@ -9,6 +11,7 @@ DATABASE_PATH = os.path.join(DATABASE_DIR, DATABASE_NAME)
 # ML Model Paths
 MODEL_DIR = os.path.join(BASE_DIR, 'ml_model', 'trained_models')
 MODEL_PATH = os.path.join(MODEL_DIR, 'flood_prediction_model.joblib')
+
 
 def _load_env_file(env_path, override=False):
     """Minimal .env loader so Edge can run without shell-exported variables."""
@@ -33,13 +36,10 @@ _load_env_file(os.path.join(BASE_DIR, "..", ".env"), override=False)
 _load_env_file(os.path.join(BASE_DIR, ".env"), override=True)
 
 # --- SECURITY & NETWORK ---
-# If deploying to Cloud (Render), set BACKEND_IP to your Render URL (e.g., surgealert.onrender.com)
 BACKEND_IP = os.getenv("BACKEND_IP", "127.0.0.1")
 BACKEND_PORT = os.getenv("BACKEND_PORT", "8080")
 
-# Handle Render URLs which might already include http/https
 if "render.com" in BACKEND_IP or "https://" in BACKEND_IP or "http://" in BACKEND_IP:
-    # Strip trailing slashes and normalize
     clean_ip = BACKEND_IP.rstrip("/")
     if "://" in clean_ip:
         BACKEND_API_URL = f"{clean_ip}/api"
@@ -56,10 +56,9 @@ SEMAPHORE_API_KEY = os.getenv("SEMAPHORE_API_KEY", "")
 SEMAPHORE_API_URL = os.getenv("SEMAPHORE_API_URL", "https://api.semaphore.co/api/v4/messages")
 SEMAPHORE_SENDER_NAME = os.getenv("SEMAPHORE_SENDER_NAME", "SurgeAlert")
 
-# --- SECURE MQTT SETTINGS (HiveMQ Cloud or Local Broker) ---
-# For Render deployment, use your HiveMQ Cloud cluster URL (e.g., xxx.s1.eu.hivemq.cloud)
+# --- SECURE MQTT SETTINGS ---
 MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
-MQTT_PORT = 8883 # Port 8883 is required for MQTTS (SSL/TLS)
+MQTT_PORT = 8883
 MQTT_USERNAME = os.getenv("MQTT_USERNAME", "")
 MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "")
 MQTT_TOPIC_SENSOR = os.getenv("MQTT_TOPIC_SENSOR", "sensor/data")
@@ -67,13 +66,12 @@ MQTT_TOPIC_SENSOR = os.getenv("MQTT_TOPIC_SENSOR", "sensor/data")
 # --- TIDES API ---
 WORLDTIDES_API_KEY = os.getenv("WORLDTIDES_API_KEY", "")
 
-
 # --- CAMERA ---
 CAMERA_INDEX = 0
 IMAGE_WIDTH = 640
 IMAGE_HEIGHT = 480
 
-# --- COMPUTER VISION ---
+# --- COMPUTER VISION (algorithm params; scale from profile) ---
 MAX_CORNERS = 100
 QUALITY_LEVEL = 0.01
 MIN_DISTANCE = 10
@@ -81,82 +79,63 @@ LK_WINDOW_SIZE = (15, 15)
 LK_MAX_LEVEL = 2
 LK_CRITERIA = (3, 10, 0.03)
 
-# --- DUTY CYCLE (sensors + camera sleep/wake) ---
-# 4 min 30 s rest + 30 s active = 5 min total, aligned to :00/:05/:10 grid (edge_time_utils).
-SLEEP_DURATION_SEC = 270            # 4 min 30 s rest (sensors/camera idle)
-GATHER_DURATION_SEC = 30              # 30 s active gather burst
-CYCLE_INTERVAL_SEC = SLEEP_DURATION_SEC + GATHER_DURATION_SEC  # 300 s = 5 min
-SNAPSHOT_INTERVAL_SEC = CYCLE_INTERVAL_SEC  # one snapshot per cycle
-RISE_RATE_WINDOW_SEC = 900            # ~15 min ultrasonic history for rise_rate (m/h)
-ML_FEATURES_MAX_AGE_HOURS = 6         # stale cache warning threshold
-LOCAL_SYNCED_RETAIN_DAYS = 7          # purge synced local rows older than this
-
 # --- SYSTEM CONFIGURATION ---
-# True = production (real camera, is_simulated=false on cloud ingest).
-# False = lab/demo (simulated sensors, is_simulated=true, no cloud DB writes).
 USE_HARDWARE = os.getenv("USE_HARDWARE", "true").lower() == "true"
 
-# --- DEPLOYMENT ENVIRONMENT ---
-# Set to "RIVER" to support high water levels (like 17.75m)
-ENVIRONMENT_MODE = "RIVER"
+# --- DEPLOYMENT PROFILE (see config/deployment_profiles.py) ---
+# Switch here: "RIVER" (Tullahan) or "POOL" (tank test, ×6 telemetry)
+ENVIRONMENT_MODE = "POOL"
+if ENVIRONMENT_MODE not in PROFILES:
+    print(f" [Config] Unknown ENVIRONMENT_MODE={ENVIRONMENT_MODE!r}; using RIVER.")
+    ENVIRONMENT_MODE = "RIVER"
 
-# --- CALIBRATION & THRESHOLDS ---
-if ENVIRONMENT_MODE == "AQUARIUM":
-    # --- AQUARIUM MODE (31 CM TANK) ---
-    PIXELS_TO_METERS = 0.001
-    SENSOR_HEIGHT_FROM_MUDPLAIN = 0.31 # 31 cm total height
+_profile = PROFILES[ENVIRONMENT_MODE]
 
-    # Thresholds (Meters)
-    WATER_LEVEL_YELLOW_THRESHOLD = 0.15
-    WATER_LEVEL_ORANGE_THRESHOLD = 0.22
-    WATER_LEVEL_RED_THRESHOLD = 0.27
+LEVEL_SCALE_FACTOR = float(_profile["level_scale_factor"])
+SENSOR_HEIGHT_FROM_MUDPLAIN = float(_profile["sensor_height_m"])
+SMOOTHING_WINDOW = int(_profile["smoothing_window"])
+MAX_DELTA_M_PER_CYCLE = float(_profile["max_delta_m_per_cycle"])
 
-    # Tide Scaling (Demo)
-    TIDE_SCALING_FACTOR = 0.025
+WATER_LEVEL_YELLOW_THRESHOLD = float(_profile["water_level_yellow_threshold"])
+WATER_LEVEL_ORANGE_THRESHOLD = float(_profile["water_level_orange_threshold"])
+WATER_LEVEL_RED_THRESHOLD = float(_profile["water_level_red_threshold"])
 
-else:
-    # --- RIVER MODE ---
-    # Physical setup: sensor is mounted above the riverbed.
-    # Water Level formula:  water_level_m = SENSOR_HEIGHT_FROM_MUDPLAIN - distance_from_sensor_m
-    #
-    # ✏️  TO UPDATE THE DEPTH: Change the value below.
-    #     This file is tracked by git, so the change will persist after every push.
-    #     Mirror the same value in: backend/src/main/resources/application.properties
-    #                              → surgealert.sensor.depth-m=6.0
-    SENSOR_HEIGHT_FROM_MUDPLAIN = float(os.getenv("SENSOR_DEPTH_M", "6.0"))
+RISE_RATE_YELLOW_MPH = float(_profile["rise_rate_yellow_mph"])
+RISE_RATE_RED_WITH_ORANGE_MPH = float(_profile["rise_rate_red_with_orange_mph"])
 
-    PIXELS_TO_METERS = 0.01
+FLOW_ESCALATE_ORANGE_MPS = float(_profile["flow_escalate_orange_mps"])
+FLOW_ESCALATE_RED_MPS = float(_profile["flow_escalate_red_mps"])
 
-    # Thresholds (Meters) - Synchronized with ML Model E
-    WATER_LEVEL_RED_THRESHOLD = float(os.getenv("RED_THRESHOLD", 5.50))
-    WATER_LEVEL_ORANGE_THRESHOLD = float(os.getenv("ORANGE_THRESHOLD", 4.50))
-    WATER_LEVEL_YELLOW_THRESHOLD = float(os.getenv("YELLOW_THRESHOLD", 3.50))
+PIXELS_TO_METERS = float(_profile["pixels_to_meters"])
+CV_MIN_DIST_TO_WATER_M = float(_profile["cv_min_dist_to_water_m"])
+TIDE_SCALING_FACTOR = float(_profile["tide_scaling_factor"])
 
-    # Fused flow (m/s) escalation when water level >= Orange
-    FLOW_ESCALATE_ORANGE_MPS = float(os.getenv("FLOW_ESCALATE_ORANGE_MPS", "0.50"))
-    FLOW_ESCALATE_RED_MPS = float(os.getenv("FLOW_ESCALATE_RED_MPS", "0.80"))
+SLEEP_DURATION_SEC = int(_profile["sleep_duration_sec"])
+GATHER_DURATION_SEC = int(_profile["gather_duration_sec"])
+CYCLE_INTERVAL_SEC = SLEEP_DURATION_SEC + GATHER_DURATION_SEC
+SNAPSHOT_INTERVAL_SEC = CYCLE_INTERVAL_SEC
+RISE_RATE_WINDOW_SEC = int(_profile["rise_rate_window_sec"])
+ML_FEATURES_MAX_AGE_HOURS = int(_profile["ml_features_max_age_hours"])
+LOCAL_SYNCED_RETAIN_DAYS = 7
 
-    # Real river uses real tide height (1:1 ratio)
-    TIDE_SCALING_FACTOR = 1.0
+SIM_ULTRASONIC_BASE_M = float(_profile["sim_ultrasonic_base_m"])
+SIM_ULTRASONIC_AMPLITUDE_M = float(_profile["sim_ultrasonic_amplitude_m"])
+SIM_ULTRASONIC_PERIOD_SEC = float(_profile["sim_ultrasonic_period_sec"])
+SIM_RADAR_FLOW_BASE_MPS = float(_profile["sim_radar_flow_base_mps"])
+SIM_RADAR_FLOW_AMPLITUDE_MPS = float(_profile["sim_radar_flow_amplitude_mps"])
+SIM_RADAR_PERIOD_SEC = float(_profile["sim_radar_period_sec"])
 
-# --- SITE CALIBRATION INPUTS (JSN-SR04T) ---
-# REFERENCE_HEIGHT_M aliases SENSOR_HEIGHT_FROM_MUDPLAIN (which is set from SENSOR_DEPTH_M env var).
-# sensor_data_processor.py imports this name, so we keep it for compatibility.
+FUSION_RADAR_WEIGHT = float(_profile["fusion_radar_weight"])
+FUSION_CV_WEIGHT = float(_profile["fusion_cv_weight"])
+FUSION_DISAGREE_RATIO = float(_profile["fusion_disagree_ratio"])
+
+# Calibration (depth, thresholds, flow, timing): deployment_profiles.py only — not .env
 REFERENCE_HEIGHT_M = SENSOR_HEIGHT_FROM_MUDPLAIN
-# Median smoothing window for noisy ultrasonic readings.
-SMOOTHING_WINDOW = int(os.getenv("SMOOTHING_WINDOW", "5"))
-# Maximum plausible water-level jump per cycle in meters.
-MAX_DELTA_M_PER_CYCLE = float(os.getenv("MAX_DELTA_M_PER_CYCLE", "0.75"))
 
 # --- HARDWARE PINS & PORTS ---
-# Ultrasonic Pins (GPIO)
 TRIG_PIN = 23
 ECHO_PIN = 24
-
-# Radar Port (HLK-LD2415H uses UART, not GPIO)
-RADAR_PORT = "/dev/ttyUSB0" 
+RADAR_PORT = "/dev/ttyUSB0"
 RADAR_BAUDRATE = 9600
-
-# GSM Module Port (SIM7600G-H uses UART AT Commands)
 GSM_PORT = "/dev/ttyUSB2"
 GSM_BAUDRATE = 115200

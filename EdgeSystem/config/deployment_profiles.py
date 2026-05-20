@@ -1,0 +1,69 @@
+"""
+Deployment profiles for EdgeSystem — single source for calibration.
+
+Edit RIVER or POOL below. Switch mode in config/settings.py: ENVIRONMENT_MODE = "RIVER" | "POOL"
+
+RIVER sensor_height_m (6.0): mirror backend application.properties → surgealert.sensor.depth-m
+POOL: 3×2×1 m tank, ultrasonic 1.2 m; level_scale_factor=6 (0.5 m pool → 3.0 m on MQTT/alerts)
+"""
+
+PROFILES = {
+    "RIVER": {
+        "sensor_height_m": 6.0,
+        "level_scale_factor": 1.0,
+        "smoothing_window": 5,
+        "max_delta_m_per_cycle": 0.75,
+        "water_level_yellow_threshold": 3.50,
+        "water_level_orange_threshold": 4.50,
+        "water_level_red_threshold": 5.50,
+        "rise_rate_yellow_mph": 0.30,
+        "rise_rate_red_with_orange_mph": 0.50,
+        "flow_escalate_orange_mps": 0.50,
+        "flow_escalate_red_mps": 0.80,
+        "pixels_to_meters": 0.01,
+        "cv_min_dist_to_water_m": 0.50,
+        "tide_scaling_factor": 1.0,
+        "sleep_duration_sec": 270,
+        "gather_duration_sec": 30,
+        "rise_rate_window_sec": 900,
+        "ml_features_max_age_hours": 6,
+        "sim_ultrasonic_base_m": 3.50,
+        "sim_ultrasonic_amplitude_m": 0.15,
+        "sim_ultrasonic_period_sec": 120.0,
+        "sim_radar_flow_base_mps": 0.40,
+        "sim_radar_flow_amplitude_mps": 0.20,
+        "sim_radar_period_sec": 90.0,
+        "fusion_radar_weight": 0.65,
+        "fusion_cv_weight": 0.35,
+        "fusion_disagree_ratio": 0.50,
+    },
+    "POOL": {
+        "sensor_height_m": 1.2,
+        "level_scale_factor": 6.0,
+        "smoothing_window": 5,
+        "max_delta_m_per_cycle": 0.10,
+        "water_level_yellow_threshold": 3.50,
+        "water_level_orange_threshold": 4.50,
+        "water_level_red_threshold": 5.50,
+        "rise_rate_yellow_mph": 0.30,
+        "rise_rate_red_with_orange_mph": 0.50,
+        "flow_escalate_orange_mps": 0.50,
+        "flow_escalate_red_mps": 0.80,
+        "pixels_to_meters": 0.001,
+        "cv_min_dist_to_water_m": 0.20,
+        "tide_scaling_factor": 0.025,
+        "sleep_duration_sec": 270,
+        "gather_duration_sec": 30,
+        "rise_rate_window_sec": 900,
+        "ml_features_max_age_hours": 6,
+        "sim_ultrasonic_base_m": 0.70,
+        "sim_ultrasonic_amplitude_m": 0.25,
+        "sim_ultrasonic_period_sec": 120.0,
+        "sim_radar_flow_base_mps": 0.05,
+        "sim_radar_flow_amplitude_mps": 0.03,
+        "sim_radar_period_sec": 90.0,
+        "fusion_radar_weight": 0.65,
+        "fusion_cv_weight": 0.35,
+        "fusion_disagree_ratio": 0.50,
+    },
+}

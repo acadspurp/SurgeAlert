@@ -19,7 +19,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config.settings import (
     BACKEND_IP,
     CYCLE_INTERVAL_SEC,
+    ENVIRONMENT_MODE,
     GATHER_DURATION_SEC,
+    LEVEL_SCALE_FACTOR,
     MQTT_BROKER,
     MQTT_PASSWORD,
     MQTT_PORT,
@@ -35,7 +37,10 @@ from hardware.camera.pi_camera_driver import PiCameraDriver
 from ml_model.level_predictor import LevelPredictor
 from processing.image_processor import ImageProcessor
 from processing.rise_rate_tracker import RiseRateTracker
-from processing.sensor_data_processor import calculate_water_level
+from processing.sensor_data_processor import (
+    calculate_water_level,
+    scale_telemetry_for_reporting,
+)
 from processing.sensor_fusion import build_cycle_reading
 from system_main.database_manager import DatabaseManager
 from system_main.data_logger import DataLogger
@@ -202,8 +207,26 @@ def _maybe_send_offline_alerts(sms, db, reading, cloud_online):
         )
 
 
+def _apply_level_scale(burst):
+    """Physical pool readings → river-equivalent for alerts/MQTT/DB."""
+    wl, rise, sf, imgf = scale_telemetry_for_reporting(
+        burst["water_level"],
+        burst["rise_rate_mph"],
+        burst["sensor_flow_rate"],
+        burst["image_flow_rate"],
+    )
+    return {
+        **burst,
+        "water_level": wl,
+        "rise_rate_mph": rise,
+        "sensor_flow_rate": sf,
+        "image_flow_rate": imgf,
+    }
+
+
 def main():
     print("--- SURGE ALERT EDGE SYSTEM (LIVE SENSORS) ---")
+    print(f" Mode: {ENVIRONMENT_MODE}  |  level scale: {LEVEL_SCALE_FACTOR}")
     print(f" Cycle: sleep {SLEEP_DURATION_SEC}s → gather {GATHER_DURATION_SEC}s (5 min grid)")
 
     db = DatabaseManager()
@@ -266,7 +289,9 @@ def main():
             ml_features, ml_stale = resolve_ml_features(db)
 
             print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Wake — gathering {GATHER_DURATION_SEC}s...")
-            burst = _gather_burst(camera, image_processor, rise_tracker, GATHER_DURATION_SEC)
+            burst = _apply_level_scale(
+                _gather_burst(camera, image_processor, rise_tracker, GATHER_DURATION_SEC)
+            )
 
             rise_mph = burst["rise_rate_mph"]
             reading_preview = build_cycle_reading(

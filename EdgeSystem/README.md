@@ -16,16 +16,22 @@ Stop with `Ctrl+C`. Console prints a dashboard each 5-minute cycle (sleep 4m30s 
 
 ## Configuration
 
-Loads `../.env` then `EdgeSystem/.env` (Pi overrides win). Common keys:
+Loads `../.env` then `EdgeSystem/.env` (Pi overrides win).
 
-| Variable | Purpose |
-|----------|---------|
+**Deployment values** (thresholds, pool scale, timing, sim sensors): edit `config/deployment_profiles.py`.  
+**Mode switch:** `ENVIRONMENT_MODE` in `config/settings.py` (`"RIVER"` or `"POOL"`).
+
+| Setting | Where |
+|---------|--------|
+| `ENVIRONMENT_MODE` | `config/settings.py` — `RIVER` or `POOL` |
 | `BACKEND_IP` | Render URL or `127.0.0.1` |
 | `EDGE_API_KEY` | Must match backend (`X-Edge-Key`) |
 | `MQTT_BROKER`, `MQTT_USERNAME`, `MQTT_PASSWORD` | HiveMQ Cloud hostname + creds |
 | `MQTT_TOPIC_SENSOR` | Default `sensor/data` |
 | `USE_HARDWARE` | Omit or `true` on Pi; `false` = simulated sensors, cloud skips DB ingest |
-| `SENSOR_DEPTH_M`, `YELLOW/ORANGE/RED_THRESHOLD` | Calibration (mirror backend `application.properties`) |
+
+Pool test: set `ENVIRONMENT_MODE = "POOL"` in `settings.py`, tune `POOL` in `deployment_profiles.py`, restart.  
+River deploy: `ENVIRONMENT_MODE = "RIVER"` in `settings.py`; mirror `sensor_height_m` with backend `surgealert.sensor.depth-m`.
 
 Port **8883** and TLS are fixed in code for non-local brokers (HiveMQ).
 
@@ -60,5 +66,5 @@ hardware/        ultrasonic, radar, camera drivers
 processing/      water level, CV flow, fusion, rise rate
 alert_logic/     thresholds + flow escalation
 ml_model/        train_model, level_predictor, trained_models/
-config/          settings.py
+config/          settings.py, deployment_profiles.py
 ```

@@ -1,7 +1,33 @@
 # EdgeSystem/processing/sensor_data_processor.py
 from collections import deque
 from statistics import median
-from config.settings import REFERENCE_HEIGHT_M, SMOOTHING_WINDOW, MAX_DELTA_M_PER_CYCLE
+
+from config.settings import (
+    LEVEL_SCALE_FACTOR,
+    MAX_DELTA_M_PER_CYCLE,
+    REFERENCE_HEIGHT_M,
+    SMOOTHING_WINDOW,
+)
+
+
+def scale_telemetry_for_reporting(
+    water_level, rise_rate_mph, sensor_flow_rate, image_flow_rate
+):
+    """Apply LEVEL_SCALE_FACTOR so POOL telemetry matches river units (×6)."""
+    factor = float(LEVEL_SCALE_FACTOR)
+    if factor == 1.0:
+        return (
+            round(float(water_level or 0), 2),
+            round(float(rise_rate_mph or 0), 4),
+            round(float(sensor_flow_rate or 0), 3),
+            round(float(image_flow_rate or 0), 3),
+        )
+    return (
+        round(float(water_level or 0) * factor, 2),
+        round(float(rise_rate_mph or 0) * factor, 4),
+        round(float(sensor_flow_rate or 0) * factor, 3),
+        round(float(image_flow_rate or 0) * factor, 3),
+    )
 
 _recent_levels = deque(maxlen=max(3, SMOOTHING_WINDOW))
 _last_level = None

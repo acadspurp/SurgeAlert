@@ -9,6 +9,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config.settings import (
     MODEL_PATH,
+    RISE_RATE_RED_WITH_ORANGE_MPH,
+    RISE_RATE_YELLOW_MPH,
     WATER_LEVEL_ORANGE_THRESHOLD,
     WATER_LEVEL_RED_THRESHOLD,
     WATER_LEVEL_YELLOW_THRESHOLD,
@@ -84,7 +86,7 @@ class AlertManager:
             return "RED"
 
         if (
-            rise_rate_per_hour >= 0.5
+            rise_rate_per_hour >= RISE_RATE_RED_WITH_ORANGE_MPH
             and water_level >= WATER_LEVEL_ORANGE_THRESHOLD
         ):
             return "RED"
@@ -94,7 +96,7 @@ class AlertManager:
 
         if (
             water_level >= WATER_LEVEL_YELLOW_THRESHOLD
-            or rise_rate_per_hour >= 0.3
+            or rise_rate_per_hour >= RISE_RATE_YELLOW_MPH
         ):
             return "YELLOW"
 

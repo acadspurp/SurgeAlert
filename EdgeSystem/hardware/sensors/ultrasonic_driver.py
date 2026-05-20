@@ -25,7 +25,12 @@ def init_sensor():
 import collections
 
 # Queue for median filtering (size defined in settings)
-from config.settings import SMOOTHING_WINDOW
+from config.settings import (
+    SIM_ULTRASONIC_AMPLITUDE_M,
+    SIM_ULTRASONIC_BASE_M,
+    SIM_ULTRASONIC_PERIOD_SEC,
+    SMOOTHING_WINDOW,
+)
 reading_queue = collections.deque(maxlen=SMOOTHING_WINDOW)
 
 def get_distance():
@@ -33,7 +38,9 @@ def get_distance():
         # Simulated distance (m) for dev / non-Pi hosts
         import math
         t = time.time()
-        sim_dist = 3.5 + 0.15 * math.sin(t / 120.0)
+        sim_dist = SIM_ULTRASONIC_BASE_M + SIM_ULTRASONIC_AMPLITUDE_M * math.sin(
+            t / SIM_ULTRASONIC_PERIOD_SEC
+        )
         return _get_smoothed_value(round(sim_dist, 3))
 
     try:
