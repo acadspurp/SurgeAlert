@@ -82,7 +82,8 @@ public class SensorDataService {
 
         Double riseMph = dto.getRiseRate() != null ? dto.getRiseRate() : 0.0;
 
-        SensorData sensorData = sensorDataRepository.findByTimestamp(gridTs).orElseGet(SensorData::new);
+        SensorData sensorData = sensorDataRepository.findFirstByTimestampOrderByIdDesc(gridTs)
+                .orElseGet(SensorData::new);
         sensorData.setTimestamp(gridTs);
         sensorData.setWaterLevelM(dto.getWaterLevelM());
         sensorData.setSensorFlowRate(dto.getSensorFlowRate() != null ? dto.getSensorFlowRate() : 0.0);
@@ -299,7 +300,7 @@ public class SensorDataService {
     public boolean attachSnapshotByTimestamp(String timestampIso, String snapshotBase64) {
         try {
             LocalDateTime gridTs = GridTimeUtils.parseAndAlignGridTimestamp(timestampIso);
-            Optional<SensorData> opt = sensorDataRepository.findByTimestamp(gridTs);
+            Optional<SensorData> opt = sensorDataRepository.findFirstByTimestampOrderByIdDesc(gridTs);
             if (opt.isEmpty()) {
                 opt = sensorDataRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(gridTs);
             }

@@ -28,6 +28,9 @@ public interface SensorDataRepository extends JpaRepository<SensorData, Long> {
     Optional<SensorData> findFirstByTimestampLessThanEqualOrderByTimestampDesc(LocalDateTime timestamp);
 
     Optional<SensorData> findByTimestamp(LocalDateTime timestamp);
+
+    /** Use when duplicate grid timestamps exist — avoids NonUniqueResultException (HTTP 500). */
+    Optional<SensorData> findFirstByTimestampOrderByIdDesc(LocalDateTime timestamp);
     
     Optional<SensorData> findFirstByWaterLevelMGreaterThanEqualOrderByTimestampDesc(Double minLevel);
     
