@@ -296,7 +296,22 @@ public class SensorDataService {
             LocalDateTime gridTs = GridTimeUtils.parseAndAlignGridTimestamp(timestampIso);
             Optional<SensorData> opt = sensorDataRepository.findByTimestamp(gridTs);
             if (opt.isEmpty()) {
-                System.err.println(" [Storage] No sensor_data row for grid time " + gridTs + " (snapshot not attached).");
+                opt = sensorDataRepository.findFirstByTimestampLessThanEqualOrderByTimestampDesc(gridTs);
+            }
+            if (opt.isEmpty()) {
+                LocalDateTime from = gridTs.minusMinutes(10);
+                var recent = sensorDataRepository.findByTimestampBetween(from, gridTs.plusMinutes(1));
+                if (!recent.isEmpty()) {
+                    opt = Optional.of(recent.get(recent.size() - 1));
+                }
+            }
+            if (opt.isEmpty()) {
+                sensorDataRepository.findFirstByOrderByTimestampDesc().ifPresent(latest ->
+                        System.err.println(" [Storage] No sensor_data row for grid time " + gridTs
+                                + "; latest row is " + latest.getTimestamp()));
+                if (sensorDataRepository.count() == 0) {
+                    System.err.println(" [Storage] sensor_data table is empty — MQTT/telemetry ingest may have failed.");
+                }
                 return false;
             }
             byte[] imageBytes = java.util.Base64.getDecoder().decode(snapshotBase64);

@@ -1,6 +1,8 @@
 package com.surgealert.controller;
 
 import com.surgealert.dto.AlertTemplateDTO;
+import com.surgealert.dto.SensorDataDTO;
+import com.surgealert.entity.SensorData;
 import com.surgealert.repository.AlertTemplateRepository;
 import com.surgealert.repository.MLFeaturesRealtimeRepository;
 import com.surgealert.service.ResidentService;
@@ -69,6 +71,25 @@ public class EdgeSyncController {
 
     @Autowired
     private com.surgealert.repository.SensorDataRepository sensorDataRepository;
+
+    /**
+     * Edge HTTPS ingest for one telemetry row (same payload as MQTT). Ensures sensor_data exists
+     * before {@link #uploadSnapshot(Map)} when broker delivery is slow.
+     */
+    @PostMapping("/telemetry")
+    public ResponseEntity<Map<String, Object>> ingestTelemetry(@RequestBody SensorDataDTO dto) {
+        SensorData saved = sensorDataService.saveSensorDataFromMqtt(dto);
+        Map<String, Object> resp = new LinkedHashMap<>();
+        if (saved == null) {
+            resp.put("status", "skipped");
+            resp.put("error", "Row not saved (ghost level, simulated flag, or invalid payload).");
+            return ResponseEntity.badRequest().body(resp);
+        }
+        resp.put("status", "ok");
+        resp.put("id", saved.getId());
+        resp.put("timestamp", saved.getTimestamp().toString());
+        return ResponseEntity.ok(resp);
+    }
 
     /**
      * Edge uploads camera snapshot (base64) over HTTPS; MQTT carries telemetry only.
