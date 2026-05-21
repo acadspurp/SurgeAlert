@@ -78,17 +78,28 @@ public class EdgeSyncController {
      */
     @PostMapping("/telemetry")
     public ResponseEntity<Map<String, Object>> ingestTelemetry(@RequestBody SensorDataDTO dto) {
-        SensorData saved = sensorDataService.saveSensorDataFromMqtt(dto);
         Map<String, Object> resp = new LinkedHashMap<>();
-        if (saved == null) {
-            resp.put("status", "skipped");
-            resp.put("error", "Row not saved (ghost level, simulated flag, or invalid payload).");
-            return ResponseEntity.badRequest().body(resp);
+        try {
+            if (dto == null) {
+                resp.put("error", "Request body is empty.");
+                return ResponseEntity.badRequest().body(resp);
+            }
+            SensorData saved = sensorDataService.saveSensorDataFromMqtt(dto);
+            if (saved == null) {
+                resp.put("status", "skipped");
+                resp.put("error", "Row not saved (missing water_level, ghost level, simulated flag, or invalid payload).");
+                return ResponseEntity.badRequest().body(resp);
+            }
+            resp.put("status", "ok");
+            resp.put("id", saved.getId());
+            resp.put("timestamp", saved.getTimestamp().toString());
+            return ResponseEntity.ok(resp);
+        } catch (Exception e) {
+            System.err.println(" [Edge] Telemetry ingest failed: " + e.getMessage());
+            e.printStackTrace();
+            resp.put("error", e.getMessage() != null ? e.getMessage() : "Internal error");
+            return ResponseEntity.internalServerError().body(resp);
         }
-        resp.put("status", "ok");
-        resp.put("id", saved.getId());
-        resp.put("timestamp", saved.getTimestamp().toString());
-        return ResponseEntity.ok(resp);
     }
 
     /**

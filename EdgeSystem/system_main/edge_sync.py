@@ -108,7 +108,24 @@ def download_model_if_updated():
         return False
 
 
-def upload_snapshot(timestamp, image_base64, max_attempts=4, retry_delay_sec=2.0):
+def upload_telemetry(reading):
+    """HTTPS ingest so sensor_data row exists before snapshot attach (backup to MQTT)."""
+    from system_main.mqtt_publisher import build_mqtt_payload
+
+    try:
+        url = f"{BACKEND_API_URL}/edge/sync/telemetry"
+        payload = build_mqtt_payload(reading)
+        r = requests.post(url, headers=_headers(), json=payload, timeout=30)
+        if r.status_code == 200:
+            return True
+        print(f" [Sync] Telemetry upload HTTP {r.status_code}: {r.text[:200]}")
+        return False
+    except Exception as e:
+        print(f" [Sync] Telemetry upload failed: {e}")
+        return False
+
+
+def upload_snapshot(timestamp, image_base64, max_attempts=10, retry_delay_sec=5.0):
     """HTTPS upload for image_bytes (keeps MQTT payloads small). Retries if row not ready yet."""
     if not image_base64:
         return False

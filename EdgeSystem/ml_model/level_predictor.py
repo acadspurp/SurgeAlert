@@ -52,7 +52,6 @@ class LevelPredictor:
                 mar_lag1=ml.get("Mar_Lag1", 0.0),
                 mar_lag2=ml.get("Mar_Lag2", 0.0),
                 mar_3h=ml.get("Mar_3hr_Sum", 0.0),
-                mar_6h=ml.get("Mar_6hr_Sum", 0.0),
                 mar_24h=ml.get("Mar_24hr_Sum", 0.0),
                 pressure=ml.get("Pressure_hPa", 1013.0),
                 press_trend=ml.get("Press_Trend", 0.0),

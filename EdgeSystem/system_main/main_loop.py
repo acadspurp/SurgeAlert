@@ -54,6 +54,7 @@ from system_main.edge_sync import (
     ml_features_to_weather_dict,
     resolve_ml_features,
     upload_snapshot,
+    upload_telemetry,
 )
 from system_main.edge_time_utils import grid_timestamp_iso
 from system_main.mqtt_publisher import frame_to_base64, publish_sensor_data
@@ -366,7 +367,10 @@ def main():
 
             if mqtt_client:
                 publish_sensor_data(mqtt_client, MQTT_TOPIC_SENSOR, reading)
-                if cloud_online and image_b64:
+            if cloud_online:
+                upload_telemetry(reading)
+                if image_b64:
+                    time.sleep(3)
                     upload_snapshot(cycle_ts, image_b64)
 
                 unsynced = db.get_unsynced_data(limit=20)

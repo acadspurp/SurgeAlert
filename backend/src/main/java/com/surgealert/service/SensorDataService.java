@@ -71,6 +71,11 @@ public class SensorDataService {
             return null;
         }
 
+        if (dto.getWaterLevelM() == null) {
+            System.err.println(" [DATA GUARD] Missing water_level in payload.");
+            return null;
+        }
+
         LocalDateTime gridTs = dto.getTimestamp() != null
                 ? GridTimeUtils.alignToFiveMinuteGrid(dto.getTimestamp())
                 : GridTimeUtils.alignToFiveMinuteGrid(LocalDateTime.now(MANILA_ZONE));

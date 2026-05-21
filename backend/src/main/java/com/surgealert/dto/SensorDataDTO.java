@@ -9,11 +9,13 @@ public class SensorDataDTO {
 
     private Long id;
 
+    @JsonProperty("timestamp")
     @JsonAlias("time")
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    @JsonFormat(pattern = "yyyy-MM-dd['T'][' ']HH:mm:ss")
     private LocalDateTime timestamp;
 
-    @JsonAlias("water_level")
+    @JsonProperty("water_level")
+    @JsonAlias("waterLevelM")
     private Double waterLevelM;
 
     @JsonAlias({"sensor_flow_rate", "sensor_flow_rate_mps"})
