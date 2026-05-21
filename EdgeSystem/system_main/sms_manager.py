@@ -11,12 +11,13 @@ class SMSManager:
     def __init__(self, port="/dev/ttyUSB2", baudrate=115200):
         self.port = port
         self.baudrate = baudrate
+        print(f" [GSM] Configured SIM7600 on {self.port} @ {self.baudrate}.")
 
     def send_gsm_only(self, phone_number, message):
         """Send via SIM7600 only (backend MQTT fallback and offline alerts)."""
         ten = normalize_ph_mobile(phone_number)
         if not ten:
-            print(f" [SMS] Invalid phone number for GSM: {phone_number}")
+            print(f" [GSM] CONFIG: invalid phone number for GSM: {phone_number}")
             return False
         dial = format_for_gsm(ten)
         return self._send_via_gsm(dial, message)
@@ -24,7 +25,7 @@ class SMSManager:
     def _send_via_gsm(self, dial_number, message):
         with self._lock:
             try:
-                print(f" [SMS] Hardware Send Request: {dial_number}")
+                print(f" [GSM] Sending to {dial_number} via {self.port}...")
                 ser = serial.Serial(self.port, self.baudrate, timeout=3)
 
                 ser.reset_input_buffer()
@@ -47,7 +48,10 @@ class SMSManager:
                     time.sleep(0.1)
 
                 if not prompt_received:
-                    print(" [SMS] GSM Error: Did not receive prompt from module.")
+                    print(
+                        f" [GSM] HARDWARE: no CMGS prompt on {self.port} — "
+                        "SIM not ready, wrong port, or module not in SMS mode."
+                    )
                     ser.close()
                     return False
 
@@ -58,11 +62,14 @@ class SMSManager:
                 ser.close()
 
                 if "OK" in response or "+CMGS:" in response:
-                    print(f" [SMS] Successfully sent alert to {dial_number}.")
+                    print(f" [GSM] OK: message accepted by module for {dial_number}.")
                     return True
-                print(f" [SMS] GSM Transmission Failed. Response: {response}")
+                print(f" [GSM] HARDWARE: send failed. Module response: {response!r}")
                 return False
 
             except Exception as e:
-                print(f" [SMS] Hardware Error: {e}")
+                print(
+                    f" [GSM] CONNECTION FAILED on {self.port}: {e} — "
+                    "check USB, antenna, SIM, and ttyUSB mapping (expected GSM on ttyUSB2)."
+                )
                 return False

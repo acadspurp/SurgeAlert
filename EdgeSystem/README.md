@@ -56,8 +56,14 @@ Scheduled Sunday retraining from Postgres is planned later; use `train_model.py`
 
 - Ultrasonic: GPIO (see `config/settings.py`)
 - Radar: `/dev/ttyUSB0`
-- GSM (offline SMS): `/dev/ttyUSB2` (hardcoded in `sms_manager.py`)
+- GSM (offline SMS): `/dev/ttyUSB2` (`GSM_PORT` in `config/settings.py`)
 - Camera: OpenCV index `0` when `USE_HARDWARE=true`
+
+Terminal tags: `[Ultrasonic]`, `[Radar]`, `[Camera]`, `[GSM]`, `[MQTT]` — **CONNECTION** = wiring/port/USB, **PARSER** = data format, **INVALID** = bad reading held to last good level.
+
+## Auto-start on Pi
+
+See `deploy/README.md` and `deploy/surgealert-edge.service` (systemd).
 
 ## Layout
 

@@ -130,6 +130,9 @@ FUSION_DISAGREE_RATIO = float(_profile["fusion_disagree_ratio"])
 REFERENCE_HEIGHT_M = SENSOR_HEIGHT_FROM_MUDPLAIN
 
 # --- HARDWARE PINS & PORTS ---
+# JSN-SR04T valid range ~0.20–4.5 m; below minimum is treated as faulty, not "full tank"
+ULTRASONIC_MIN_VALID_DISTANCE_M = 0.20
+
 TRIG_PIN = 23
 ECHO_PIN = 24
 RADAR_PORT = "/dev/ttyUSB0"

@@ -22,6 +22,8 @@ from config.settings import (
     ENVIRONMENT_MODE,
     GATHER_DURATION_SEC,
     FLOW_SCALE_FACTOR,
+    GSM_BAUDRATE,
+    GSM_PORT,
     RISE_RATE_SCALE_FACTOR,
     WATER_LEVEL_SCALE_FACTOR,
     MQTT_BROKER,
@@ -243,9 +245,9 @@ def main():
 
     sms = None
     try:
-        sms = SMSManager()
+        sms = SMSManager(port=GSM_PORT, baudrate=GSM_BAUDRATE)
     except Exception as e:
-        print(f" [System] GSM init warning: {e}")
+        print(f" [GSM] Init warning (offline SMS may fail): {e}")
 
     mqtt_client = None
     try:
@@ -265,9 +267,12 @@ def main():
         mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
         mqtt_client.subscribe("surgealert/outbound/sms")
         mqtt_client.loop_start()
-        print(f" [Net] MQTT connected ({MQTT_BROKER}); publish → {MQTT_TOPIC_SENSOR}")
+        print(f" [MQTT] OK: connected to {MQTT_BROKER}; publish → {MQTT_TOPIC_SENSOR}")
     except Exception as e:
-        print(f" [Net] MQTT unavailable (local queue only): {e}")
+        print(
+            f" [MQTT] CONNECTION FAILED ({MQTT_BROKER}:{MQTT_PORT}): {e} — "
+            "telemetry will queue in SQLite until broker is reachable."
+        )
         mqtt_client = None
 
     ultrasonic_driver.init_sensor()
@@ -278,7 +283,9 @@ def main():
         try:
             camera = PiCameraDriver()
         except Exception as e:
-            print(f" [Camera] Init failed: {e}")
+            print(
+                f" [Camera] Init failed (CV flow will be 0): {e}"
+            )
 
     cloud_online = fetch_offline_bundle(db)
 

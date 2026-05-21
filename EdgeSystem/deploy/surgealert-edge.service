@@ -1,0 +1,16 @@
+[Unit]
+Description=SurgeAlert Edge System (sensors, MQTT, offline SMS)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/SurgeAlert/EdgeSystem
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/pi/SurgeAlert/EdgeSystem/venv/bin/python -m system_main.main_loop
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

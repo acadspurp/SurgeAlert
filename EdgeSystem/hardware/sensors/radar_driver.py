@@ -1,66 +1,106 @@
-import serial
-import threading
-import time
-import random
-from config.settings import (
-    RADAR_BAUDRATE,
-    RADAR_PORT,
-    SIM_RADAR_FLOW_AMPLITUDE_MPS,
-    SIM_RADAR_FLOW_BASE_MPS,
-    SIM_RADAR_PERIOD_SEC,
-    USE_HARDWARE,
-)
-
-_current_speed_mps = 0.0
-_running = False
-_serial_conn = None
-
-def init_radar():
-    global _running, _serial_conn
-    try:
-        print(f" [Hardware] Initializing HLK-LD2415H Radar on {RADAR_PORT}...")
-        
-        # Check if we have the correct 'serial' module (pyserial)
-        if not hasattr(serial, 'Serial'):
-            raise AttributeError("module 'serial' has no attribute 'Serial'. Ensure 'pyserial' is installed, not 'serial'.")
-            
-        _serial_conn = serial.Serial(RADAR_PORT, RADAR_BAUDRATE, timeout=1)
-        _running = True
-        # Start background thread to read from Serial
-        threading.Thread(target=_read_serial_loop, daemon=True).start()
-        print(" [Hardware] Radar Serial Connection Established.")
-    except Exception as e:
-        print(f" [Hardware] Radar Hardware not found (Simulation mode active): {e}")
-        _running = False
-
-def _read_serial_loop():
-    global _current_speed_mps, _running
-    while _running and _serial_conn and _serial_conn.is_open:
-        try:
-            line = _serial_conn.readline().decode('utf-8', errors='ignore').strip()
-            # HLK-LD2415H typically outputs speed in its data string. 
-            # This is a simplified parser; adjust based on specific firmware output.
-            if "speed:" in line.lower():
-                parts = line.split(":")
-                if len(parts) > 1:
-                    # Expecting format like "Speed: 1.23"
-                    _current_speed_mps = float(parts[1].strip().split()[0])
-        except:
-            time.sleep(0.1)
-
-def get_flow_rate():
-    if not USE_HARDWARE or not _running:
-        import math
-        t = time.time()
-        return round(
-            SIM_RADAR_FLOW_BASE_MPS
-            + SIM_RADAR_FLOW_AMPLITUDE_MPS * abs(math.sin(t / SIM_RADAR_PERIOD_SEC)),
-            3,
-        )
-    return _current_speed_mps
-
-def close_radar():
-    global _running
-    _running = False
-    if _serial_conn:
-        _serial_conn.close()
+import math
+import threading
+import time
+
+import serial
+
+from config.settings import (
+    RADAR_BAUDRATE,
+    RADAR_PORT,
+    SIM_RADAR_FLOW_AMPLITUDE_MPS,
+    SIM_RADAR_FLOW_BASE_MPS,
+    SIM_RADAR_PERIOD_SEC,
+    USE_HARDWARE,
+)
+
+_current_speed_mps = 0.0
+_running = False
+_serial_conn = None
+_lines_seen = 0
+_parse_count = 0
+_last_diag_time = 0.0
+
+
+def init_radar():
+    global _running, _serial_conn, _lines_seen, _parse_count, _last_diag_time
+    _lines_seen = 0
+    _parse_count = 0
+    _last_diag_time = time.time()
+
+    if not USE_HARDWARE:
+        print(" [Radar] Simulated mode (USE_HARDWARE=false).")
+        return
+
+    try:
+        print(f" [Radar] Opening HLK-LD2415H on {RADAR_PORT} @ {RADAR_BAUDRATE}...")
+        if not hasattr(serial, "Serial"):
+            raise AttributeError(
+                "module 'serial' has no attribute 'Serial' — install pyserial, not package 'serial'."
+            )
+        _serial_conn = serial.Serial(RADAR_PORT, RADAR_BAUDRATE, timeout=1)
+        _running = True
+        threading.Thread(target=_read_serial_loop, daemon=True).start()
+        print(f" [Radar] OK: serial open on {RADAR_PORT}.")
+    except Exception as e:
+        print(
+            f" [Radar] CONNECTION FAILED on {RADAR_PORT}: {e} — "
+            "check USB cable, power, and udev port mapping (expected radar on ttyUSB0)."
+        )
+        _running = False
+
+
+def _read_serial_loop():
+    global _current_speed_mps, _running, _lines_seen, _parse_count
+    while _running and _serial_conn and _serial_conn.is_open:
+        try:
+            line = _serial_conn.readline().decode("utf-8", errors="ignore").strip()
+            if not line:
+                continue
+            _lines_seen += 1
+            if "speed:" in line.lower():
+                parts = line.split(":")
+                if len(parts) > 1:
+                    _current_speed_mps = float(parts[1].strip().split()[0])
+                    _parse_count += 1
+        except Exception as e:
+            print(f" [Radar] SERIAL READ ERROR: {e}")
+            time.sleep(0.1)
+
+
+def _maybe_warn_no_data():
+    global _last_diag_time
+    if not USE_HARDWARE or not _running:
+        return
+    now = time.time()
+    if now - _last_diag_time < 60:
+        return
+    _last_diag_time = now
+    if _lines_seen == 0:
+        print(
+            f" [Radar] HARDWARE: port {_serial_conn.port if _serial_conn else RADAR_PORT} open "
+            "but no serial lines — check radar power and TX/RX."
+        )
+    elif _parse_count == 0:
+        print(
+            " [Radar] PARSER: bytes received but no 'speed:' field parsed — "
+            "firmware line format may differ from radar_driver.py."
+        )
+
+
+def get_flow_rate():
+    if not USE_HARDWARE or not _running:
+        t = time.time()
+        return round(
+            SIM_RADAR_FLOW_BASE_MPS
+            + SIM_RADAR_FLOW_AMPLITUDE_MPS * abs(math.sin(t / SIM_RADAR_PERIOD_SEC)),
+            3,
+        )
+    _maybe_warn_no_data()
+    return _current_speed_mps
+
+
+def close_radar():
+    global _running
+    _running = False
+    if _serial_conn:
+        _serial_conn.close()
