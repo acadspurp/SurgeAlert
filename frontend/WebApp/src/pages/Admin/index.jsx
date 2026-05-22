@@ -536,24 +536,22 @@ export default function Admin() {
     // -------------------------------------------------------------
     // EFFECTS
     // -------------------------------------------------------------
+    // Keep heartbeat in sync with /sensor-data/latest poll (Manila-aware timestamps).
+    useEffect(() => {
+        if (!mqttData?.timestamp) return;
+        const tsIso = normalizeSensorInstant(mqttData.timestamp);
+        const ms = tsIso ? Date.parse(tsIso) : NaN;
+        if (Number.isFinite(ms)) setLastMqttAt(ms);
+    }, [mqttData?.timestamp]);
+
     useEffect(() => {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
-
-        if (!hardwareOnline) {
-            setDashData((prev) => ({
-                ...prev,
-                waterLevel: '-- m',
-                flowRate: '-- m/s',
-                status: 'OFFLINE',
-                statusColor: 'text-slate-400',
-                prediction: '-- m',
-                predictedClassification: '--',
-            }));
+        // Do not blank flow/ML when edge is stale — loadDashboardData still shows last DB row.
+        if (!hardwareOnline || !mqttData?.timestamp) {
             return;
         }
 
-        if (mqttData?.timestamp) {
-            setLastMqttAt(new Date(mqttData.timestamp).getTime());
+        {
             const newDash = { ...dashData };
             // Apply noise filter (anything below 0.10m is ghost data)
             const floatWl = mqttData.waterLevelM;
