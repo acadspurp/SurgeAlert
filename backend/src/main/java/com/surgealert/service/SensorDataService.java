@@ -12,7 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Collections;
 import java.util.stream.Collectors;
@@ -115,10 +118,71 @@ public class SensorDataService {
         return sensorDataRepository.save(sensorData);
     }
 
+    /** Max gap between telemetry row and image row when reusing a snapshot for /latest (same Pi cycle). */
+    private static final int SNAPSHOT_FALLBACK_MAX_MINUTES = 8;
+
     public SensorDataDTO getLatestSensorData() {
-        return sensorDataRepository.findFirstByOrderByTimestampDesc()
-                .map(this::convertEntityToLatestDto)
-                .orElse(null);
+        Optional<SensorData> latest = sensorDataRepository.findFirstByOrderByTimestampDesc();
+        if (latest.isEmpty()) {
+            return null;
+        }
+        SensorDataDTO dto = convertEntityToLatestDto(latest.get());
+        // Newest row may lack image_bytes briefly; only reuse an image from the same ingest window.
+        if (dto.getSnapshotBase64() == null || dto.getSnapshotBase64().isBlank()) {
+            resolveSnapshotRow(latest.get()).ifPresent(imgRow -> attachSnapshotBase64(dto, imgRow));
+        }
+        return dto;
+    }
+
+    /**
+     * Latest camera frame for public /camera feed — always from DB (Render multi-instance safe).
+     */
+    public Map<String, String> getLatestCameraFeed() {
+        Map<String, String> out = new LinkedHashMap<>();
+        out.put("img_base64", "");
+        out.put("captured_at", "");
+        Optional<SensorData> latest = sensorDataRepository.findFirstByOrderByTimestampDesc();
+        if (latest.isEmpty()) {
+            return out;
+        }
+        Optional<SensorData> snap = resolveSnapshotRow(latest.get());
+        if (snap.isEmpty()) {
+            return out;
+        }
+        SensorData row = snap.get();
+        if (row.getImageBytes() == null || row.getImageBytes().length == 0) {
+            return out;
+        }
+        String b64 = java.util.Base64.getEncoder().encodeToString(row.getImageBytes());
+        out.put("img_base64", b64);
+        out.put("captured_at", row.getTimestamp() != null ? row.getTimestamp().toString() : "");
+        com.surgealert.controller.SensorDataController.currentImageBase64 = b64;
+        return out;
+    }
+
+    /**
+     * Prefer image on the latest telemetry row; otherwise the newest row with image_bytes
+     * within {@link #SNAPSHOT_FALLBACK_MAX_MINUTES} of that telemetry timestamp (avoids stale freeze).
+     */
+    private Optional<SensorData> resolveSnapshotRow(SensorData latestTelemetry) {
+        if (latestTelemetry == null) {
+            return Optional.empty();
+        }
+        if (latestTelemetry.getImageBytes() != null && latestTelemetry.getImageBytes().length > 0) {
+            return Optional.of(latestTelemetry);
+        }
+        LocalDateTime latestTs = latestTelemetry.getTimestamp();
+        if (latestTs == null) {
+            return Optional.empty();
+        }
+        return sensorDataRepository.findFirstByImageBytesIsNotNullOrderByTimestampDesc()
+                .filter(img -> {
+                    if (img.getTimestamp() == null) {
+                        return false;
+                    }
+                    long gapMin = Math.abs(ChronoUnit.MINUTES.between(img.getTimestamp(), latestTs));
+                    return gapMin <= SNAPSHOT_FALLBACK_MAX_MINUTES;
+                });
     }
 
     private SensorDataDTO convertEntityToLatestDto(SensorData row) {
@@ -133,10 +197,14 @@ public class SensorDataService {
         dto.setCurrentAlertLevel(row.getCurrentAlertLevel());
         dto.setPredictedLevel(row.getPredictedLevel());
         dto.setPredictedAlertLevel(row.getPredictedAlertLevel());
+        attachSnapshotBase64(dto, row);
+        return dto;
+    }
+
+    private void attachSnapshotBase64(SensorDataDTO dto, SensorData row) {
         if (row.getImageBytes() != null && row.getImageBytes().length > 0) {
             dto.setSnapshotBase64(java.util.Base64.getEncoder().encodeToString(row.getImageBytes()));
         }
-        return dto;
     }
 
     private SensorDataDTO convertLatestProjectionToDTO(SensorDataRepository.LatestSensorProjection row) {
@@ -324,6 +392,8 @@ public class SensorDataService {
             SensorData sd = opt.get();
             sd.setImageBytes(imageBytes);
             sensorDataRepository.save(sd);
+            com.surgealert.controller.SensorDataController.currentImageBase64 =
+                    java.util.Base64.getEncoder().encodeToString(imageBytes);
             return true;
         } catch (Exception e) {
             System.err.println(" [Storage] Snapshot attach failed: " + e.getMessage());

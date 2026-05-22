@@ -69,6 +69,7 @@ export function normalizeSensorRow(row) {
         currentAlertLevel: row.currentAlertLevel ?? row.current_alert_level,
         predictedLevel: row.predictedLevel != null ? parseNum(row.predictedLevel) : parseNum(row.predicted_level),
         predictedAlertLevel: row.predictedAlertLevel ?? row.predicted_alert_level,
+        snapshotBase64: row.snapshotBase64 ?? row.snapshot_base64 ?? null,
     };
 }
 

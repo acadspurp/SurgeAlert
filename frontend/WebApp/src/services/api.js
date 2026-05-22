@@ -124,7 +124,7 @@ export async function overrideAlert(level, reason = "") {
 
 // --- CAMERA FEED ---
 export async function fetchCameraFeed() {
-    const response = await fetch(`${API_BASE_URL}/public/alerts/camera`);
+    const response = await fetch(`${API_BASE_URL}/public/alerts/camera?_=${Date.now()}`);
     return await response.json();
 }
 

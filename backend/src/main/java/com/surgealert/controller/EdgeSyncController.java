@@ -114,6 +114,7 @@ public class EdgeSyncController {
         }
         boolean attached = sensorDataService.attachSnapshotByTimestamp(timestamp, snapshotBase64);
         if (!attached) {
+            System.err.println(" [Edge] Snapshot not attached for timestamp=" + timestamp);
             return ResponseEntity.notFound().build();
         }
         Map<String, String> resp = new LinkedHashMap<>();

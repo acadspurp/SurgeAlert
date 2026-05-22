@@ -24,7 +24,9 @@ public interface SensorDataRepository extends JpaRepository<SensorData, Long> {
     }
 
     Optional<SensorData> findFirstByOrderByTimestampDesc();
-    
+
+    Optional<SensorData> findFirstByImageBytesIsNotNullOrderByTimestampDesc();
+
     Optional<SensorData> findFirstByTimestampLessThanEqualOrderByTimestampDesc(LocalDateTime timestamp);
 
     Optional<SensorData> findByTimestamp(LocalDateTime timestamp);

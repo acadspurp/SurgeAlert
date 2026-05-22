@@ -24,8 +24,9 @@ import Papa from 'papaparse';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { logoUrl } from '../../branding/logo.js';
-import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE } from '../../constants/displayTime.js';
+import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE, formatManilaWallClockFromMs, formatManilaWallDateFromMs } from '../../constants/displayTime.js';
 import { useLiveManilaClock } from '../../hooks/useLiveManilaClock.js';
+import { normalizeSensorInstant } from '../../utils/sensorTimeseries.js';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend, TimeScale, TimeSeriesScale, annotationPlugin);
 
@@ -79,7 +80,9 @@ export default function Admin() {
         pressure: '-- hPa', wind: '-- kph'
     });
     const [cameraImg, setCameraImg] = useState(null);
-    const { clockLabel: cameraLastUpdated, dateLabel: cameraClockDate } = useLiveManilaClock();
+    const [cameraCaptureLabel, setCameraCaptureLabel] = useState(null);
+    const lastCameraB64Ref = useRef(null);
+    const { clockLabel: liveManilaClock, dateLabel: liveManilaClockDate } = useLiveManilaClock();
     const [tides, setTides] = useState([]);
     const [nextTide, setNextTide] = useState(null);
 
@@ -218,6 +221,24 @@ export default function Admin() {
 
     const displayName = (user && (user.fullName || user.username)) || 'Admin';
 
+    const applyCameraSnapshot = (base64, capturedAtIso) => {
+        if (!base64) return;
+        const ts = capturedAtIso ? normalizeSensorInstant(capturedAtIso) : null;
+        const cacheKey = `${base64.length}:${ts || ''}`;
+        if (lastCameraB64Ref.current === cacheKey) return;
+        lastCameraB64Ref.current = cacheKey;
+        setCameraImg(`data:image/jpeg;base64,${base64}`);
+        if (ts) {
+            const ms = Date.parse(ts);
+            if (Number.isFinite(ms)) {
+                setCameraCaptureLabel({
+                    clock: formatManilaWallClockFromMs(ms),
+                    date: formatManilaWallDateFromMs(ms),
+                });
+            }
+        }
+    };
+
     // -------------------------------------------------------------
     // DATA LOADING
     // -------------------------------------------------------------
@@ -240,9 +261,14 @@ export default function Admin() {
             const liveSensorHeartbeat =
                 latest?.timestamp && !isCsvDemoFallbackEnabled();
             if (liveSensorHeartbeat) {
-                setLastMqttAt(new Date(latest.timestamp).getTime());
+                const tsIso = normalizeSensorInstant(latest.timestamp);
+                const ms = tsIso ? Date.parse(tsIso) : NaN;
+                setLastMqttAt(Number.isFinite(ms) ? ms : null);
             } else {
                 setLastMqttAt(null);
+            }
+            if (latest?.snapshotBase64) {
+                applyCameraSnapshot(latest.snapshotBase64, latest.timestamp);
             }
             let subCount;
             try {
@@ -334,9 +360,14 @@ export default function Admin() {
 
     const loadCameraFeed = async () => {
         try {
+            const latest = await fetchLatestSensorReading();
+            if (latest?.snapshotBase64) {
+                applyCameraSnapshot(latest.snapshotBase64, latest.timestamp);
+                return;
+            }
             const data = await fetchCameraAPI();
-            if (data.img_base64 && data.img_base64 !== "") {
-                setCameraImg(`data:image/jpeg;base64,${data.img_base64}`);
+            if (data?.img_base64) {
+                applyCameraSnapshot(data.img_base64, data.captured_at || data.capturedAt);
             }
         } catch (e) { console.error("Camera fetch error:", e); }
     };
@@ -529,7 +560,9 @@ export default function Admin() {
             const isGhost = floatWl !== null && floatWl !== undefined && floatWl < 0.10;
 
             newDash.waterLevel = (floatWl !== null && !isGhost) ? floatWl.toFixed(2) + ' m' : '-- m';
-            newDash.flowRate = (mqttData.sensorFlowRate !== null) ? mqttData.sensorFlowRate.toFixed(2) + ' m/s' : '-- m/s';
+            newDash.flowRate = (mqttData.sensorFlowRate !== null && mqttData.sensorFlowRate !== undefined)
+                ? mqttData.sensorFlowRate.toFixed(2) + ' m/s'
+                : '-- m/s';
             if (mqttData.riseRate != null) {
                 newDash.riseRate = mqttData.riseRate;
             }
@@ -554,8 +587,8 @@ export default function Admin() {
 
             setDashData(newDash);
 
-            if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
-                setCameraImg(`data:image/jpeg;base64,${mqttData.snapshotBase64}`);
+            if (mqttData.snapshotBase64) {
+                applyCameraSnapshot(mqttData.snapshotBase64, mqttData.timestamp);
             }
             // Trend Indicator calculations
             if (prevReadings.current.waterLevel !== null && mqttData.waterLevelM !== null) {
@@ -615,6 +648,7 @@ export default function Admin() {
         const pollMs = 10000;
         const id = setInterval(() => {
             loadDashboardData();
+            loadCameraFeed();
         }, pollMs);
 
         return () => clearInterval(id);
@@ -1213,7 +1247,7 @@ export default function Admin() {
                 </div>
                 {(() => {
                     const viewProps = {
-                        hardwareOnline, hardwareHealth, secondsSinceUpdate, isHeadAdmin, overrideContext, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, latestLogs, nextTide, cameraImg, cameraLastUpdated, cameraClockDate, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, 
+                        hardwareOnline, hardwareHealth, secondsSinceUpdate, isHeadAdmin, overrideContext, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, latestLogs, nextTide, cameraImg, cameraCaptureLabel, liveManilaClock, liveManilaClockDate, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, 
                         reportRaw, setReportRaw, reportCalculated, setReportCalculated, reportAlerts, setReportAlerts,
                         reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, editingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
                         openCreateUserModal, openEditUserModal, saveUserModal,

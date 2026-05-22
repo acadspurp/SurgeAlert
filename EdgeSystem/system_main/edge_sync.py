@@ -140,6 +140,7 @@ def upload_snapshot(timestamp, image_base64, max_attempts=10, retry_delay_sec=5.
                 timeout=30,
             )
             if r.status_code in (200, 201, 204):
+                print(f" [Sync] Snapshot uploaded for {timestamp}")
                 return True
             if r.status_code == 404 and attempt < max_attempts:
                 print(

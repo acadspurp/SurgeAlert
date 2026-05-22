@@ -5,7 +5,7 @@ import HealthRow from '../components/HealthRow';
 import TelemetryCard from '../components/TelemetryCard';
 
 export default function DashboardView(props) {
-    const { hardwareOnline, hardwareHealth, secondsSinceUpdate, isHeadAdmin, overrideContext, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, latestLogs, nextTide, cameraImg, cameraLastUpdated, cameraClockDate, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, formatTideDateUtc, formatTideTimeUtc,
+    const { hardwareOnline, hardwareHealth, secondsSinceUpdate, isHeadAdmin, overrideContext, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, latestLogs, nextTide, cameraImg, cameraCaptureLabel, liveManilaClock, liveManilaClockDate, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, formatTideDateUtc, formatTideTimeUtc,
         openCreateUserModal, openEditUserModal, saveUserModal,
         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
         handleDeleteAdminUser,
@@ -200,8 +200,8 @@ export default function DashboardView(props) {
                                         <i className={`fa-solid ${nextTide.type === 'High' ? 'fa-arrow-up text-blue-500' : 'fa-arrow-down text-teal-500'} text-3xl`}></i>
                                     </div>
                                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Philippines (Manila)</p>
-                                    <p className="text-3xl font-black text-cyan-300 my-1 font-mono">{cameraLastUpdated}</p>
-                                    <p className="text-xs font-semibold text-slate-300 mb-4">{cameraClockDate}</p>
+                                    <p className="text-3xl font-black text-cyan-300 my-1 font-mono">{liveManilaClock}</p>
+                                    <p className="text-xs font-semibold text-slate-300 mb-4">{liveManilaClockDate}</p>
                                     <div className="rounded-lg border border-slate-600/80 bg-black/25 px-3 py-2 text-xs text-slate-200">
                                         <span className="text-slate-400">Next </span>
                                         <span className="font-bold text-slate-100">{nextTide.type}</span>
@@ -227,7 +227,11 @@ export default function DashboardView(props) {
                                 <i className="fa-solid fa-camera mr-2 shrink-0 text-blue-500"></i>
                                 <span className="min-w-0">Media Center (Camera Feed)</span>
                             </div>
-                            {cameraLastUpdated && <span className="shrink-0 text-xs font-bold text-cyan-400 sm:text-sm">Manila: {cameraLastUpdated}</span>}
+                            {cameraCaptureLabel?.clock && (
+                                <span className="shrink-0 text-xs font-bold text-cyan-400 sm:text-sm">
+                                    Captured: {cameraCaptureLabel.clock}
+                                </span>
+                            )}
                         </h3>
                         <div className="relative flex-1 overflow-hidden rounded-xl bg-black min-h-[220px] sm:min-h-[320px] md:min-h-[400px]">
                             {cameraImg ? (
@@ -240,9 +244,9 @@ export default function DashboardView(props) {
                                     </div>
                                 </div>
                             )}
-                            {cameraLastUpdated && (
+                            {cameraCaptureLabel?.clock && (
                                 <div className="absolute top-4 right-4 bg-black/80 text-cyan-400 text-sm font-black font-mono px-3 py-1.5 rounded-lg border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.2)] backdrop-blur-md z-10">
-                                    {cameraLastUpdated}
+                                    {cameraCaptureLabel.clock}
                                 </div>
                             )}
                         </div>
