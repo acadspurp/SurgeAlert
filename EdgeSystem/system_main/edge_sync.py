@@ -27,7 +27,7 @@ def fetch_ml_features_realtime():
     """Latest row from ml_features_realtime (Render via backend)."""
     try:
         url = f"{BACKEND_API_URL}/edge/sync/ml-features"
-        r = requests.get(url, headers=_headers(), timeout=12)
+        r = requests.get(url, headers=_headers(), timeout=45)
         if r.status_code == 200:
             data = r.json()
             return data if data else None
@@ -71,7 +71,7 @@ def fetch_offline_bundle(db_manager):
     """Residents (with priority), SMS templates, OTP cache."""
     try:
         url = f"{BACKEND_API_URL}/edge/sync/all"
-        r = requests.get(url, headers=_headers(), timeout=15)
+        r = requests.get(url, headers=_headers(), timeout=45)
         if r.status_code != 200:
             return False
         data = r.json()

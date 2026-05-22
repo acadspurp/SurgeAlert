@@ -367,11 +367,13 @@ export default function Home() {
 
         const statusInterval = setInterval(() => {
             loadAlertStatus();
+            loadCamera();
         }, ALERT_STATUS_POLL_MS);
 
         const onVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
                 loadAlertStatus();
+                loadCamera();
             }
         };
         document.addEventListener('visibilitychange', onVisibilityChange);

@@ -647,10 +647,12 @@ export default function Admin() {
         const id = setInterval(() => {
             loadDashboardData();
             loadCameraFeed();
+            loadChartData(Math.max(telemetryTime, aiTime), 'TELEMETRY');
+            loadChartData(cvTime, 'CV');
         }, pollMs);
 
         return () => clearInterval(id);
-    }, [user, role]);
+    }, [user, role, telemetryTime, aiTime, cvTime]);
 
     // Telemetry time changer
     useEffect(() => {

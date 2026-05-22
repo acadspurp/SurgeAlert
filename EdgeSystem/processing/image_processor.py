@@ -63,6 +63,10 @@ class ImageProcessor:
         if next_pts is not None and status is not None:
             good_new = next_pts[status == 1]
             good_old = self.prev_pts[status == 1]
+            if len(good_new) == 0 or len(good_old) == 0:
+                self.prev_gray = current_gray
+                self.prev_pts = None
+                return 0.0, 0.0, viz_frame, []
         else:
             self.prev_gray = current_gray
             return 0.0, 0.0, viz_frame, []

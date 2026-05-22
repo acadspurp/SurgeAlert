@@ -248,7 +248,7 @@ def main():
     try:
         sms = SMSManager(port=GSM_PORT, baudrate=GSM_BAUDRATE)
     except Exception as e:
-        print(f" [GSM] Init warning (offline SMS may fail): {e}")
+        print(f"\033[33m [GSM] Init warning (offline SMS may fail): {e}\033[0m")
 
     mqtt_client = None
     try:
@@ -258,11 +258,14 @@ def main():
             if msg.topic == "surgealert/outbound/sms" and sms:
                 try:
                     data = json.loads(msg.payload.decode())
-                    num, txt = data.get("number"), data.get("message")
+                    # Support both legacy and new key formats
+                    num = data.get("number") or data.get("phoneNumber")
+                    txt = data.get("message") or data.get("textMessage")
                     if num and txt:
                         sms.send_gsm_only(num, txt)
                 except Exception as e:
-                    print(f" [SMS] MQTT outbound error: {e}")
+                    # Red colored error output
+                    print(f"\033[31m [SMS] MQTT outbound error: {e}\033[0m")
 
         mqtt_client.on_message = on_sms
         mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
