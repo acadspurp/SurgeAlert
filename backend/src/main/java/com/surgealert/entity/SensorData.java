@@ -2,6 +2,8 @@ package com.surgealert.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * Hardware telemetry (water level, flow, alerts). Table is auto-created on startup;
@@ -44,8 +46,9 @@ public class SensorData {
     @Column(nullable = true)
     private String predictedAlertLevel;
 
-    @Lob
-    @Column(name = "image_bytes", columnDefinition = "bytea")
+    /** PostgreSQL BYTEA — do not use @Lob (maps to OID and breaks inserts). */
+    @JdbcTypeCode(SqlTypes.BINARY)
+    @Column(name = "image_bytes")
     private byte[] imageBytes;
 
     @PrePersist
