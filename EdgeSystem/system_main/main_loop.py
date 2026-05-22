@@ -390,7 +390,10 @@ def main():
                         "is_simulated": not USE_HARDWARE,
                     }
                     try:
-                        mqtt_client.publish(MQTT_TOPIC_SENSOR, json.dumps(payload), qos=1)
+                        if mqtt_client:
+                            mqtt_client.publish(MQTT_TOPIC_SENSOR, json.dumps(payload), qos=1)
+                        elif cloud_online:
+                            upload_telemetry(row)
                         snap_ok = True
                         if cloud_online and row.get("image_bytes"):
                             snap_ok = upload_snapshot(row["timestamp"], row["image_bytes"])
