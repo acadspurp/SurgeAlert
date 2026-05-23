@@ -3,6 +3,7 @@ package com.surgealert.service;
 import com.surgealert.dto.SensorDataDTO;
 import com.surgealert.entity.SensorData;
 import com.surgealert.entity.MLFeaturesRealtime;
+import com.surgealert.util.AlertLevelUtils;
 import com.surgealert.util.GridTimeUtils;
 import com.surgealert.repository.SensorDataRepository;
 import com.surgealert.repository.MLFeaturesRealtimeRepository;
@@ -100,7 +101,7 @@ public class SensorDataService {
         if (alertLevel == null || alertLevel.isEmpty()) {
             alertLevel = calculateFallbackAlertLevel(dto.getWaterLevelM());
         }
-        sensorData.setCurrentAlertLevel(alertLevel.toUpperCase());
+        sensorData.setCurrentAlertLevel(AlertLevelUtils.normalize(alertLevel));
 
         if (dto.getPredictedLevel() != null) {
             sensorData.setPredictedLevel(dto.getPredictedLevel());
@@ -110,9 +111,10 @@ public class SensorDataService {
 
         String predictedAlert = dto.getPredictedAlertLevel();
         if (predictedAlert != null && !predictedAlert.isEmpty()) {
-            sensorData.setPredictedAlertLevel(predictedAlert);
+            sensorData.setPredictedAlertLevel(AlertLevelUtils.normalize(predictedAlert));
         } else {
-            sensorData.setPredictedAlertLevel(calculateFallbackAlertLevel(sensorData.getPredictedLevel()));
+            sensorData.setPredictedAlertLevel(AlertLevelUtils.normalize(
+                    calculateFallbackAlertLevel(sensorData.getPredictedLevel())));
         }
 
         return sensorDataRepository.save(sensorData);
@@ -351,7 +353,7 @@ public class SensorDataService {
         String filename = "normal.jpg";
         if (alertLevel != null) {
             String level = alertLevel.toUpperCase();
-            if (level.equals("RED") || level.equals("CRITICAL")) {
+            if (level.equals("RED")) {
                 filename = "flood.jpg";
             } else if (level.equals("YELLOW") || level.equals("ORANGE")) {
                 filename = "rising.jpg";

@@ -3,6 +3,7 @@ package com.surgealert.service;
 import com.surgealert.dto.ActionPlanDTO;
 import com.surgealert.entity.ActionPlan;
 import com.surgealert.repository.ActionPlanRepository;
+import com.surgealert.util.AlertLevelUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -17,13 +18,14 @@ public class ActionPlanService {
     }
 
     public ActionPlanDTO getActionPlanByAlertLevel(String alertLevel) {
-        return actionPlanRepository.findByAlertLevel(alertLevel)
+        return actionPlanRepository.findByAlertLevel(AlertLevelUtils.normalize(alertLevel))
                 .map(this::convertToDTO)
                 .orElse(null);
     }
 
     public List<ActionPlanDTO> getAllActionPlans() {
         return actionPlanRepository.findAll().stream()
+                .filter(plan -> !"CRITICAL".equalsIgnoreCase(plan.getAlertLevel()))
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }

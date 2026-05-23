@@ -227,9 +227,10 @@ export default function Home() {
         }
 
         const levelMap = {
-            GREEN: 'green', YELLOW: 'yellow', ORANGE: 'orange', RED: 'red', CRITICAL: 'red',
+            GREEN: 'green', YELLOW: 'yellow', ORANGE: 'orange', RED: 'red',
         };
-        const normalized = String(rawLevel || 'GREEN').toUpperCase();
+        let normalized = String(rawLevel || 'GREEN').toUpperCase();
+        if (normalized === 'CRITICAL') normalized = 'RED';
         const levelKey = isOverride
             ? rawLevel.toLowerCase()
             : (levelMap[normalized] || classifyAlertLevel(floatVal, sensorConfigRef.current.thresholds));

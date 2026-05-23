@@ -2,8 +2,10 @@ package com.surgealert.service;
 
 import com.surgealert.entity.SystemConfig;
 import com.surgealert.repository.SystemConfigRepository;
+import com.surgealert.util.AlertLevelUtils;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import java.util.Optional;
 
 @Service
@@ -16,11 +18,22 @@ public class ManualOverrideService {
         this.configRepository = configRepository;
     }
 
+    @PostConstruct
+    void migrateLegacyCriticalOverride() {
+        configRepository.findById(KEY_LEVEL).ifPresent(cfg -> {
+            if ("CRITICAL".equalsIgnoreCase(cfg.getValue().trim())) {
+                configRepository.save(new SystemConfig(KEY_LEVEL, "RED"));
+            }
+        });
+    }
+
     public Optional<String> getOverrideLevel() {
         return configRepository.findById(KEY_LEVEL)
                 .map(SystemConfig::getValue)
                 .map(String::trim)
-                .filter(v -> !v.isEmpty());
+                .filter(v -> !v.isEmpty())
+                .map(AlertLevelUtils::normalize)
+                .filter(AlertLevelUtils::isOverrideLevel);
     }
 
     public void setOverrideLevel(String level) {
@@ -28,7 +41,11 @@ public class ManualOverrideService {
             clearOverride();
             return;
         }
-        configRepository.save(new SystemConfig(KEY_LEVEL, level.trim().toUpperCase()));
+        String normalized = AlertLevelUtils.normalizeOverrideLevel(level);
+        if (normalized == null) {
+            return;
+        }
+        configRepository.save(new SystemConfig(KEY_LEVEL, normalized));
     }
 
     public void clearOverride() {

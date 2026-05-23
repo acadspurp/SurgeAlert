@@ -139,21 +139,21 @@ export async function fetchCameraFeed() {
     return await response.json();
 }
 
-export async function fetchPendingCriticalAlerts() {
-    const response = await apiFetch(`${API_BASE_URL}/public/alerts/critical/pending`);
-    if (!response.ok) throw new Error('Failed to fetch pending critical alerts');
+export async function fetchPendingRedAlerts() {
+    const response = await apiFetch(`${API_BASE_URL}/public/alerts/red/pending`);
+    if (!response.ok) throw new Error('Failed to fetch pending RED alerts');
     return await response.json();
 }
 
-export async function approvePendingCriticalAlert(id) {
-    const response = await apiFetch(`${API_BASE_URL}/admin/alerts/critical/pending/${id}/approve`, { method: 'POST' });
-    if (!response.ok) throw new Error('Failed to approve critical alert');
+export async function approvePendingRedAlert(id) {
+    const response = await apiFetch(`${API_BASE_URL}/admin/alerts/red/pending/${id}/approve`, { method: 'POST' });
+    if (!response.ok) throw new Error('Failed to approve RED alert');
     return await response.json();
 }
 
-export async function rejectPendingCriticalAlert(id) {
-    const response = await apiFetch(`${API_BASE_URL}/admin/alerts/critical/pending/${id}/reject`, { method: 'POST' });
-    if (!response.ok) throw new Error('Failed to reject critical alert');
+export async function rejectPendingRedAlert(id) {
+    const response = await apiFetch(`${API_BASE_URL}/admin/alerts/red/pending/${id}/reject`, { method: 'POST' });
+    if (!response.ok) throw new Error('Failed to reject RED alert');
     return await response.json();
 }
 
@@ -167,6 +167,7 @@ export async function fetchAlertGuide() {
 
         const guide = {};
         dataList.forEach(plan => {
+            if (String(plan.alertLevel || '').toUpperCase() === 'CRITICAL') return;
             const key = plan.alertLevel.toLowerCase();
             guide[key] = {
                 title: plan.titleEn,

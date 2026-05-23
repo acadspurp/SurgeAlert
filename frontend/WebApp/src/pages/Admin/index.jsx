@@ -6,7 +6,7 @@ import { getUser, clearUser } from '../../services/auth.js';
 import {
     fetchAlertStatus, fetchCameraFeed as fetchCameraAPI, fetchTidesData, fetchWeatherData,
     fetchLatestEnvironmental, fetchLatestSensorReading,
-    fetchPendingCriticalAlerts, approvePendingCriticalAlert, rejectPendingCriticalAlert,
+    fetchPendingRedAlerts, approvePendingRedAlert, rejectPendingRedAlert,
     fetchCanaryHealth, advanceCanaryPhase, rollbackCanaryPhase,
     fetchActiveResidents, deleteResident as deleteResidentAPI,
     fetchTemplates as fetchTemplatesAPI, saveTemplate as saveTemplateAPI,
@@ -166,7 +166,7 @@ export default function Admin() {
     const [cachedSensorRow, setCachedSensorRow] = useState(null);
     const [ageTick, setAgeTick] = useState(0);
     const [evacuationSites, setEvacuationSites] = useState([]);
-    const [pendingCriticalAlerts, setPendingCriticalAlerts] = useState([]);
+    const [pendingRedAlerts, setPendingRedAlerts] = useState([]);
     const [canaryState, setCanaryState] = useState(null);
     const evacuationSitesRef = useRef([]);
 
@@ -338,8 +338,7 @@ export default function Admin() {
                     official: level,
                     sensor: statusData.sensorAlertLevel || latest?.currentAlertLevel || null,
                 });
-                if (level === 'CRITICAL') newDash.statusColor = 'text-purple-600 font-black animate-pulse';
-                else if (level === 'RED') newDash.statusColor = 'text-red-600';
+                if (level === 'RED') newDash.statusColor = 'text-red-600 font-black';
                 else if (level === 'ORANGE') newDash.statusColor = 'text-orange-500';
                 else if (level === 'YELLOW') newDash.statusColor = 'text-yellow-500';
                 else if (level === 'GREEN') newDash.statusColor = 'text-green-600';
@@ -556,12 +555,12 @@ export default function Admin() {
         } catch (e) { console.error(e); }
     };
 
-    const loadPendingCriticalAlerts = async () => {
+    const loadPendingRedAlerts = async () => {
         try {
-            const alerts = await fetchPendingCriticalAlerts();
-            setPendingCriticalAlerts(Array.isArray(alerts) ? alerts : []);
+            const alerts = await fetchPendingRedAlerts();
+            setPendingRedAlerts(Array.isArray(alerts) ? alerts : []);
         } catch {
-            setPendingCriticalAlerts([]);
+            setPendingRedAlerts([]);
         }
     };
 
@@ -637,7 +636,7 @@ export default function Admin() {
         loadEvacuationSites();
         loadSystemLogsSafe();
         loadDatasetRequests();
-        loadPendingCriticalAlerts();
+        loadPendingRedAlerts();
         loadCanaryHealth();
 
         if (isHeadAdmin) {
@@ -646,13 +645,13 @@ export default function Admin() {
 
         const tideInterval = setInterval(loadTideData, 3600000);
         const logsInterval = setInterval(loadSystemLogsSafe, 45000);
-        const criticalInterval = setInterval(loadPendingCriticalAlerts, 15000);
+        const redAlertInterval = setInterval(loadPendingRedAlerts, 15000);
         const canaryInterval = setInterval(loadCanaryHealth, 20000);
 
         return () => {
             clearInterval(tideInterval);
             clearInterval(logsInterval);
-            clearInterval(criticalInterval);
+            clearInterval(redAlertInterval);
             clearInterval(canaryInterval);
         };
     }, []);
@@ -868,31 +867,31 @@ export default function Admin() {
 
     const showNavLabels = mobileNavOpen || isSidebarOpen;
 
-    const handleApproveCriticalAlert = async (id) => {
+    const handleApproveRedAlert = async (id) => {
         if (!isHeadAdmin) {
-            alert('Only Head Admin can approve critical alerts.');
+            alert('Only Head Admin can approve RED alerts.');
             return;
         }
         try {
-            await approvePendingCriticalAlert(id);
-            await loadPendingCriticalAlerts();
-            alert('Critical alert approved.');
+            await approvePendingRedAlert(id);
+            await loadPendingRedAlerts();
+            alert('RED alert approved.');
         } catch (e) {
-            alert('Failed to approve critical alert.');
+            alert('Failed to approve RED alert.');
         }
     };
 
-    const handleRejectCriticalAlert = async (id) => {
+    const handleRejectRedAlert = async (id) => {
         if (!isHeadAdmin) {
-            alert('Only Head Admin can reject critical alerts.');
+            alert('Only Head Admin can reject RED alerts.');
             return;
         }
         try {
-            await rejectPendingCriticalAlert(id);
-            await loadPendingCriticalAlerts();
-            alert('Critical alert rejected.');
+            await rejectPendingRedAlert(id);
+            await loadPendingRedAlerts();
+            alert('RED alert rejected.');
         } catch (e) {
-            alert('Failed to reject critical alert.');
+            alert('Failed to reject RED alert.');
         }
     };
 
@@ -1284,7 +1283,7 @@ export default function Admin() {
                         openCreateUserModal, openEditUserModal, saveUserModal,
                         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
                         handleDeleteAdminUser,
-                        handleUpdateDatasetStatus, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert, canaryState, handleAdvanceCanaryPhase, handleRollbackCanaryPhase, handleUpdateCanaryConfig,
+                        handleUpdateDatasetStatus, tides, pendingRedAlerts, handleApproveRedAlert, handleRejectRedAlert, canaryState, handleAdvanceCanaryPhase, handleRollbackCanaryPhase, handleUpdateCanaryConfig,
                         formatTideDateUtc, formatTideTimeUtc, formatTideDateTimeUtc
                     }; return (<>
 

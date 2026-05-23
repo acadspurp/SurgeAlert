@@ -85,11 +85,11 @@ public class SecurityConfig {
                         "/api/public/action-plans",
                         "/api/public/system/diagnostic"
                 ).permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/public/alerts/critical/pending/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/public/alerts/red/pending/**").permitAll()
                 .requestMatchers("/api/residents/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/admin/alerts/override").hasRole("HEAD_ADMIN")
-                .requestMatchers(HttpMethod.POST, "/api/admin/alerts/critical/pending/*/approve").hasRole("HEAD_ADMIN")
-                .requestMatchers(HttpMethod.POST, "/api/admin/alerts/critical/pending/*/reject").hasRole("HEAD_ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/admin/alerts/red/pending/*/approve").hasRole("HEAD_ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/admin/alerts/red/pending/*/reject").hasRole("HEAD_ADMIN")
                 .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
                 .requestMatchers("/api/sensor-data/reports/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
                 .anyRequest().authenticated()

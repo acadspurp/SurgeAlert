@@ -11,12 +11,14 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.time.ZoneId;
 import java.util.Optional;
 import jakarta.annotation.PostConstruct;
 
 @Service
 public class DataCollectionScheduler {
+
+    private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
 
     private final ExternalApiService externalApiService;
     private final TideMetricsRepository tideRepository;
@@ -61,7 +63,7 @@ public class DataCollectionScheduler {
         performWeatherFetch();
 
         // Fetch tides if today's data is absent or the last fetch was unsuccessful
-        LocalDateTime todayStart = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
+        LocalDateTime todayStart = LocalDateTime.now(MANILA).withHour(0).withMinute(0).withSecond(0).withNano(0);
         boolean hasTodayData = tideRepository.existsByTimestamp(todayStart)
                 || tideRepository.findByTimestampAfter(todayStart).size() > 0;
 
@@ -152,7 +154,7 @@ public class DataCollectionScheduler {
             return;
         }
 
-        LocalDateTime now = LocalDateTime.now().withMinute(0).withSecond(0).withNano(0);
+        LocalDateTime now = LocalDateTime.now(MANILA).withMinute(0).withSecond(0).withNano(0);
         int hourIdx = now.getHour();
 
         try {

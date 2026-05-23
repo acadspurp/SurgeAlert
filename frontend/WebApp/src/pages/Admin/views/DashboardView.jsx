@@ -27,8 +27,7 @@ export default function DashboardView(props) {
 
     const alertLevelClass = (level) => {
         if (!level) return 'text-slate-400';
-        if (level === 'CRITICAL') return 'text-purple-400 font-black';
-        if (level === 'RED') return 'text-red-400';
+        if (level === 'RED') return 'text-red-400 font-black';
         if (level === 'ORANGE') return 'text-orange-400';
         if (level === 'YELLOW') return 'text-yellow-400';
         if (level === 'GREEN' || level === 'NORMAL') return 'text-green-400';
@@ -81,7 +80,7 @@ export default function DashboardView(props) {
                                 </p>
                                 <p className="mt-1 flex flex-wrap items-center text-sm text-slate-300">
                                     <span className="mr-1">AI band from +1h prediction:</span>
-                                    <span className={`font-bold ${aiRecommendedStatus === 'CRITICAL' ? 'text-purple-600 font-black animate-pulse' : aiRecommendedStatus === 'RED' ? 'text-red-600' : aiRecommendedStatus === 'ORANGE' ? 'text-orange-500' : aiRecommendedStatus === 'YELLOW' ? 'text-yellow-600' : 'text-green-600'}`}>
+                                    <span className={`font-bold ${aiRecommendedStatus === 'RED' ? 'text-red-600 font-black' : aiRecommendedStatus === 'ORANGE' ? 'text-orange-500' : aiRecommendedStatus === 'YELLOW' ? 'text-yellow-600' : 'text-green-600'}`}>
                                         {aiRecommendedStatus}
                                     </span>
                                     {isDivergent && <i className="fa-solid fa-triangle-exclamation ml-2 shrink-0 animate-pulse text-yellow-500" title="Divergence Detected!"></i>}
@@ -93,8 +92,7 @@ export default function DashboardView(props) {
                                     <button type="button" onClick={() => handleOverride('NORMAL')} className="touch-manipulation min-h-[48px] rounded-lg bg-slate-700 px-2 py-2 text-center text-sm font-bold text-slate-100 shadow transition hover:bg-slate-600 active:scale-[0.98] sm:min-h-0 sm:px-4 sm:py-2">Normal/Auto</button>
                                     <button type="button" onClick={() => handleOverride('YELLOW')} className="touch-manipulation min-h-[48px] rounded-lg bg-yellow-400 px-2 py-2 text-center text-sm font-bold text-yellow-900 shadow transition hover:bg-yellow-500 active:scale-[0.98] sm:min-h-0 sm:px-4 sm:py-2">Yellow</button>
                                     <button type="button" onClick={() => handleOverride('ORANGE')} className="touch-manipulation min-h-[48px] rounded-lg bg-orange-500 px-2 py-2 text-center text-sm font-bold text-white shadow transition hover:bg-orange-600 active:scale-[0.98] sm:min-h-0 sm:px-4 sm:py-2">Orange</button>
-                                    <button type="button" onClick={() => handleOverride('RED')} className="touch-manipulation min-h-[48px] rounded-lg bg-red-600 px-2 py-2 text-center text-sm font-bold text-white shadow transition hover:bg-red-700 active:scale-[0.98] sm:min-h-0 sm:px-4 sm:py-2">Red</button>
-                                    <button type="button" onClick={() => handleOverride('CRITICAL')} className="touch-manipulation min-h-[48px] rounded-lg bg-purple-700 col-span-2 sm:col-auto px-2 py-2 text-center text-sm font-bold text-white shadow transition hover:bg-purple-800 active:scale-[0.98] sm:min-h-0 sm:px-4 sm:py-2">Critical/Evac</button>
+                                    <button type="button" onClick={() => handleOverride('RED')} className="touch-manipulation min-h-[48px] rounded-lg bg-red-600 col-span-2 sm:col-auto px-2 py-2 text-center text-sm font-bold text-white shadow transition hover:bg-red-700 active:scale-[0.98] sm:min-h-0 sm:px-4 sm:py-2">Red Alert</button>
                                 </div>
                                 {aiRecommendedStatus !== 'NORMAL' && (
                                     <button type="button" onClick={() => handleOverride(aiRecommendedStatus)} className="touch-manipulation flex w-full items-center justify-center rounded-full border border-blue-800 bg-blue-900/40 px-3 py-2 text-xs font-bold text-blue-400 transition hover:bg-blue-900/60 active:scale-[0.98] sm:w-auto">

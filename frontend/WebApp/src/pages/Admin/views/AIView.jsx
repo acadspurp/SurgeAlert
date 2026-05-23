@@ -10,13 +10,21 @@ export default function AIView(props) {
         openCreateUserModal, openEditUserModal, saveUserModal,
         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
         handleDeleteAdminUser,
-        approveDatasetRequest, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert, formatTideDateUtc, formatTideTimeUtc, formatTideDateTimeUtc } = props;
+        approveDatasetRequest, tides, pendingRedAlerts, handleApproveRedAlert, handleRejectRedAlert, formatTideDateUtc, formatTideTimeUtc, formatTideDateTimeUtc } = props;
 
     const formatTideDateTime = (value) => formatTideDateTimeUtc(value);
     const formatTideTime = (value) => formatTideTimeUtc(value);
     const formatTideDate = (value) => formatTideDateUtc(value);
 
-    const groupedTides = (Array.isArray(tides) ? tides : []).reduce((acc, t) => {
+    const nowMs = Date.now();
+    const sortedTides = (Array.isArray(tides) ? tides : [])
+        .filter((t) => Number.isFinite(t?.dt))
+        .sort((a, b) => a.dt - b.dt);
+    const upcomingTides = sortedTides.filter((t) => t.dt * 1000 > nowMs);
+    const nextFutureHigh = upcomingTides.find((t) => t.type === 'High') ?? null;
+    const nextFutureLow = upcomingTides.find((t) => t.type === 'Low') ?? null;
+
+    const groupedTides = upcomingTides.reduce((acc, t) => {
         const key = formatTideDate(t.dt * 1000);
         if (!acc[key]) acc[key] = [];
         acc[key].push(t);
@@ -113,14 +121,14 @@ export default function AIView(props) {
                                 </div>
                                 <div className="bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-slate-200">
                                     <span className="text-slate-400 mr-2">Next High:</span>
-                                    {tides.find(t => t.type === 'High')
-                                        ? formatTideDateTime(tides.find(t => t.type === 'High').dt * 1000)
+                                    {nextFutureHigh
+                                        ? formatTideDateTime(nextFutureHigh.dt * 1000)
                                         : 'N/A'}
                                 </div>
                                 <div className="bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-slate-200">
                                     <span className="text-slate-400 mr-2">Next Low:</span>
-                                    {tides.find(t => t.type === 'Low')
-                                        ? formatTideDateTime(tides.find(t => t.type === 'Low').dt * 1000)
+                                    {nextFutureLow
+                                        ? formatTideDateTime(nextFutureLow.dt * 1000)
                                         : 'N/A'}
                                 </div>
                             </div>
@@ -147,13 +155,13 @@ export default function AIView(props) {
                         {/* HITL Panel */}
                         <div className="bg-[#1e293b] rounded-2xl shadow-lg border border-slate-700 p-6">
                             <h3 className="text-lg font-bold text-sky-100 mb-4 border-b border-slate-700 pb-2 flex items-center">
-                                <i className="fa-solid fa-triangle-exclamation mr-2 text-red-500"></i> Pending Critical Alerts (Requires Approval)
+                                <i className="fa-solid fa-triangle-exclamation mr-2 text-red-500"></i> Pending RED Alerts (Requires Approval)
                             </h3>
-                            {(!pendingCriticalAlerts || pendingCriticalAlerts.length === 0) ? (
-                                <p className="text-sm text-slate-400">No pending critical alerts.</p>
+                            {(!pendingRedAlerts || pendingRedAlerts.length === 0) ? (
+                                <p className="text-sm text-slate-400">No pending RED alerts.</p>
                             ) : (
                                 <div className="space-y-3 max-h-[260px] overflow-y-auto">
-                                    {pendingCriticalAlerts.slice(0, 8).map((alert) => (
+                                    {pendingRedAlerts.slice(0, 8).map((alert) => (
                                         <div key={alert.id} className="bg-[#0f172a] border border-slate-700 rounded-lg p-3">
                                             <p className="text-xs text-slate-400">#{alert.id.slice(0, 8)} • {new Date(alert.createdAt).toLocaleString()}</p>
                                             <p className="text-sm font-bold text-red-300 mt-1">Status: {alert.status}</p>
@@ -162,13 +170,13 @@ export default function AIView(props) {
                                             <p className="text-xs text-amber-300 mt-1">Deadline: {new Date(alert.expiresAt).toLocaleString()}</p>
                                             <div className="flex gap-2 mt-3">
                                                 <button
-                                                    onClick={() => handleApproveCriticalAlert(alert.id)}
+                                                    onClick={() => handleApproveRedAlert(alert.id)}
                                                     className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-bold"
                                                 >
                                                     Approve
                                                 </button>
                                                 <button
-                                                    onClick={() => handleRejectCriticalAlert(alert.id)}
+                                                    onClick={() => handleRejectRedAlert(alert.id)}
                                                     className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-bold"
                                                 >
                                                     Reject

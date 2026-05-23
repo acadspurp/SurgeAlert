@@ -15,7 +15,7 @@ public class NotificationService {
 
     private final AlertTemplateRepository templateRepository;
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH);
-    private final ZoneId zoneId = ZoneId.systemDefault();
+    private final ZoneId zoneId = ZoneId.of("Asia/Manila");
 
     public NotificationService(AlertTemplateRepository templateRepository) {
         this.templateRepository = templateRepository;

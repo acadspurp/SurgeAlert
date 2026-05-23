@@ -197,7 +197,7 @@ def _maybe_send_offline_alerts(sms, db, reading, cloud_online):
     if _should_block_sms_by_prediction(level, reading):
         return
 
-    template = db.get_template(level) or db.get_template("CRITICAL")
+    template = db.get_template(level) or db.get_template("RED")
     message = _format_offline_sms(template, reading)
     phones = db.get_residents_for_sms()
     if not phones:

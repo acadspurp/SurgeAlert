@@ -5,7 +5,6 @@ import com.surgealert.repository.ActionPlanRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
-import java.util.Arrays;
 import java.util.List;
 
 @Component
@@ -19,10 +18,10 @@ public class ActionPlanSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        // Only run if the table is empty
+        repository.findByAlertLevel("CRITICAL").ifPresent(repository::delete);
+
         if (repository.count() == 0) {
-            
-            // --- GREEN ---
+
             ActionPlan green = new ActionPlan();
             green.setAlertLevel("GREEN");
             green.setTitleEn("LEVEL 1 GREEN: BE AWARE & PREPARE");
@@ -39,7 +38,6 @@ public class ActionPlanSeeder implements CommandLineRunner {
             ));
             repository.save(green);
 
-            // --- YELLOW ---
             ActionPlan yellow = new ActionPlan();
             yellow.setAlertLevel("YELLOW");
             yellow.setTitleEn("⚠️ LEVEL 2 YELLOW: GET READY");
@@ -58,7 +56,6 @@ public class ActionPlanSeeder implements CommandLineRunner {
             ));
             repository.save(yellow);
 
-            // --- ORANGE ---
             ActionPlan orange = new ActionPlan();
             orange.setAlertLevel("ORANGE");
             orange.setTitleEn("🟠 LEVEL 3 ORANGE: PREPARE TO EVACUATE");
@@ -77,43 +74,23 @@ public class ActionPlanSeeder implements CommandLineRunner {
             ));
             repository.save(orange);
 
-            // --- RED ---
             ActionPlan red = new ActionPlan();
             red.setAlertLevel("RED");
-            red.setTitleEn("🚨 LEVEL 4 RED: HIGH FLOOD RISK");
-            red.setTitleTl("🚨 LEVEL 4 RED: MATAAS NA RISGO NG BAHA");
-            red.setShortDescriptionEn("The river is at a dangerous level. Minor flooding may be occurring.");
-            red.setShortDescriptionTl("Nasa mapanganib na antas na ang ilog. Maaaring mayroon nang bahagyang pagbaha.");
+            red.setTitleEn("🚨 LEVEL 4 RED: MANDATORY EVACUATION");
+            red.setTitleTl("🚨 LEVEL 4 RED: SAPILITANG PAGLIKAS");
+            red.setShortDescriptionEn("URGENT: The river is at a dangerous level. Evacuate immediately if you are in a flood zone.");
+            red.setShortDescriptionTl("APURAHAN: Mapanganib ang antas ng tubig sa ilog. Lumikas agad kung kayo ay nasa flood zone.");
             red.setActionsEn(List.of(
-                "PREPARE TO LEAVE: Put your Go Bag by the door.",
-                "STAY ALERT: Monitor the water level closely. Move to high ground if you feel unsafe.",
-                "SECURE: Ensure all valuables are high up."
-            ));
-            red.setActionsTl(List.of(
-                "MAGHANDA SA PAGLIKAS: Ilagay ang Go Bag sa malapit sa pinto.",
-                "MANATILING ALERTO: Bantayan ang antas ng tubig. Lumikas kung sa tingin niyo ay hindi na ligtas.",
-                "SIGURADUHIN: Ilagay sa mataas na lugar ang mga mahahalagang gamit."
-            ));
-            repository.save(red);
-
-            // --- CRITICAL ---
-            ActionPlan critical = new ActionPlan();
-            critical.setAlertLevel("CRITICAL");
-            critical.setTitleEn("☢️ LEVEL 5 CRITICAL: MANDATORY EVACUATION");
-            critical.setTitleTl("☢️ LEVEL 5 CRITICAL: SAPILITANG PAGLIKAS");
-            critical.setShortDescriptionEn("URGENT: The river is overflowing. Catastrophic flooding is occurring.");
-            critical.setShortDescriptionTl("APURAHAN: Umaapaw na ang ilog. Nagaganap na ang malubhang pagbaha.");
-            critical.setActionsEn(List.of(
                 "EVACUATE IMMEDIATELY: Leave your home now for your safety.",
                 "GO TO EVACUATION CENTER: Follow emergency routes to the nearest designated safe zone.",
                 "DO NOT DELAY: Life-threatening situation. Every second counts."
             ));
-            critical.setActionsTl(List.of(
+            red.setActionsTl(List.of(
                 "LUMIKAS AGAD: Umalis na sa bahay ngayon para sa inyong kaligtasan.",
                 "PUMUNTA SA EVACUATION CENTER: Sundin ang mga emergency route patungo sa ligtas na lugar.",
                 "HUWAG MAG-ATUBILI: Panganib sa buhay. Mahalaga ang bawat segundo."
             ));
-            repository.save(critical);
+            repository.save(red);
 
             System.out.println("SUCCESS: Action Plans have been inserted into the database.");
         }

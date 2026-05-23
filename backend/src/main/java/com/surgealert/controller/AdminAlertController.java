@@ -6,6 +6,7 @@ import com.surgealert.service.CriticalAlertApprovalService;
 import com.surgealert.service.ManualOverrideService;
 import com.surgealert.service.MqttSubscriberService;
 import com.surgealert.service.SensorDataService;
+import com.surgealert.util.AlertLevelUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -54,7 +55,12 @@ public class AdminAlertController {
             return ResponseEntity.ok(response);
         }
 
-        String normalized = level.toUpperCase().trim();
+        String normalized = AlertLevelUtils.normalizeOverrideLevel(level);
+        if (normalized == null) {
+            response.put("status", "error");
+            response.put("smsWarning", "Unsupported override level. Use NORMAL, YELLOW, ORANGE, or RED.");
+            return ResponseEntity.badRequest().body(response);
+        }
         manualOverrideService.setOverrideLevel(normalized);
         UserController.addLog("Admin invoked manual override to " + normalized + ".");
 
@@ -67,7 +73,9 @@ public class AdminAlertController {
                 (phone, msg) -> mqttSubscriberService.publishSmsToGsm(phone, msg, "alert"));
         response.put("smsRecipients", smsRecipients);
         if (smsRecipients == 0) {
-            response.put("smsWarning", "Override saved but no active subscribers found.");
+            response.put(
+                    "smsWarning",
+                    "Override saved but SMS was not sent (no active subscribers or delivery failed).");
         } else if (!mqttSubscriberService.isMqttConnected()) {
             response.put(
                     "smsWarning",
@@ -76,23 +84,23 @@ public class AdminAlertController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/critical/pending/{id}/approve")
-    public ResponseEntity<?> approveCritical(@PathVariable String id) {
+    @PostMapping("/red/pending/{id}/approve")
+    public ResponseEntity<?> approveRedAlert(@PathVariable String id) {
         CriticalAlertApprovalService.PendingCriticalAlert pending = criticalAlertApprovalService.approve(id);
         if (pending == null) {
             return ResponseEntity.notFound().build();
         }
-        UserController.addLog("Critical alert " + id + " approval set to " + pending.status() + ".");
+        UserController.addLog("RED alert approval " + id + " set to " + pending.status() + ".");
         return ResponseEntity.ok(pending);
     }
 
-    @PostMapping("/critical/pending/{id}/reject")
-    public ResponseEntity<?> rejectCritical(@PathVariable String id) {
+    @PostMapping("/red/pending/{id}/reject")
+    public ResponseEntity<?> rejectRedAlert(@PathVariable String id) {
         CriticalAlertApprovalService.PendingCriticalAlert pending = criticalAlertApprovalService.reject(id);
         if (pending == null) {
             return ResponseEntity.notFound().build();
         }
-        UserController.addLog("Critical alert " + id + " approval set to " + pending.status() + ".");
+        UserController.addLog("RED alert approval " + id + " set to " + pending.status() + ".");
         return ResponseEntity.ok(pending);
     }
 }

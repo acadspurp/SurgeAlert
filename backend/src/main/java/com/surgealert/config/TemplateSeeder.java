@@ -43,6 +43,8 @@ public class TemplateSeeder implements CommandLineRunner {
             System.out.println("SUCCESS: Default Alert Templates inserted into Database.");
         }
 
+        repository.findByAlertType("CRITICAL").ifPresent(repository::delete);
+
         repository.findByAlertType("OTP").ifPresent(t -> {
             String text = t.getTemplate();
             if (text != null && text.contains("5 minuto")) {

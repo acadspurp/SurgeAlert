@@ -5,6 +5,7 @@ import com.surgealert.dto.SensorDataDTO;
 import com.surgealert.service.CriticalAlertApprovalService;
 import com.surgealert.service.ManualOverrideService;
 import com.surgealert.service.SensorDataService;
+import com.surgealert.util.AlertLevelUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,11 +35,11 @@ public class AlertController {
 
         if (latestData != null) {
             response.setWaterLevelM(latestData.getWaterLevelM());
-            response.setSensorAlertLevel(latestData.getCurrentAlertLevel());
+            response.setSensorAlertLevel(AlertLevelUtils.normalize(latestData.getCurrentAlertLevel()));
             response.setLastUpdated(latestData.getTimestamp());
             response.setSensorFlowRate(latestData.getSensorFlowRate());
             response.setPredictedLevel(latestData.getPredictedLevel());
-            response.setPredictedAlertLevel(latestData.getPredictedAlertLevel());
+            response.setPredictedAlertLevel(AlertLevelUtils.normalize(latestData.getPredictedAlertLevel()));
         }
 
         String overrideLevel = manualOverrideService.getOverrideLevel().orElse(null);
@@ -51,7 +52,7 @@ public class AlertController {
         }
 
         if (latestData != null) {
-            response.setAlertLevel(latestData.getCurrentAlertLevel());
+            response.setAlertLevel(AlertLevelUtils.normalize(latestData.getCurrentAlertLevel()));
             response.setDescription("Live data from monitoring station.");
         } else {
             response.setWaterLevelM(null);
@@ -68,8 +69,8 @@ public class AlertController {
         return ResponseEntity.ok(sensorDataService.getLatestCameraFeed());
     }
 
-    @GetMapping("/critical/pending/{id}")
-    public ResponseEntity<?> getPendingCritical(@PathVariable String id) {
+    @GetMapping("/red/pending/{id}")
+    public ResponseEntity<?> getPendingRedAlert(@PathVariable String id) {
         CriticalAlertApprovalService.PendingCriticalAlert pending = criticalAlertApprovalService.getPendingAlert(id);
         if (pending == null) {
             return ResponseEntity.notFound().build();
@@ -77,8 +78,8 @@ public class AlertController {
         return ResponseEntity.ok(pending);
     }
 
-    @GetMapping("/critical/pending")
-    public ResponseEntity<?> listPendingCritical() {
+    @GetMapping("/red/pending")
+    public ResponseEntity<?> listPendingRedAlerts() {
         return ResponseEntity.ok(criticalAlertApprovalService.listAll());
     }
 
