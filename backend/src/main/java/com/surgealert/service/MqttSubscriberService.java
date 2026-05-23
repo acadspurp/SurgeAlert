@@ -106,7 +106,8 @@ public class MqttSubscriberService {
                     dial, tenDigit, safeText, safePriority);
             MqttMessage message = new MqttMessage(payload.getBytes());
             message.setQos(1);
-            IMqttDeliveryToken token = mqttClient.publish(SMS_OUTBOUND_TOPIC, message);
+            // MqttClient.publish(topic, message) is void in Paho 1.2.x; use topic.publish for delivery token.
+            IMqttDeliveryToken token = mqttClient.getTopic(SMS_OUTBOUND_TOPIC).publish(message);
             token.waitForCompletion(5000);
             System.out.println(
                     " [MQTT] Published to " + SMS_OUTBOUND_TOPIC + " (priority=" + safePriority + ") for ***"
