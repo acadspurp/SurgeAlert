@@ -321,13 +321,29 @@ export default function Home() {
             setWeatherError(null);
         }
         try {
-            const data = await fetchWeatherData();
-            const dayData = data.daily;
+            const primary = await fetchWeatherData(false);
+            let data = primary;
+            const todayKey = new Date().toLocaleDateString('en-CA', { timeZone: DISPLAY_TIMEZONE });
+            const hasToday = Array.isArray(primary?.daily?.time)
+                && primary.daily.time.some((t) => String(t).startsWith(todayKey));
+
+            if ((!hasToday || !primary?.daily?.time?.length) && primary) {
+                const refreshed = await fetchWeatherData(true);
+                if (refreshed?.daily?.time?.length) data = refreshed;
+            }
+
+            const dayData = data?.daily;
+            if (!dayData?.time?.length) {
+                setWeatherCards([]);
+                setWeatherError('No forecast data returned from the weather service.');
+                return;
+            }
+
             const cards = [];
             for (let i = 0; i < 5; i++) {
                 if (!dayData.time[i]) continue;
                 const dateObj = new Date(dayData.time[i]);
-                const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+                const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short', timeZone: DISPLAY_TIMEZONE });
                 const tempMax = Math.round(dayData.apparent_temperature_max[i]);
                 const tempMin = Math.round(dayData.apparent_temperature_min[i]);
                 const weatherCode = dayData.weathercode[i];
@@ -335,11 +351,7 @@ export default function Home() {
                 cards.push({ dayName, tempMax, tempMin, icon: info.icon, description: info.description });
             }
             setWeatherCards(cards);
-            if (cards.length === 0) {
-                setWeatherError('No forecast data returned from the weather service.');
-            } else {
-                setWeatherError(null);
-            }
+            setWeatherError(cards.length === 0 ? 'No forecast data returned from the weather service.' : null);
         } catch (error) {
             console.error('Failed to fetch weather:', error);
             if (!silent) {

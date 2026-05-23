@@ -15,6 +15,18 @@ CREATE TABLE IF NOT EXISTS sensor_data (
     image_bytes BYTEA
 );
 
+CREATE TABLE IF NOT EXISTS weather_cache (
+    id BIGSERIAL PRIMARY KEY,
+    fetch_date DATE NOT NULL UNIQUE,
+    json_response TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tide_cache (
+    id BIGSERIAL PRIMARY KEY,
+    fetch_date DATE NOT NULL UNIQUE,
+    json_response TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS weather_metrics (
     id BIGSERIAL PRIMARY KEY,
     time TIMESTAMP NOT NULL,

@@ -78,8 +78,11 @@ export function getWeatherInfo(code) {
     return weatherMap[code] || { description: 'Clear Sky', icon: '☀️' };
 }
 
-export async function fetchWeatherData() {
-    const response = await fetch(`${API_BASE_URL}/external/weather`, { mode: 'cors' });
+export async function fetchWeatherData(forceRefresh = false) {
+    const url = forceRefresh
+        ? `${API_BASE_URL}/external/weather?refresh=true`
+        : `${API_BASE_URL}/external/weather`;
+    const response = await fetch(url, { mode: 'cors' });
     if (!response.ok) {
         const detail = await response.text().catch(() => '');
         throw new Error(

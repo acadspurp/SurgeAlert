@@ -48,7 +48,7 @@ PROFILES = {
         "rise_rate_scale_factor": 6.0,
         "flow_scale_factor": 6.0,
         "smoothing_window": 5,
-        "max_delta_m_per_cycle": 0.10,
+        "max_delta_m_per_cycle": 0.7,
         "water_level_yellow_threshold": 3.50,
         "water_level_orange_threshold": 4.50,
         "water_level_red_threshold": 5.50,

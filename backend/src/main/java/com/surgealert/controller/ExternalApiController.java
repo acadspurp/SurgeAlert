@@ -24,8 +24,9 @@ public class ExternalApiController {
     }
 
     @GetMapping("/weather")
-    public ResponseEntity<WeatherResponse> getWeather() {
-        WeatherResponse data = externalApiService.fetchWeatherForecast();
+    public ResponseEntity<WeatherResponse> getWeather(
+            @RequestParam(name = "refresh", defaultValue = "false") boolean refresh) {
+        WeatherResponse data = externalApiService.fetchWeatherForecast(refresh);
         if (data != null) {
             return ResponseEntity.ok(data);
         }

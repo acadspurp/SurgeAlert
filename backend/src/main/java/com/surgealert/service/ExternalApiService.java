@@ -3,9 +3,12 @@ package com.surgealert.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surgealert.dto.TideResponse;
+import com.surgealert.dto.WeatherCachePayload;
 import com.surgealert.dto.WeatherResponse;
 import com.surgealert.entity.TideCache;
+import com.surgealert.entity.WeatherCache;
 import com.surgealert.repository.TideCacheRepository;
+import com.surgealert.repository.WeatherCacheRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -33,7 +36,12 @@ public class ExternalApiService {
     private TideCacheRepository tideCacheRepository;
 
     @Autowired
+    private WeatherCacheRepository weatherCacheRepository;
+
+    @Autowired
     private ObjectMapper objectMapper;
+
+    private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
 
     // Inject API Key from application.properties for security
     @Value("${worldtides.api.key}")
@@ -41,6 +49,9 @@ public class ExternalApiService {
 
     @Value("${surgealert.tides.cache-max-age-days:2}")
     private long tideCacheMaxAgeDays;
+
+    @Value("${surgealert.weather.cache-max-age-days:3}")
+    private long weatherCacheMaxAgeDays;
 
     // Coordinates
     private final double MARULAS_LAT = 14.6773;
@@ -53,77 +64,243 @@ public class ExternalApiService {
     private final double TIDE_LON = 120.963;
 
     public JsonNode fetchWeatherAt(double lat, double lon) {
+        return fetchOpenMeteoHourly(lat, lon, 2);
+    }
+
+  /**
+   * Dashboard forecast — served from {@code weather_cache} unless {@code forceRefresh}.
+   */
+    public WeatherResponse fetchWeatherForecast() {
+        return fetchWeatherForecast(false);
+    }
+
+    public WeatherResponse fetchWeatherForecast(boolean forceRefresh) {
+        LocalDate today = LocalDate.now(MANILA);
+
+        if (!forceRefresh) {
+            try {
+                Optional<WeatherCachePayload> cached = readCachedPayload(today);
+                if (cached.isPresent() && hasUsableForecast(cached.get())) {
+                    return cached.get().getForecast();
+                }
+
+                Optional<WeatherCache> latestOpt = weatherCacheRepository.findTopByOrderByFetchDateDesc();
+                if (latestOpt.isPresent()) {
+                    WeatherCache latest = latestOpt.get();
+                    long age = Math.abs(ChronoUnit.DAYS.between(latest.getFetchDate(), today));
+                    if (age <= Math.max(0, weatherCacheMaxAgeDays)) {
+                        Optional<WeatherCachePayload> stale = parsePayload(latest.getJsonResponse());
+                        if (stale.isPresent() && hasUsableForecast(stale.get())) {
+                            return stale.get().getForecast();
+                        }
+                    }
+                }
+            } catch (Exception db) {
+                System.err.println("Weather cache DB unavailable, skipping cache: " + db.getMessage());
+            }
+        }
+
+        WeatherCachePayload refreshed = refreshWeatherCache();
+        return refreshed != null ? refreshed.getForecast() : null;
+    }
+
+    /** Latest cached QC + Marulas hourly JSON for ML metrics (no live API). */
+    public Optional<WeatherCachePayload> getLatestWeatherCachePayload() {
+        LocalDate today = LocalDate.now(MANILA);
+        try {
+            Optional<WeatherCachePayload> todayPayload = readCachedPayload(today);
+            if (todayPayload.isPresent() && hasUsableHourly(todayPayload.get())) {
+                return todayPayload;
+            }
+            Optional<WeatherCache> latestOpt = weatherCacheRepository.findTopByOrderByFetchDateDesc();
+            if (latestOpt.isEmpty()) {
+                return Optional.empty();
+            }
+            WeatherCache latest = latestOpt.get();
+            long age = Math.abs(ChronoUnit.DAYS.between(latest.getFetchDate(), today));
+            if (age > Math.max(0, weatherCacheMaxAgeDays)) {
+                return Optional.empty();
+            }
+            Optional<WeatherCachePayload> payload = parsePayload(latest.getJsonResponse());
+            if (payload.isPresent() && hasUsableHourly(payload.get())) {
+                return payload;
+            }
+        } catch (Exception e) {
+            System.err.println("Weather cache read failed: " + e.getMessage());
+        }
+        return Optional.empty();
+    }
+
+    public boolean hasTodayWeatherCache() {
+        LocalDate today = LocalDate.now(MANILA);
+        try {
+            Optional<WeatherCachePayload> cached = readCachedPayload(today);
+            return cached.isPresent() && hasUsableForecast(cached.get()) && hasUsableHourly(cached.get());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Fetches Open-Meteo (QC + Marulas), builds payload, saves to {@code weather_cache}.
+     *
+     * @return payload on success, or null when the network fetch fails
+     */
+    public WeatherCachePayload refreshWeatherCache() {
+        try {
+            JsonNode qcRoot = fetchOpenMeteoHourly(QC_LAT, QC_LON, 2);
+            JsonNode marRoot = fetchOpenMeteoForecast(MARULAS_LAT, MARULAS_LON, 7);
+            if (qcRoot == null || marRoot == null) {
+                System.err.println("Weather refresh failed — Open-Meteo returned no data.");
+                return null;
+            }
+
+            WeatherResponse forecast = mapMarulasForecast(marRoot);
+            if (!hasUsableForecast(forecast)) {
+                System.err.println("Weather refresh failed — forecast payload unusable.");
+                return null;
+            }
+
+            WeatherCachePayload payload = new WeatherCachePayload();
+            payload.setForecast(forecast);
+            payload.setQcHourly(qcRoot);
+            payload.setMarHourly(marRoot);
+
+            LocalDate today = LocalDate.now(MANILA);
+            String json = objectMapper.writeValueAsString(payload);
+            weatherCacheRepository.save(new WeatherCache(today, json));
+            System.out.println(" [Weather] Cache saved for " + today);
+            return payload;
+        } catch (Exception e) {
+            System.err.println("Weather cache refresh failed: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private JsonNode fetchOpenMeteoHourly(double lat, double lon, int forecastDays) {
         try {
             URI uri = UriComponentsBuilder.fromHttpUrl("https://api.open-meteo.com/v1/forecast")
                     .queryParam("latitude", lat)
                     .queryParam("longitude", lon)
                     .queryParam("hourly", "precipitation,surface_pressure,wind_speed_10m,wind_direction_10m,soil_moisture_0_to_7cm")
                     .queryParam("timezone", "Asia/Manila")
-                    .queryParam("forecast_days", 2)
+                    .queryParam("forecast_days", forecastDays)
                     .build()
                     .toUri();
             return restTemplate.getForObject(uri, JsonNode.class);
         } catch (Exception e) {
-            System.err.println("Weather fetch failed for " + lat + "," + lon + ": " + e.getMessage());
+            System.err.println("Weather hourly fetch failed for " + lat + "," + lon + ": " + e.getMessage());
             return null;
         }
     }
 
-    public WeatherResponse fetchWeatherForecast() {
+    private JsonNode fetchOpenMeteoForecast(double lat, double lon, int forecastDays) {
         try {
-            // Merged forecast for the dashboard (Primary site: Marulas)
             URI uri = UriComponentsBuilder.fromHttpUrl("https://api.open-meteo.com/v1/forecast")
-                    .queryParam("latitude", MARULAS_LAT)
-                    .queryParam("longitude", MARULAS_LON)
-                    .queryParam("hourly", "precipitation,surface_pressure,wind_speed_10m")
+                    .queryParam("latitude", lat)
+                    .queryParam("longitude", lon)
+                    .queryParam("hourly", "precipitation,surface_pressure,wind_speed_10m,wind_direction_10m")
                     .queryParam("daily", "weathercode,apparent_temperature_max,apparent_temperature_min")
                     .queryParam("timezone", "Asia/Manila")
-                    .queryParam("forecast_days", 7)
+                    .queryParam("forecast_days", forecastDays)
                     .build()
                     .toUri();
-            
-            JsonNode marData = restTemplate.getForObject(uri, JsonNode.class);
-            if (marData == null) return null;
-
-            WeatherResponse response = new WeatherResponse();
-            response.setLatitude(MARULAS_LAT);
-            response.setLongitude(MARULAS_LON);
-            
-            int hour = LocalDateTime.now(ZoneId.of("Asia/Manila")).getHour();
-            if (marData.has("hourly")) {
-                JsonNode hourly = marData.get("hourly");
-                if (hourly.has("precipitation")) response.setRainMm(hourly.get("precipitation").get(hour).asDouble());
-                if (hourly.has("surface_pressure")) response.setPressureHpa(hourly.get("surface_pressure").get(hour).asDouble());
-                if (hourly.has("wind_speed_10m")) response.setWindSpeed(hourly.get("wind_speed_10m").get(hour).asDouble());
-            }
-
-            // Map Daily Forecast
-            if (marData.has("daily")) {
-                JsonNode dailyNode = marData.get("daily");
-                WeatherResponse.Daily daily = new WeatherResponse.Daily();
-                
-                List<String> times = new ArrayList<>();
-                List<Integer> codes = new ArrayList<>();
-                List<Double> maxTemps = new ArrayList<>();
-                List<Double> minTemps = new ArrayList<>();
-
-                dailyNode.get("time").forEach(t -> times.add(t.asText()));
-                dailyNode.get("weathercode").forEach(c -> codes.add(c.asInt()));
-                dailyNode.get("apparent_temperature_max").forEach(m -> maxTemps.add(m.asDouble()));
-                dailyNode.get("apparent_temperature_min").forEach(m -> minTemps.add(m.asDouble()));
-
-                daily.setTime(times);
-                daily.setWeathercode(codes);
-                daily.setTemperatureMax(maxTemps);
-                daily.setTemperatureMin(minTemps);
-                response.setDaily(daily);
-            }
-            
-            return response;
+            return restTemplate.getForObject(uri, JsonNode.class);
         } catch (Exception e) {
-            System.err.println("Weather forecast mapping failed: " + e.getMessage());
+            System.err.println("Weather forecast fetch failed for " + lat + "," + lon + ": " + e.getMessage());
             return null;
         }
+    }
+
+    private WeatherResponse mapMarulasForecast(JsonNode marData) {
+        WeatherResponse response = new WeatherResponse();
+        response.setLatitude(MARULAS_LAT);
+        response.setLongitude(MARULAS_LON);
+
+        int hour = LocalDateTime.now(MANILA).getHour();
+        if (marData.has("hourly")) {
+            JsonNode hourly = marData.get("hourly");
+            if (hourly.has("precipitation")) {
+                response.setRainMm(hourly.get("precipitation").get(hour).asDouble());
+            }
+            if (hourly.has("surface_pressure")) {
+                response.setPressureHpa(hourly.get("surface_pressure").get(hour).asDouble());
+            }
+            if (hourly.has("wind_speed_10m")) {
+                response.setWindSpeed(hourly.get("wind_speed_10m").get(hour).asDouble());
+            }
+        }
+
+        if (marData.has("daily")) {
+            JsonNode dailyNode = marData.get("daily");
+            WeatherResponse.Daily daily = new WeatherResponse.Daily();
+
+            List<String> times = new ArrayList<>();
+            List<Integer> codes = new ArrayList<>();
+            List<Double> maxTemps = new ArrayList<>();
+            List<Double> minTemps = new ArrayList<>();
+
+            dailyNode.get("time").forEach(t -> times.add(t.asText()));
+            dailyNode.get("weathercode").forEach(c -> codes.add(c.asInt()));
+            dailyNode.get("apparent_temperature_max").forEach(m -> maxTemps.add(m.asDouble()));
+            dailyNode.get("apparent_temperature_min").forEach(m -> minTemps.add(m.asDouble()));
+
+            daily.setTime(times);
+            daily.setWeathercode(codes);
+            daily.setTemperatureMax(maxTemps);
+            daily.setTemperatureMin(minTemps);
+            response.setDaily(daily);
+        }
+
+        return response;
+    }
+
+    private Optional<WeatherCachePayload> readCachedPayload(LocalDate fetchDate) {
+        return weatherCacheRepository.findByFetchDate(fetchDate)
+                .flatMap(row -> parsePayload(row.getJsonResponse()));
+    }
+
+    private Optional<WeatherCachePayload> parsePayload(String json) {
+        if (json == null || json.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(objectMapper.readValue(json, WeatherCachePayload.class));
+        } catch (Exception e) {
+            System.err.println("Weather cache parse failed: " + e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    private boolean hasUsableForecast(WeatherCachePayload payload) {
+        return payload != null && hasUsableForecast(payload.getForecast());
+    }
+
+    private boolean hasUsableForecast(WeatherResponse response) {
+        if (response == null || response.getDaily() == null) {
+            return false;
+        }
+        List<String> times = response.getDaily().getTime();
+        if (times == null || times.isEmpty()) {
+            return false;
+        }
+        String today = LocalDate.now(MANILA).toString();
+        boolean hasToday = times.stream().anyMatch(t -> t != null && t.startsWith(today));
+        boolean hasFuture = times.stream().anyMatch(t -> t != null && t.compareTo(today) >= 0);
+        return hasToday && hasFuture
+                && response.getDaily().getWeathercode() != null
+                && !response.getDaily().getWeathercode().isEmpty();
+    }
+
+    private boolean hasUsableHourly(WeatherCachePayload payload) {
+        if (payload == null || payload.getQcHourly() == null || payload.getMarHourly() == null) {
+            return false;
+        }
+        JsonNode qcHourly = payload.getQcHourly().path("hourly");
+        JsonNode marHourly = payload.getMarHourly().path("hourly");
+        return qcHourly.has("precipitation")
+                && marHourly.has("precipitation")
+                && qcHourly.get("precipitation").size() > 0;
     }
 
     public TideResponse fetchTideData() {
