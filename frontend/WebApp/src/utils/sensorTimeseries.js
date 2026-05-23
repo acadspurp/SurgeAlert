@@ -50,6 +50,16 @@ function parseNum(v) {
     return Number.isFinite(n) ? n : null;
 }
 
+/** Radar/fused/CV flow from API row (snake_case or camelCase). */
+export function resolveSensorFlowMps(row) {
+    if (!row || typeof row !== 'object') return null;
+    return parseNum(
+        row.sensorFlowRate ?? row.sensor_flow_rate ?? row.sensorFlowRateMps
+            ?? row.fusedFlowRate ?? row.fused_flow_rate
+            ?? row.imageFlowRate ?? row.image_flow_rate
+    );
+}
+
 export function normalizeSensorRow(row) {
     if (!row || typeof row !== 'object') return null;
     const ts = normalizeSensorInstant(row.timestamp);
@@ -58,8 +68,7 @@ export function normalizeSensorRow(row) {
         ...row,
         timestamp: ts,
         waterLevelM: row.waterLevelM != null ? parseNum(row.waterLevelM) : parseNum(row.water_level),
-        sensorFlowRate: row.sensorFlowRate != null ? parseNum(row.sensorFlowRate)
-            : (row.sensorFlowRateMps != null ? parseNum(row.sensorFlowRateMps) : parseNum(row.sensor_flow_rate)),
+        sensorFlowRate: resolveSensorFlowMps(row),
         imageFlowRate: row.imageFlowRate != null ? parseNum(row.imageFlowRate)
             : (row.imageFlowRateMps != null ? parseNum(row.imageFlowRateMps) : parseNum(row.image_flow_rate)),
         fusedFlowRate: row.fusedFlowRate != null ? parseNum(row.fusedFlowRate) : parseNum(row.fused_flow_rate),

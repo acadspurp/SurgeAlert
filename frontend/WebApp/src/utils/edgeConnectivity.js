@@ -14,7 +14,7 @@ export function computeHardwareHealth(lastContactMs, telemetry) {
     const edgeConnected =
         ageSec !== null && ageSec <= EDGE_STALE_SECONDS;
 
-    if (!edgeConnected || !telemetry) {
+    if (!edgeConnected) {
         return {
             edgeConnected: false,
             mainController: false,
@@ -25,8 +25,9 @@ export function computeHardwareHealth(lastContactMs, telemetry) {
         };
     }
 
-    const wl = telemetry.waterLevelM;
-    const flow = telemetry.sensorFlowRate;
+    const wl = telemetry?.waterLevelM;
+    const flow =
+        telemetry?.sensorFlowRate ?? telemetry?.fusedFlowRate ?? telemetry?.imageFlowRate;
     const ghost = wl != null && wl < 0.10;
 
     return {
@@ -34,7 +35,7 @@ export function computeHardwareHealth(lastContactMs, telemetry) {
         mainController: true,
         gsm: true,
         ultrasonic: wl != null && !ghost,
-        radar: flow != null && flow !== undefined,
+        radar: flow != null && flow !== undefined && Number.isFinite(Number(flow)),
         ageSec,
     };
 }

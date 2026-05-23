@@ -241,9 +241,10 @@ export default function DashboardView(props) {
                                     </div>
                                 </div>
                             )}
-                            {cameraCaptureLabel?.clock && (
-                                <div className="absolute top-4 right-4 bg-black/80 text-cyan-400 text-sm font-black font-mono px-3 py-1.5 rounded-lg border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.2)] backdrop-blur-md z-10">
-                                    {cameraCaptureLabel.clock}
+                            {liveManilaClock && (
+                                <div className="absolute top-4 right-4 bg-black/80 text-cyan-400 text-sm font-black font-mono px-3 py-1.5 rounded-lg border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.2)] backdrop-blur-md z-10 text-right leading-tight">
+                                    <span className="block text-[9px] font-bold uppercase tracking-widest text-slate-400">Live (Manila)</span>
+                                    {liveManilaClock}
                                 </div>
                             )}
                         </div>

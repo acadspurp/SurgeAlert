@@ -18,13 +18,16 @@ public class SensorDataDTO {
     @JsonAlias("waterLevelM")
     private Double waterLevelM;
 
-    @JsonAlias({"sensor_flow_rate", "sensor_flow_rate_mps"})
+    @JsonProperty("sensor_flow_rate")
+    @JsonAlias({"sensorFlowRate", "sensor_flow_rate_mps"})
     private Double sensorFlowRate;
 
-    @JsonAlias({"image_flow_rate", "image_flow_rate_mps"})
+    @JsonProperty("image_flow_rate")
+    @JsonAlias({"imageFlowRate", "image_flow_rate_mps"})
     private Double imageFlowRate;
 
-    @JsonAlias("fused_flow_rate")
+    @JsonProperty("fused_flow_rate")
+    @JsonAlias("fusedFlowRate")
     private Double fusedFlowRate;
 
     /** Ultrasonic rise rate in m/h (column {@code rise_rate}). */

@@ -16,7 +16,7 @@ import {
     toggleResidentPriority,
 } from '../../services/api.js';
 import { computeHardwareHealth } from '../../utils/edgeConnectivity.js';
-import { isCsvDemoFallbackEnabled, pickNewestSensorRow } from '../../utils/sensorTimeseries.js';
+import { isCsvDemoFallbackEnabled, pickNewestSensorRow, resolveSensorFlowMps } from '../../utils/sensorTimeseries.js';
 import { useLatestSensorPolling } from '../../hooks/useLatestSensorPolling.js';
 import 'chartjs-adapter-date-fns';
 import annotationPlugin from 'chartjs-plugin-annotation';
@@ -157,6 +157,7 @@ export default function Admin() {
     const [trendIndicators, setTrendIndicators] = useState({ waterLevel: '-', flowRate: '-' });
     const prevReadings = useRef({ waterLevel: null, flowRate: null });
     const [lastMqttAt, setLastMqttAt] = useState(null);
+    const [cachedSensorRow, setCachedSensorRow] = useState(null);
     const [ageTick, setAgeTick] = useState(0);
     const [evacuationSites, setEvacuationSites] = useState([]);
     const [pendingCriticalAlerts, setPendingCriticalAlerts] = useState([]);
@@ -164,8 +165,8 @@ export default function Admin() {
     const evacuationSitesRef = useRef([]);
 
     const hardwareHealth = useMemo(
-        () => computeHardwareHealth(lastMqttAt, mqttData),
-        [lastMqttAt, mqttData, ageTick]
+        () => computeHardwareHealth(lastMqttAt, mqttData ?? cachedSensorRow),
+        [lastMqttAt, mqttData, cachedSensorRow, ageTick]
     );
     const hardwareOnline = hardwareHealth.edgeConnected;
 
@@ -221,8 +222,10 @@ export default function Admin() {
 
     const displayName = (user && (user.fullName || user.username)) || 'Admin';
 
-    const touchSensorTimestamp = (row) => {
-        if (!row?.timestamp || isCsvDemoFallbackEnabled()) return;
+    const touchSensorRow = (row) => {
+        if (!row) return;
+        setCachedSensorRow(row);
+        if (!row.timestamp || isCsvDemoFallbackEnabled()) return;
         const tsIso = normalizeSensorInstant(row.timestamp);
         const ms = tsIso ? Date.parse(tsIso) : NaN;
         if (Number.isFinite(ms)) setLastMqttAt(ms);
@@ -237,8 +240,9 @@ export default function Admin() {
         if (floatWl !== null && floatWl !== undefined && !isGhost) {
             next.waterLevel = floatWl.toFixed(2) + ' m';
         }
-        if (row.sensorFlowRate !== null && row.sensorFlowRate !== undefined) {
-            next.flowRate = row.sensorFlowRate.toFixed(2) + ' m/s';
+        const flowMps = resolveSensorFlowMps(row);
+        if (flowMps !== null && flowMps !== undefined) {
+            next.flowRate = flowMps.toFixed(2) + ' m/s';
         }
         if (row.riseRate !== null && row.riseRate !== undefined) {
             next.riseRate = row.riseRate;
@@ -293,7 +297,7 @@ export default function Admin() {
                 latest = await fetchLatestSensorReading();
             }
 
-            touchSensorTimestamp(latest);
+            if (latest) touchSensorRow(latest);
             if (latest?.snapshotBase64) {
                 applyCameraSnapshot(latest.snapshotBase64, latest.timestamp);
             }
@@ -334,8 +338,9 @@ export default function Admin() {
 
                 // Environmental Metrics — PRIMARY source is ml_features_realtime via /admin/environmental/latest
                 if (latest) {
-                    if (latest.sensorFlowRate !== null && latest.sensorFlowRate !== undefined) {
-                        newDash.flowRate = latest.sensorFlowRate.toFixed(2) + ' m/s';
+                    const flowMps = resolveSensorFlowMps(latest);
+                    if (flowMps !== null && flowMps !== undefined) {
+                        newDash.flowRate = flowMps.toFixed(2) + ' m/s';
                     }
                     const rise = latest.riseRate;
                     if (rise !== null && rise !== undefined) {
@@ -450,10 +455,11 @@ export default function Admin() {
                     const merged = mergeSeries(prev, incoming);
                     if (merged.length > 0) {
                         const latest = merged[merged.length - 1];
+                        const chartFlow = resolveSensorFlowMps(latest);
                         setDashData((prevDash) => ({
                             ...prevDash,
-                            flowRate: (latest.sensorFlowRate !== null && latest.sensorFlowRate !== undefined)
-                                ? latest.sensorFlowRate.toFixed(2) + ' m/s'
+                            flowRate: (chartFlow !== null && chartFlow !== undefined)
+                                ? chartFlow.toFixed(2) + ' m/s'
                                 : prevDash.flowRate,
                             prediction: (latest.predictedLevel !== null && latest.predictedLevel !== undefined)
                                 ? latest.predictedLevel.toFixed(2) + ' m'
@@ -571,7 +577,7 @@ export default function Admin() {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
         if (!mqttData?.timestamp) return;
 
-        touchSensorTimestamp(mqttData);
+        touchSensorRow(mqttData);
         setDashData((prev) => mergePollIntoDashData(prev, mqttData));
 
         const floatWl = mqttData.waterLevelM;
