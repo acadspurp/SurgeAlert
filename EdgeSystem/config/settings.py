@@ -103,6 +103,12 @@ RISE_RATE_RED_WITH_ORANGE_MPH = float(_profile["rise_rate_red_with_orange_mph"])
 FLOW_ESCALATE_ORANGE_MPS = float(_profile["flow_escalate_orange_mps"])
 FLOW_ESCALATE_RED_MPS = float(_profile["flow_escalate_red_mps"])
 
+PREDICTION_ANCHOR_MIN_UPLIFT_M = float(_profile["prediction_anchor_min_uplift_m"])
+PREDICTION_ANCHOR_RISE_HEADROOM_FACTOR = float(
+    _profile["prediction_anchor_rise_headroom_factor"]
+)
+PREDICTION_ML_BLEND_WEIGHT = float(_profile["prediction_ml_blend_weight"])
+
 PIXELS_TO_METERS = float(_profile["pixels_to_meters"])
 CV_MIN_DIST_TO_WATER_M = float(_profile["cv_min_dist_to_water_m"])
 TIDE_SCALING_FACTOR = float(_profile["tide_scaling_factor"])

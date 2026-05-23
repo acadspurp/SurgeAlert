@@ -6,6 +6,11 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from alert_logic.alert_manager import AlertManager
 from alert_logic.flow_alert import apply_flow_escalation
+from alert_logic.prediction_anchor import (
+    anchor_predicted_level,
+    gate_predicted_alert,
+    sensor_projected_level_1h,
+)
 
 
 class LevelPredictor:
@@ -59,14 +64,25 @@ class LevelPredictor:
                 soil_moisture=ml.get("Soil_Moisture", 0.0),
             )
 
-        if predicted_level is None:
-            predicted_level = self._predict_level_from_sensor(wl, rise_mph, fused)
+        sensor_projection = self._predict_level_from_sensor(wl, rise_mph, fused)
 
-        predicted_level = round(max(0.0, float(predicted_level)), 2)
+        if predicted_level is None:
+            predicted_level = sensor_projection
+
+        raw_ml_level = float(predicted_level) if use_ml else None
+        raw_ml_alert = None
+
+        predicted_level = anchor_predicted_level(
+            raw_ml_level if use_ml else None,
+            wl,
+            rise_mph,
+            fused,
+            sensor_projection=sensor_projection,
+        )
 
         predicted_alert = None
         if use_ml:
-            predicted_alert = self.alert_manager.predict_alert_class(
+            raw_ml_alert = self.alert_manager.predict_alert_class(
                 water_level=wl,
                 rise_rate_mph=rise_mph,
                 tide_level=ml.get("Tide_Height_m", 0.0),
@@ -87,24 +103,29 @@ class LevelPredictor:
                 wind=ml.get("Wind_Speed", 0.0),
                 soil_moisture=ml.get("Soil_Moisture", 0.0),
             )
+            predicted_alert = gate_predicted_alert(
+                raw_ml_alert,
+                self.alert_manager,
+                wl,
+                predicted_level,
+                rise_mph,
+                fused,
+            )
 
         if predicted_alert is None:
             predicted_alert = self._predict_alert_from_sensor(
                 predicted_level, rise_mph, fused
             )
-
-        predicted_alert = apply_flow_escalation(
-            predicted_alert, predicted_level, fused
-        )
+        else:
+            predicted_alert = apply_flow_escalation(
+                predicted_alert, predicted_level, fused
+            )
         return predicted_level, predicted_alert
 
     @staticmethod
     def _predict_level_from_sensor(water_level, rise_rate_mph, fused_flow_mps):
         """Sensor-only +1h level when ML env features are stale."""
-        base = max(0.0, (water_level or 0.0) + (rise_rate_mph or 0.0))
-        if fused_flow_mps and fused_flow_mps > 0:
-            base += fused_flow_mps * 3600.0 * 0.0001
-        return base
+        return sensor_projected_level_1h(water_level, rise_rate_mph, fused_flow_mps)
 
     def _predict_alert_from_sensor(self, predicted_level, rise_rate_mph, fused_flow_mps):
         alert = self.alert_manager.determine_alert_level(
