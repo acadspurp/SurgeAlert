@@ -5,7 +5,7 @@ import { useLatestSensorPolling } from '../hooks/useLatestSensorPolling.js';
 import { classifyAlertLevel, gaugeFillPercent, gaugeMarkers } from '../config/alertConfig.js';
 
 import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE, formatSensorAge, formatManilaWallClockFromMs, formatManilaWallDateFromMs } from '../constants/displayTime.js';
-import { normalizeSensorInstant } from '../utils/sensorTimeseries.js';
+import { normalizeSensorInstant, resolveSensorHeartbeatMs, statusToSensorRow } from '../utils/sensorTimeseries.js';
 
 let CACHED_GUIDE = null;
 
@@ -178,8 +178,15 @@ export default function Home() {
         try {
             if (!CACHED_GUIDE) CACHED_GUIDE = await fetchAlertGuide();
             const data = await fetchAlertStatus();
-            const isOverride = data.description && data.description.includes('OVERRIDE');
-            processAlertData(data.alertLevel, data.waterLevelM, isOverride);
+            const statusRow = statusToSensorRow(data);
+            const heartbeatMs = resolveSensorHeartbeatMs(null, data);
+            if (Number.isFinite(heartbeatMs)) setLastSensorAtMs(heartbeatMs);
+
+            const isOverride = data.manualOverrideActive
+                || (data.description && data.description.includes('OVERRIDE'));
+            const alertLevel = data.alertLevel ?? data.alert_level ?? 'GREEN';
+            const waterM = statusRow?.waterLevelM ?? data.waterLevelM ?? data.water_level;
+            processAlertData(alertLevel, waterM, isOverride);
         } catch (error) {
             console.error("Failed to fetch status:", error);
             // Fallback path: pull directly from latest sensor_data when public status endpoint fails.
@@ -206,7 +213,10 @@ export default function Home() {
         }
 
         setIsOffline(false);
-        const floatVal = parseFloat(currentLevel);
+        const floatVal = typeof currentLevel === 'number' ? currentLevel : parseFloat(currentLevel);
+        if (!Number.isFinite(floatVal)) {
+            return;
+        }
 
         // NOISE FILTER: Anything below 0.10m is considered "Offline" ghost data in river mode
         if (floatVal < 0.10 && !isOverride) {
