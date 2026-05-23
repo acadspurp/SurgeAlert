@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchAlertStatus, fetchAlertGuide, fetchCameraFeed, fetchWeatherData, fetchTidesData, getWeatherInfo, fetchSystemThresholds, fetchLatestSensorReading } from '../services/api.js';
 import { useLatestSensorPolling } from '../hooks/useLatestSensorPolling.js';
+import { useLiveManilaClock } from '../hooks/useLiveManilaClock.js';
 import { classifyAlertLevel, gaugeFillPercent, gaugeMarkers } from '../config/alertConfig.js';
 
 import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE, formatSensorAge, formatManilaWallClockFromMs, formatManilaWallDateFromMs } from '../constants/displayTime.js';
@@ -23,6 +24,7 @@ function getAlertColors(levelKey) {
 export default function Home() {
     const navigate = useNavigate();
     const mqttData = useLatestSensorPolling();
+    const { clockLabel: liveManilaClock } = useLiveManilaClock();
 
     // State
     const [waterLevel, setWaterLevel] = useState('--.-- m');
@@ -583,9 +585,10 @@ export default function Home() {
                                 <span>Camera feed currently unavailable</span>
                             </div>
                         )}
-                        {cameraCaptureClock && (
-                            <div className="absolute top-4 right-4 bg-black/80 text-cyan-400 text-sm font-black font-mono px-3 py-1.5 rounded-lg border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.2)] backdrop-blur-md z-10">
-                                {cameraCaptureClock}
+                        {liveManilaClock && (
+                            <div className="absolute top-4 right-4 bg-black/80 text-cyan-400 text-sm font-black font-mono px-3 py-1.5 rounded-lg border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.2)] backdrop-blur-md z-10 text-right leading-tight">
+                                <span className="block text-[9px] font-bold uppercase tracking-widest text-slate-400">Live (Manila)</span>
+                                {liveManilaClock}
                             </div>
                         )}
                         <div className="absolute bottom-4 left-4 bg-black/60 px-3 py-1 rounded backdrop-blur-sm text-sm font-bold text-white uppercase tracking-tighter">TULLAHAN STATION</div>
