@@ -1,11 +1,15 @@
 package com.surgealert.controller;
 
+import com.surgealert.dto.SensorDataDTO;
+import com.surgealert.service.AlertSmsDispatchService;
 import com.surgealert.service.CriticalAlertApprovalService;
 import com.surgealert.service.ManualOverrideService;
+import com.surgealert.service.MqttSubscriberService;
+import com.surgealert.service.SensorDataService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -18,26 +22,58 @@ public class AdminAlertController {
 
     private final ManualOverrideService manualOverrideService;
     private final CriticalAlertApprovalService criticalAlertApprovalService;
+    private final AlertSmsDispatchService alertSmsDispatchService;
+    private final SensorDataService sensorDataService;
+    private final MqttSubscriberService mqttSubscriberService;
 
     public AdminAlertController(
             ManualOverrideService manualOverrideService,
-            CriticalAlertApprovalService criticalAlertApprovalService) {
+            CriticalAlertApprovalService criticalAlertApprovalService,
+            AlertSmsDispatchService alertSmsDispatchService,
+            SensorDataService sensorDataService,
+            MqttSubscriberService mqttSubscriberService) {
         this.manualOverrideService = manualOverrideService;
         this.criticalAlertApprovalService = criticalAlertApprovalService;
+        this.alertSmsDispatchService = alertSmsDispatchService;
+        this.sensorDataService = sensorDataService;
+        this.mqttSubscriberService = mqttSubscriberService;
     }
 
     @PostMapping("/override")
-    public ResponseEntity<Map<String, String>> setOverride(@RequestBody Map<String, String> body) {
+    public ResponseEntity<Map<String, Object>> setOverride(@RequestBody Map<String, String> body) {
         String level = body.get("level");
+        String reason = body.get("reason");
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("status", "success");
+        response.put("smsRecipients", 0);
+        response.put("mqttConnected", mqttSubscriberService.isMqttConnected());
+
         if (level == null || level.trim().isEmpty() || level.equalsIgnoreCase("NORMAL")) {
             manualOverrideService.clearOverride();
             UserController.addLog("Admin cleared manual override. System returned to AUTO.");
-        } else {
-            String normalized = level.toUpperCase().trim();
-            manualOverrideService.setOverrideLevel(normalized);
-            UserController.addLog("Admin invoked manual override to " + normalized + ".");
+            return ResponseEntity.ok(response);
         }
-        return ResponseEntity.ok(Collections.singletonMap("status", "success"));
+
+        String normalized = level.toUpperCase().trim();
+        manualOverrideService.setOverrideLevel(normalized);
+        UserController.addLog("Admin invoked manual override to " + normalized + ".");
+
+        SensorDataDTO latest = sensorDataService.getLatestSensorData();
+        Double waterLevelM = latest != null ? latest.getWaterLevelM() : null;
+        int smsRecipients = alertSmsDispatchService.dispatchManualOverride(
+                normalized,
+                waterLevelM,
+                reason,
+                mqttSubscriberService::publishSmsToGsm);
+        response.put("smsRecipients", smsRecipients);
+        if (smsRecipients == 0) {
+            response.put("smsWarning", "Override saved but no active subscribers found.");
+        } else if (!mqttSubscriberService.isMqttConnected()) {
+            response.put(
+                    "smsWarning",
+                    "Override saved. SMS queued via GSM fallback but MQTT is disconnected — ensure the Pi is running main_loop.");
+        }
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/critical/pending/{id}/approve")

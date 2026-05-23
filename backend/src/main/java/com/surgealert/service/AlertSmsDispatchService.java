@@ -97,4 +97,51 @@ public class AlertSmsDispatchService {
         alertNotificationStateService.markDispatched(levelToMark);
         return true;
     }
+
+    /**
+     * Head-admin manual override: broadcast SMS immediately (bypasses prediction gate and RED approval).
+     *
+     * @return number of subscriber phone numbers attempted
+     */
+    public int dispatchManualOverride(
+            String level,
+            Double waterLevelM,
+            String reason,
+            BiConsumer<String, String> gsmPublisher) {
+        String normalized = level == null ? "" : level.trim().toUpperCase(Locale.ROOT);
+        if (normalized.equals("NORMAL")) {
+            normalized = "GREEN";
+        }
+        if (!normalized.equals("YELLOW") && !normalized.equals("ORANGE") && !normalized.equals("RED")) {
+            return 0;
+        }
+
+        String message = notificationService.getAlertMessage(normalized, waterLevelM);
+        if (message == null || message.isBlank()) {
+            message = String.format(
+                    Locale.ENGLISH,
+                    "SurgeAlert: Manual %s alert. Water level %.2fm.",
+                    normalized,
+                    waterLevelM != null ? waterLevelM : 0.0);
+        }
+        if (reason != null && !reason.isBlank()) {
+            message = message.trim() + " Admin note: " + reason.trim();
+        }
+
+        int attempted = 0;
+        List<String> phones = residentService.getAllActivePhoneNumbers();
+        for (String phone : phones) {
+            if (phone == null || phone.isBlank()) {
+                continue;
+            }
+            attempted++;
+            OtpDeliveryService.DeliveryResult res = otpDeliveryService.deliverOtp(phone, message);
+            if ("GSM_FALLBACK".equals(res.channel()) && gsmPublisher != null) {
+                gsmPublisher.accept(phone, message);
+            }
+        }
+        alertNotificationStateService.markDispatched(normalized);
+        System.out.println(" [SMS] Manual override " + normalized + " dispatched to " + attempted + " subscriber(s).");
+        return attempted;
+    }
 }

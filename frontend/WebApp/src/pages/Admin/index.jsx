@@ -704,8 +704,18 @@ export default function Admin() {
 
         try {
             const safeReason = reason || 'Admin Manual Action';
-            await overrideAlert(level, safeReason);
-            alert(`Alert level forcefully overridden to ${level}`);
+            const result = await overrideAlert(level, safeReason);
+            const n = result?.smsRecipients ?? 0;
+            let msg = `Alert level forcefully overridden to ${level}.`;
+            if (level !== 'NORMAL' && n > 0) {
+                msg += ` SMS broadcast attempted for ${n} subscriber(s).`;
+            } else if (level !== 'NORMAL') {
+                msg += ' No active subscribers — SMS was not sent.';
+            }
+            if (result?.smsWarning) {
+                msg += ` ${result.smsWarning}`;
+            }
+            alert(msg);
             loadDashboardData();
             if (isHeadAdmin) loadAdminUsersData(); // Reload logs
         } catch (e) {
