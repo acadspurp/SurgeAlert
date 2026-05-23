@@ -35,7 +35,6 @@ export default function Home() {
     const [cameraCaptureClock, setCameraCaptureClock] = useState(null);
     const [cameraCaptureDate, setCameraCaptureDate] = useState(null);
     const [sensorAgeTick, setSensorAgeTick] = useState(0);
-    const { clockLabel: liveManilaNow, dateLabel: liveManilaNowDate } = useLiveManilaClock();
     const [weatherCards, setWeatherCards] = useState([]);
     const [weatherError, setWeatherError] = useState(null);
     const [isWeatherLoading, setIsWeatherLoading] = useState(true);
