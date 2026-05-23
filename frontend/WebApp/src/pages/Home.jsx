@@ -5,7 +5,6 @@ import { useLatestSensorPolling } from '../hooks/useLatestSensorPolling.js';
 import { classifyAlertLevel, gaugeFillPercent, gaugeMarkers } from '../config/alertConfig.js';
 
 import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE, formatSensorAge, formatManilaWallClockFromMs, formatManilaWallDateFromMs } from '../constants/displayTime.js';
-import { useLiveManilaClock } from '../hooks/useLiveManilaClock.js';
 import { normalizeSensorInstant } from '../utils/sensorTimeseries.js';
 
 let CACHED_GUIDE = null;
