@@ -262,14 +262,25 @@ def main():
                     num = data.get("number") or data.get("phoneNumber")
                     txt = data.get("message") or data.get("textMessage")
                     if num and txt:
-                        sms.send_gsm_only(num, txt)
+                        print(f" [SMS] MQTT outbound received for {num} ({len(txt)} chars)")
+                        ok = sms.send_gsm_only(num, txt)
+                        if ok:
+                            print(f" [SMS] MQTT outbound delivered to {num}")
+                        else:
+                            print(
+                                f"\033[31m [SMS] MQTT outbound FAILED for {num} — "
+                                "check GSM on ttyUSB2, SIM, and antenna.\033[0m"
+                            )
+                    else:
+                        print(f"\033[31m [SMS] MQTT outbound missing number/message: {data}\033[0m")
                 except Exception as e:
-                    # Red colored error output
                     print(f"\033[31m [SMS] MQTT outbound error: {e}\033[0m")
+            elif msg.topic == "surgealert/outbound/sms" and not sms:
+                print("\033[31m [SMS] MQTT outbound ignored — GSM module not initialized.\033[0m")
 
         mqtt_client.on_message = on_sms
         mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
-        mqtt_client.subscribe("surgealert/outbound/sms")
+        mqtt_client.subscribe("surgealert/outbound/sms", qos=1)
         mqtt_client.loop_start()
         print(f" [MQTT] OK: connected to {MQTT_BROKER}; publish → {MQTT_TOPIC_SENSOR}")
     except Exception as e:

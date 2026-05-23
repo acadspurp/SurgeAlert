@@ -23,16 +23,19 @@ public class ResidentController {
     private final NotificationService notificationService;
     private final OtpDeliveryService otpDeliveryService;
     private final com.surgealert.service.MqttSubscriberService mqttSubscriberService;
+    private final com.surgealert.service.SensorDataService sensorDataService;
 
     @Value("${surgealert.otp.strict-verification:true}")
     private boolean strictOtpVerification;
 
     public ResidentController(ResidentService residentService, NotificationService notificationService,
-            OtpDeliveryService otpDeliveryService, com.surgealert.service.MqttSubscriberService mqttSubscriberService) {
+            OtpDeliveryService otpDeliveryService, com.surgealert.service.MqttSubscriberService mqttSubscriberService,
+            com.surgealert.service.SensorDataService sensorDataService) {
         this.residentService = residentService;
         this.notificationService = notificationService;
         this.otpDeliveryService = otpDeliveryService;
         this.mqttSubscriberService = mqttSubscriberService;
+        this.sensorDataService = sensorDataService;
     }
 
     @PostMapping("/send-otp")
@@ -52,10 +55,18 @@ public class ResidentController {
         if ("GSM_FALLBACK".equals(delivery.channel())) {
             if (!mqttSubscriberService.isMqttConnected()) {
                 return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
-                        "SMS could not be sent: the edge GSM gateway is offline and online SMS (Semaphore) is not enabled. "
-                                + "Start the Raspberry Pi edge service, or set SEMAPHORE_ENABLED=true with a valid API key on the server.");
+                        "SMS could not be sent: server MQTT is offline. Start the backend or check HiveMQ credentials.");
+            }
+            if (!sensorDataService.isEdgeRecentlyActive(7)) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
+                        "SMS could not be sent: the Raspberry Pi station is not online (no sensor data in the last 7 minutes). "
+                                + "OTP uses the Pi GSM modem until Semaphore is approved — run main_loop or surgealert-edge on the Pi, then try again.");
             }
             mqttSubscriberService.publishSmsToGsm(tenDigit, otpMessage);
+            return ResponseEntity.ok(Map.of(
+                    "status", "OTP_ISSUED",
+                    "deliveryChannel", "GSM_FALLBACK",
+                    "detail", "OTP queued to the station GSM modem via MQTT. Check the Pi terminal for [GSM] OK within 30 seconds."));
         }
 
         return ResponseEntity.ok(Map.of(

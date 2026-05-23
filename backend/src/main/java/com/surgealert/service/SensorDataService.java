@@ -121,6 +121,19 @@ public class SensorDataService {
     /** Max gap between telemetry row and image row when reusing a snapshot for /latest (same Pi cycle). */
     private static final int SNAPSHOT_FALLBACK_MAX_MINUTES = 8;
 
+    /** True when Edge has posted sensor_data within the last N minutes (Pi main_loop running). */
+    public boolean isEdgeRecentlyActive(int maxMinutes) {
+        return sensorDataRepository.findFirstByOrderByTimestampDesc()
+                .map(row -> {
+                    if (row.getTimestamp() == null) {
+                        return false;
+                    }
+                    long gapMin = Math.abs(ChronoUnit.MINUTES.between(row.getTimestamp(), LocalDateTime.now(MANILA_ZONE)));
+                    return gapMin <= maxMinutes;
+                })
+                .orElse(false);
+    }
+
     public SensorDataDTO getLatestSensorData() {
         Optional<SensorData> latest = sensorDataRepository.findFirstByOrderByTimestampDesc();
         if (latest.isEmpty()) {
