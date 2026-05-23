@@ -1,5 +1,5 @@
-/** Pi transmits on a 5-minute grid; allow ~7 minutes before marking edge offline. */
-export const EDGE_STALE_SECONDS = 420;
+/** Pi transmits on a 5-minute grid; allow ~10 minutes before marking edge offline. */
+export const EDGE_STALE_SECONDS = 600;
 
 /**
  * Derive hardware health from the last real sensor_data row (Edge → MQTT → DB).

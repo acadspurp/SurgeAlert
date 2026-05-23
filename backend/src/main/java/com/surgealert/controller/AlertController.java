@@ -36,6 +36,9 @@ public class AlertController {
             response.setWaterLevelM(latestData.getWaterLevelM());
             response.setSensorAlertLevel(latestData.getCurrentAlertLevel());
             response.setLastUpdated(latestData.getTimestamp());
+            response.setSensorFlowRate(latestData.getSensorFlowRate());
+            response.setPredictedLevel(latestData.getPredictedLevel());
+            response.setPredictedAlertLevel(latestData.getPredictedAlertLevel());
         }
 
         String overrideLevel = manualOverrideService.getOverrideLevel().orElse(null);

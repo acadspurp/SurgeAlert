@@ -1,15 +1,27 @@
 package com.surgealert.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 
 public class AlertStatusDTO {
+    @JsonProperty("water_level")
     private Double waterLevelM;
     private String alertLevel;
     /** Live Pi/MQTT alert before override is applied. */
+    @JsonProperty("sensor_alert_level")
     private String sensorAlertLevel;
     private boolean manualOverrideActive;
     private String description;
+    @JsonProperty("last_updated")
+    @JsonFormat(pattern = "yyyy-MM-dd['T'][' ']HH:mm:ss")
     private LocalDateTime lastUpdated;
+    @JsonProperty("sensor_flow_rate")
+    private Double sensorFlowRate;
+    @JsonProperty("predicted_level")
+    private Double predictedLevel;
+    @JsonProperty("predicted_alert_level")
+    private String predictedAlertLevel;
 
     public AlertStatusDTO() {}
 
@@ -37,4 +49,13 @@ public class AlertStatusDTO {
 
     public LocalDateTime getLastUpdated() { return lastUpdated; }
     public void setLastUpdated(LocalDateTime lastUpdated) { this.lastUpdated = lastUpdated; }
+
+    public Double getSensorFlowRate() { return sensorFlowRate; }
+    public void setSensorFlowRate(Double sensorFlowRate) { this.sensorFlowRate = sensorFlowRate; }
+
+    public Double getPredictedLevel() { return predictedLevel; }
+    public void setPredictedLevel(Double predictedLevel) { this.predictedLevel = predictedLevel; }
+
+    public String getPredictedAlertLevel() { return predictedAlertLevel; }
+    public void setPredictedAlertLevel(String predictedAlertLevel) { this.predictedAlertLevel = predictedAlertLevel; }
 }

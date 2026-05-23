@@ -8,6 +8,7 @@ import {
     loadShiftedSensorRowsFromPublicCsv,
     getLatestFromPublicCsvShifted,
     isCsvDemoFallbackEnabled,
+    coerceSensorRowLoose,
 } from '../utils/sensorTimeseries.js';
 
 async function refreshAccessToken() {
@@ -349,9 +350,9 @@ export async function fetchLatestSensorReading() {
         const response = await fetch(`${API_BASE_URL}/sensor-data/latest`);
         if (!response.ok || response.status === 204) return await fromCsv();
         const data = await response.json();
-        const rows = normalizeSensorRows([data]);
-        if (!rows.length) return await fromCsv();
-        return rows[0];
+        const row = normalizeSensorRows([data])[0] || coerceSensorRowLoose(data);
+        if (!row) return await fromCsv();
+        return row;
     } catch {
         return await fromCsv();
     }

@@ -35,8 +35,9 @@ export function normalizeSensorInstant(value) {
         return wallManilaToIsoUtc(y, mo, d, h, mi, se);
     }
 
-    if (/^\d{4}-\d{2}-\d{2}T/.test(s) && !HAS_TZ_SUFFIX.test(s)) {
-        return `${s}+08:00`;
+    if (/^\d{4}-\d{2}-\d{2}[T ]/.test(s) && !HAS_TZ_SUFFIX.test(s)) {
+        const core = s.trim().replace(' ', 'T').split('.')[0];
+        return `${core}+08:00`;
     }
 
     const t = Date.parse(s);
@@ -58,6 +59,53 @@ export function resolveSensorFlowMps(row) {
             ?? row.fusedFlowRate ?? row.fused_flow_rate
             ?? row.imageFlowRate ?? row.image_flow_rate
     );
+}
+
+/** Build a row when strict normalize fails (keeps KPI fields; heartbeat uses resolveSensorHeartbeatMs). */
+export function coerceSensorRowLoose(data) {
+    if (!data || typeof data !== 'object') return null;
+    const ts = normalizeSensorInstant(data.timestamp ?? data.time);
+    return {
+        ...data,
+        timestamp: ts || data.timestamp || data.time || null,
+        waterLevelM: parseNum(data.waterLevelM ?? data.water_level),
+        sensorFlowRate: resolveSensorFlowMps(data),
+        imageFlowRate: parseNum(data.imageFlowRate ?? data.image_flow_rate),
+        fusedFlowRate: parseNum(data.fusedFlowRate ?? data.fused_flow_rate),
+        riseRate: parseNum(data.riseRate ?? data.rise_rate ?? data.rise_rate_mh),
+        currentAlertLevel: data.currentAlertLevel ?? data.current_alert_level,
+        predictedLevel: parseNum(data.predictedLevel ?? data.predicted_level),
+        predictedAlertLevel: data.predictedAlertLevel ?? data.predicted_alert_level,
+        snapshotBase64: data.snapshotBase64 ?? data.snapshot_base64 ?? null,
+    };
+}
+
+/** Edge heartbeat from /sensor-data/latest row and/or /public/alerts/status. */
+export function resolveSensorHeartbeatMs(latest, statusData) {
+    const candidates = [
+        latest?.timestamp,
+        statusData?.lastUpdated,
+        statusData?.last_updated,
+    ];
+    for (const raw of candidates) {
+        const iso = normalizeSensorInstant(raw);
+        if (!iso) continue;
+        const ms = Date.parse(iso);
+        if (Number.isFinite(ms)) return ms;
+    }
+    return null;
+}
+
+export function statusToSensorRow(statusData) {
+    if (!statusData || typeof statusData !== 'object') return null;
+    return coerceSensorRowLoose({
+        timestamp: statusData.lastUpdated ?? statusData.last_updated,
+        water_level: statusData.waterLevelM ?? statusData.water_level,
+        sensor_flow_rate: statusData.sensorFlowRate ?? statusData.sensor_flow_rate,
+        predicted_level: statusData.predictedLevel ?? statusData.predicted_level,
+        predicted_alert_level: statusData.predictedAlertLevel ?? statusData.predicted_alert_level,
+        current_alert_level: statusData.sensorAlertLevel ?? statusData.sensor_alert_level,
+    });
 }
 
 export function normalizeSensorRow(row) {

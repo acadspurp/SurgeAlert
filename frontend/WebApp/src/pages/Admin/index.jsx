@@ -16,7 +16,13 @@ import {
     toggleResidentPriority,
 } from '../../services/api.js';
 import { computeHardwareHealth } from '../../utils/edgeConnectivity.js';
-import { isCsvDemoFallbackEnabled, pickNewestSensorRow, resolveSensorFlowMps } from '../../utils/sensorTimeseries.js';
+import {
+    isCsvDemoFallbackEnabled,
+    pickNewestSensorRow,
+    resolveSensorFlowMps,
+    resolveSensorHeartbeatMs,
+    statusToSensorRow,
+} from '../../utils/sensorTimeseries.js';
 import { useLatestSensorPolling } from '../../hooks/useLatestSensorPolling.js';
 import 'chartjs-adapter-date-fns';
 import annotationPlugin from 'chartjs-plugin-annotation';
@@ -287,19 +293,21 @@ export default function Admin() {
             // 1. Get official Alert Status (Level + Water Level)
             const statusData = await fetchAlertStatus();
             
-            // 2. Get the latest detailed telemetry for environmental cards
-            // First try recent (last 1h) for live data, then fall back to the all-time latest merged record
-            const latestRecords = await fetchSensorData(1);
-            let latest = pickNewestSensorRow(latestRecords);
+            // 2. Latest telemetry — /latest first (same row as alert status), then 24h recent for charts
+            let latest = await fetchLatestSensorReading();
             if (!latest) {
-                // Pi may have been offline >1h; /api/sensor-data/latest always returns the newest row
-                // and the backend already merges tide_metrics + weather_metrics into it.
-                latest = await fetchLatestSensorReading();
+                const recentRows = await fetchSensorData(24);
+                latest = pickNewestSensorRow(recentRows);
             }
 
-            if (latest) touchSensorRow(latest);
-            if (latest?.snapshotBase64) {
-                applyCameraSnapshot(latest.snapshotBase64, latest.timestamp);
+            const statusRow = statusToSensorRow(statusData);
+            const heartbeatMs = resolveSensorHeartbeatMs(latest ?? statusRow, statusData);
+            if (Number.isFinite(heartbeatMs)) setLastMqttAt(heartbeatMs);
+
+            const mergedLatest = latest ?? statusRow;
+            if (mergedLatest) touchSensorRow(mergedLatest);
+            if (mergedLatest?.snapshotBase64) {
+                applyCameraSnapshot(mergedLatest.snapshotBase64, mergedLatest.timestamp);
             }
             let subCount;
             try {
@@ -320,7 +328,8 @@ export default function Admin() {
             setDashData((prev) => {
                 const newDash = { ...prev };
                 
-                const sensorWlM = (latest?.waterLevelM ?? statusData.waterLevelM);
+                const kpiRow = mergedLatest ?? statusRow;
+                const sensorWlM = (kpiRow?.waterLevelM ?? statusData.waterLevelM ?? statusData.water_level);
                 newDash.waterLevel = (sensorWlM !== null && sensorWlM !== undefined) ? sensorWlM.toFixed(2) + ' m' : '--';
                 const level = statusData.alertLevel || 'OFFLINE';
                 newDash.status = level;
@@ -336,29 +345,33 @@ export default function Admin() {
                 else if (level === 'GREEN') newDash.statusColor = 'text-green-600';
                 else newDash.statusColor = 'text-slate-400';
 
-                // Environmental Metrics — PRIMARY source is ml_features_realtime via /admin/environmental/latest
-                if (latest) {
-                    const flowMps = resolveSensorFlowMps(latest);
+                // KPIs from latest row and /public/alerts/status (flow + ML often only on status when /latest parse fails)
+                if (kpiRow) {
+                    const flowMps = resolveSensorFlowMps(kpiRow)
+                        ?? resolveSensorFlowMps(statusData);
                     if (flowMps !== null && flowMps !== undefined) {
                         newDash.flowRate = flowMps.toFixed(2) + ' m/s';
                     }
-                    const rise = latest.riseRate;
+                    const rise = kpiRow.riseRate;
                     if (rise !== null && rise !== undefined) {
                         newDash.riseRate = rise;
                     }
-                    if (latest.predictedLevel !== null && latest.predictedLevel !== undefined) {
-                        newDash.prediction = latest.predictedLevel.toFixed(2) + ' m';
+                    const pred = kpiRow.predictedLevel ?? statusData.predictedLevel ?? statusData.predicted_level;
+                    if (pred !== null && pred !== undefined) {
+                        newDash.prediction = Number(pred).toFixed(2) + ' m';
                     }
-                    if (latest.predictedAlertLevel) {
-                        newDash.predictedClassification = latest.predictedAlertLevel;
+                    const predAlert = kpiRow.predictedAlertLevel
+                        ?? statusData.predictedAlertLevel ?? statusData.predicted_alert_level;
+                    if (predAlert) {
+                        newDash.predictedClassification = predAlert;
                     }
                     // Keep legacy latest-record fallback only when ml_features_realtime is empty.
                     if (!envData) {
-                        if (latest.rainMm !== null && latest.rainMm !== undefined) newDash.qcRain = latest.rainMm.toFixed(1) + ' mm';
-                        if (latest.marulasRainMm !== null && latest.marulasRainMm !== undefined) newDash.marulasRain = latest.marulasRainMm.toFixed(1) + ' mm';
-                        if (latest.tideHeightM !== null && latest.tideHeightM !== undefined) newDash.tideHeight = latest.tideHeightM.toFixed(2) + ' m';
-                        if (latest.pressureHpa !== null && latest.pressureHpa !== undefined) newDash.pressure = latest.pressureHpa.toFixed(0) + ' hPa';
-                        if (latest.windSpeedKph !== null && latest.windSpeedKph !== undefined) newDash.wind = latest.windSpeedKph.toFixed(1) + ' kph';
+                        if (kpiRow.rainMm !== null && kpiRow.rainMm !== undefined) newDash.qcRain = kpiRow.rainMm.toFixed(1) + ' mm';
+                        if (kpiRow.marulasRainMm !== null && kpiRow.marulasRainMm !== undefined) newDash.marulasRain = kpiRow.marulasRainMm.toFixed(1) + ' mm';
+                        if (kpiRow.tideHeightM !== null && kpiRow.tideHeightM !== undefined) newDash.tideHeight = kpiRow.tideHeightM.toFixed(2) + ' m';
+                        if (kpiRow.pressureHpa !== null && kpiRow.pressureHpa !== undefined) newDash.pressure = kpiRow.pressureHpa.toFixed(0) + ' hPa';
+                        if (kpiRow.windSpeedKph !== null && kpiRow.windSpeedKph !== undefined) newDash.wind = kpiRow.windSpeedKph.toFixed(1) + ' kph';
                     }
                 }
 
