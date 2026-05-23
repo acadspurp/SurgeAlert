@@ -11,7 +11,7 @@ public class SensorDataDTO {
 
     @JsonProperty("timestamp")
     @JsonAlias("time")
-    @JsonFormat(pattern = "yyyy-MM-dd['T'][' ']HH:mm:ss")
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime timestamp;
 
     @JsonProperty("water_level")

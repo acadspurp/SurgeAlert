@@ -35,9 +35,12 @@ export function normalizeSensorInstant(value) {
         return wallManilaToIsoUtc(y, mo, d, h, mi, se);
     }
 
-    if (/^\d{4}-\d{2}-\d{2}[T ]/.test(s) && !HAS_TZ_SUFFIX.test(s)) {
-        const core = s.trim().replace(' ', 'T').split('.')[0];
-        return `${core}+08:00`;
+    // Backend may emit "2026-05-23T 16:10:00" (T + space); naive replace(' ', 'T') breaks parsing.
+    const isoLocal = /^(\d{4}-\d{2}-\d{2})[T\s]+(\d{1,2}:\d{2}(?::\d{2})?)/.exec(s);
+    if (isoLocal && !HAS_TZ_SUFFIX.test(s)) {
+        const [, datePart, timePart] = isoLocal;
+        const [h, mi, se = '00'] = timePart.split(':');
+        return `${datePart}T${pad2(Number(h))}:${pad2(Number(mi))}:${pad2(Number(se))}+08:00`;
     }
 
     const t = Date.parse(s);
