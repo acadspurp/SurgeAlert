@@ -112,8 +112,18 @@ class SMSManager:
                 return False
 
             except Exception as e:
-                print(
-                    f" [GSM] CONNECTION FAILED on {self.port}: {e} — "
-                    "check USB, antenna, SIM, and ttyUSB mapping (expected GSM on ttyUSB2)."
-                )
+                err = str(e)
+                if "busy" in err.lower() or getattr(e, "errno", None) == 16:
+                    print(
+                        f" [GSM] PORT BUSY on {self.port}: {e}\n"
+                        "       Stop other programs using this port first:\n"
+                        "         pkill -f main_loop.py   # or: sudo systemctl stop surgealert-edge\n"
+                        "         sudo fuser -v /dev/ttyUSB2\n"
+                        "         sudo systemctl stop ModemManager   # if ModemManager holds the port"
+                    )
+                else:
+                    print(
+                        f" [GSM] CONNECTION FAILED on {self.port}: {e} — "
+                        "check USB, antenna, SIM, and ttyUSB mapping (expected GSM on ttyUSB2)."
+                    )
                 return False
