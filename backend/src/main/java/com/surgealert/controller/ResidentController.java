@@ -57,16 +57,17 @@ public class ResidentController {
                 return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
                         "SMS could not be sent: server MQTT is offline. Start the backend or check HiveMQ credentials.");
             }
-            if (!sensorDataService.isEdgeRecentlyActive(7)) {
-                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
-                        "SMS could not be sent: the Raspberry Pi station is not online (no sensor data in the last 7 minutes). "
-                                + "OTP uses the Pi GSM modem until Semaphore is approved — run main_loop or surgealert-edge on the Pi, then try again.");
-            }
+            // GSM delivery uses MQTT → Pi main_loop (background loop), not the 5-minute sensor wake window.
             mqttSubscriberService.publishSmsToGsm(tenDigit, otpMessage);
+            boolean sensorRecent = sensorDataService.isEdgeRecentlyActive(12);
+            String detail = sensorRecent
+                    ? "OTP queued to the station GSM modem via MQTT. Check the Pi terminal for [GSM] OK within 30 seconds."
+                    : "OTP queued via MQTT. The Pi may be between 5-minute sensor cycles — ensure main_loop is running on the Pi for GSM delivery.";
             return ResponseEntity.ok(Map.of(
                     "status", "OTP_ISSUED",
                     "deliveryChannel", "GSM_FALLBACK",
-                    "detail", "OTP queued to the station GSM modem via MQTT. Check the Pi terminal for [GSM] OK within 30 seconds."));
+                    "detail", detail,
+                    "piSensorRecent", sensorRecent));
         }
 
         return ResponseEntity.ok(Map.of(
