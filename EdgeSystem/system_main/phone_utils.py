@@ -16,7 +16,14 @@ def normalize_ph_mobile(raw):
 
 
 def format_for_gsm(ten_digit):
-    """Dial string for SIM7600 AT+CMGS."""
+    """Dial string for SIM7600 AT+CMGS (09… form works on most PH SIM7600 modules)."""
+    if not ten_digit:
+        return None
+    return f"0{ten_digit}"
+
+
+def format_for_gsm_intl(ten_digit):
+    """International dial fallback (+63…)."""
     if not ten_digit:
         return None
     return f"+63{ten_digit}"

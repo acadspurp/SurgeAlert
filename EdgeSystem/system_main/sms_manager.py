@@ -2,7 +2,7 @@ import serial
 import time
 import threading
 
-from system_main.phone_utils import normalize_ph_mobile, format_for_gsm
+from system_main.phone_utils import normalize_ph_mobile, format_for_gsm, format_for_gsm_intl
 
 
 class SMSManager:
@@ -19,8 +19,40 @@ class SMSManager:
         if not ten:
             print(f" [GSM] CONFIG: invalid phone number for GSM: {phone_number}")
             return False
-        dial = format_for_gsm(ten)
-        return self._send_via_gsm(dial, message)
+        text = (message or "").strip()
+        if not text:
+            print(" [GSM] CONFIG: empty message")
+            return False
+        # Try 09XXXXXXXXX first (typical PH SIM7600), then +63XXXXXXXXXX.
+        for dial in (format_for_gsm(ten), format_for_gsm_intl(ten)):
+            if dial and self._send_via_gsm(dial, text):
+                return True
+        return False
+
+    def probe_module(self):
+        """Quick AT check at startup (does not send SMS)."""
+        with self._lock:
+            try:
+                ser = serial.Serial(self.port, self.baudrate, timeout=3)
+                ser.reset_input_buffer()
+                ser.write(b"AT\r")
+                time.sleep(0.4)
+                boot = ser.read_all().decode(errors="ignore")
+                ser.write(b"AT+CPIN?\r")
+                time.sleep(0.4)
+                pin = ser.read_all().decode(errors="ignore")
+                ser.write(b"AT+CSQ\r")
+                time.sleep(0.4)
+                csq = ser.read_all().decode(errors="ignore")
+                ser.close()
+                ready = "READY" in pin.upper()
+                print(f" [GSM] Probe {self.port}: CPIN={pin.strip()!r} CSQ={csq.strip()!r}")
+                if not ready:
+                    print(" [GSM] WARNING: SIM may not be ready (check PIN, load, antenna).")
+                return ready
+            except Exception as e:
+                print(f" [GSM] Probe failed on {self.port}: {e}")
+                return False
 
     def _send_via_gsm(self, dial_number, message):
         with self._lock:
@@ -28,35 +60,44 @@ class SMSManager:
                 print(f" [GSM] Sending to {dial_number} via {self.port}...")
                 ser = serial.Serial(self.port, self.baudrate, timeout=3)
 
+                def _at(cmd, wait=0.5):
+                    ser.reset_input_buffer()
+                    ser.write(cmd if isinstance(cmd, bytes) else cmd.encode())
+                    time.sleep(wait)
+                    return ser.read_all().decode(errors="ignore")
+
+                if "OK" not in _at(b"AT\r"):
+                    print(f" [GSM] HARDWARE: no AT OK on {self.port}")
+                    ser.close()
+                    return False
+                _at(b"ATE0\r")
+                _at(b'AT+CSCS="GSM"\r')
+                _at(b"AT+CMGF=1\r")
+
                 ser.reset_input_buffer()
-                ser.write(b"AT\r")
-                time.sleep(0.5)
-
-                ser.write(b"AT+CMGF=1\r")
-                time.sleep(0.5)
-
                 ser.write(f'AT+CMGS="{dial_number}"\r'.encode())
 
                 start_time = time.time()
                 prompt_received = False
-                while time.time() - start_time < 5:
+                while time.time() - start_time < 8:
                     if ser.in_waiting > 0:
-                        line = ser.read_all().decode(errors="ignore")
-                        if ">" in line:
+                        chunk = ser.read_all().decode(errors="ignore")
+                        if ">" in chunk:
                             prompt_received = True
                             break
                     time.sleep(0.1)
 
                 if not prompt_received:
                     print(
-                        f" [GSM] HARDWARE: no CMGS prompt on {self.port} — "
-                        "SIM not ready, wrong port, or module not in SMS mode."
+                        f" [GSM] HARDWARE: no CMGS prompt for {dial_number} on {self.port} — "
+                        "SIM not ready, wrong port, or module busy."
                     )
                     ser.close()
                     return False
 
-                ser.write(f"{message}\x1A".encode())
-                time.sleep(5)
+                # GSM 7-bit; OTP templates are ASCII.
+                ser.write(f"{message}\x1A".encode("ascii", errors="replace"))
+                time.sleep(8)
 
                 response = ser.read_all().decode(errors="ignore")
                 ser.close()
@@ -64,7 +105,10 @@ class SMSManager:
                 if "OK" in response or "+CMGS:" in response:
                     print(f" [GSM] OK: message accepted by module for {dial_number}.")
                     return True
-                print(f" [GSM] HARDWARE: send failed. Module response: {response!r}")
+                if "ERROR" in response.upper():
+                    print(f" [GSM] HARDWARE: module ERROR for {dial_number}: {response!r}")
+                else:
+                    print(f" [GSM] HARDWARE: send failed for {dial_number}: {response!r}")
                 return False
 
             except Exception as e:

@@ -247,6 +247,7 @@ def main():
     sms = None
     try:
         sms = SMSManager(port=GSM_PORT, baudrate=GSM_BAUDRATE)
+        sms.probe_module()
     except Exception as e:
         print(f"\033[33m [GSM] Init warning (offline SMS may fail): {e}\033[0m")
 
@@ -283,6 +284,7 @@ def main():
         mqtt_client.subscribe("surgealert/outbound/sms", qos=1)
         mqtt_client.loop_start()
         print(f" [MQTT] OK: connected to {MQTT_BROKER}; publish → {MQTT_TOPIC_SENSOR}")
+        print(" [MQTT] Listening for OTP/alerts on topic surgealert/outbound/sms (QoS 1)")
     except Exception as e:
         print(
             f" [MQTT] CONNECTION FAILED ({MQTT_BROKER}:{MQTT_PORT}): {e} — "
