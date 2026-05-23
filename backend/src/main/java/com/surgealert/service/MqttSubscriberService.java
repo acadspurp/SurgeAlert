@@ -116,10 +116,6 @@ public class MqttSubscriberService {
         } catch (MqttException e) {
             System.err.println(" [MQTT] Failed to publish SMS to GSM module: " + e.getMessage());
             return false;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            System.err.println(" [MQTT] SMS publish interrupted: " + e.getMessage());
-            return false;
         }
     }
 
