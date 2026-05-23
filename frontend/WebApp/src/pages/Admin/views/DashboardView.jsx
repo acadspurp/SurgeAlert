@@ -3,9 +3,10 @@ import { Line } from 'react-chartjs-2';
 import DashboardCard from '../components/DashboardCard';
 import HealthRow from '../components/HealthRow';
 import TelemetryCard from '../components/TelemetryCard';
+import LastUpdatedBanner from '../components/LastUpdatedBanner';
 
 export default function DashboardView(props) {
-    const { hardwareOnline, hardwareHealth, secondsSinceUpdate, isHeadAdmin, overrideContext, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, latestLogs, nextTide, cameraImg, cameraCaptureLabel, liveManilaClock, liveManilaClockDate, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, formatTideDateUtc, formatTideTimeUtc,
+    const { hardwareOnline, hardwareHealth, lastSensorAtMs, isHeadAdmin, overrideContext, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, latestLogs, nextTide, cameraImg, cameraCaptureLabel, liveManilaClock, liveManilaClockDate, rawSensorData, telemetryChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, aiChartData, commonChartOptions, searchTerm, setSearchTerm, filteredResidents, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, reportTelemetry, setReportTelemetry, reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators, formatTideDateUtc, formatTideTimeUtc,
         openCreateUserModal, openEditUserModal, saveUserModal,
         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
         handleDeleteAdminUser,
@@ -41,11 +42,7 @@ export default function DashboardView(props) {
             <div className="animate-fade-in">
                 <div className="mb-6 flex flex-col gap-3 sm:mb-8 md:flex-row md:items-center md:justify-between">
                     <h1 className="pl-0 text-2xl font-black tracking-tight text-sky-100 sm:text-3xl md:pl-10">Dashboard</h1>
-                    <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-200">
-                        <span className="hidden sm:inline">
-                            Last updated: {secondsSinceUpdate === null ? '—' : `${secondsSinceUpdate}s ago`}
-                        </span>
-                    </div>
+                    <LastUpdatedBanner lastSensorAtMs={lastSensorAtMs} />
                 </div>
 
                 {overrideContext?.active && (

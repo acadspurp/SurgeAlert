@@ -4,8 +4,9 @@ import { fetchAlertStatus, fetchAlertGuide, fetchCameraFeed, fetchWeatherData, f
 import { useLatestSensorPolling } from '../hooks/useLatestSensorPolling.js';
 import { classifyAlertLevel, gaugeFillPercent, gaugeMarkers } from '../config/alertConfig.js';
 
-import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE } from '../constants/displayTime.js';
+import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE, formatSensorAge, formatManilaWallClockFromMs, formatManilaWallDateFromMs } from '../constants/displayTime.js';
 import { useLiveManilaClock } from '../hooks/useLiveManilaClock.js';
+import { normalizeSensorInstant } from '../utils/sensorTimeseries.js';
 
 let CACHED_GUIDE = null;
 
@@ -30,7 +31,11 @@ export default function Home() {
     const [alertLevelKey, setAlertLevelKey] = useState('green');
     const [alertHtml, setAlertHtml] = useState('<p class="text-gray-400">System is running normally.</p>');
     const [cameraImg, setCameraImg] = useState(null);
-    const { clockLabel: cameraLastUpdated, dateLabel: cameraClockDate } = useLiveManilaClock();
+    const [lastSensorAtMs, setLastSensorAtMs] = useState(null);
+    const [cameraCaptureClock, setCameraCaptureClock] = useState(null);
+    const [cameraCaptureDate, setCameraCaptureDate] = useState(null);
+    const [sensorAgeTick, setSensorAgeTick] = useState(0);
+    const { clockLabel: liveManilaNow, dateLabel: liveManilaNowDate } = useLiveManilaClock();
     const [weatherCards, setWeatherCards] = useState([]);
     const [weatherError, setWeatherError] = useState(null);
     const [isWeatherLoading, setIsWeatherLoading] = useState(true);
@@ -49,6 +54,29 @@ export default function Home() {
     useEffect(() => {
         sensorConfigRef.current = sensorConfig;
     }, [sensorConfig]);
+
+    const touchSensorTimestamp = (timestamp) => {
+        if (!timestamp) return;
+        const tsIso = normalizeSensorInstant(timestamp);
+        const ms = tsIso ? Date.parse(tsIso) : NaN;
+        if (Number.isFinite(ms)) setLastSensorAtMs(ms);
+    };
+
+    const applyCameraCaptureLabel = (timestamp) => {
+        if (!timestamp) return;
+        const tsIso = normalizeSensorInstant(timestamp);
+        const ms = tsIso ? Date.parse(tsIso) : NaN;
+        if (!Number.isFinite(ms)) return;
+        setCameraCaptureClock(formatManilaWallClockFromMs(ms));
+        setCameraCaptureDate(formatManilaWallDateFromMs(ms));
+    };
+
+    const sensorAge = formatSensorAge(lastSensorAtMs);
+
+    useEffect(() => {
+        const t = setInterval(() => setSensorAgeTick((n) => n + 1), 1000);
+        return () => clearInterval(t);
+    }, []);
 
     /** River gauge tap-to-scroll is intended for phone/tablet (matches max-lg breakpoint). */
     const [isCompactLayout, setIsCompactLayout] = useState(false);
@@ -159,6 +187,7 @@ export default function Home() {
             // Fallback path: pull directly from latest sensor_data when public status endpoint fails.
             try {
                 const latest = await fetchLatestSensorReading();
+                if (latest?.timestamp) touchSensorTimestamp(latest.timestamp);
                 if (latest?.waterLevelM !== null && latest?.waterLevelM !== undefined) {
                     processAlertData(latest.currentAlertLevel || 'GREEN', latest.waterLevelM, false);
                     return;
@@ -256,7 +285,11 @@ export default function Home() {
             if (latest?.waterLevelM !== null && latest?.waterLevelM !== undefined) {
                 processAlertData(latest.currentAlertLevel || alertLevelKey, latest.waterLevelM);
             }
+            if (latest?.timestamp) {
+                touchSensorTimestamp(latest.timestamp);
+            }
             if (latest?.snapshotBase64 && latest.snapshotBase64 !== "") {
+                applyCameraCaptureLabel(latest.timestamp);
                 setCameraImg(`data:image/jpeg;base64,${latest.snapshotBase64}`);
                 return;
             }
@@ -343,12 +376,12 @@ export default function Home() {
     };
 
     useEffect(() => {
-        if (mqttData) {
-            // Alert level + override come from GET /public/alerts/status (same source as manual overrides).
-            loadAlertStatus();
-            if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
-                setCameraImg(`data:image/jpeg;base64,${mqttData.snapshotBase64}`);
-            }
+        if (!mqttData) return;
+        touchSensorTimestamp(mqttData.timestamp);
+        loadAlertStatus();
+        if (mqttData.snapshotBase64 && mqttData.snapshotBase64 !== "") {
+            applyCameraCaptureLabel(mqttData.timestamp);
+            setCameraImg(`data:image/jpeg;base64,${mqttData.snapshotBase64}`);
         }
     }, [mqttData]);
 
@@ -408,7 +441,19 @@ export default function Home() {
                 {/* RIVER LEVEL GAUGE */}
                 <div className={`lg:col-span-5 xl:col-span-6 rounded-2xl p-4 sm:p-6 border ${colors.border} ${colors.bg} ${colors.glow} flex flex-col justify-between overflow-hidden`}>
                     <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                        <h2 className="text-sm font-bold uppercase tracking-widest text-gray-400">River Level Gauge</h2>
+                        <div>
+                            <h2 className="text-sm font-bold uppercase tracking-widest text-gray-400">River Level Gauge</h2>
+                            <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                                {sensorAge.secondsAgo == null ? (
+                                    'Sensor data as of: —'
+                                ) : (
+                                    <>
+                                        Sensor data as of: {sensorAge.relative}
+                                        <span className="hidden sm:inline"> · {sensorAge.absoluteClock} · {sensorAge.absoluteDate} (Manila)</span>
+                                    </>
+                                )}
+                            </p>
+                        </div>
                         <p className="text-[11px] font-medium text-gray-500 lg:hidden">Tap the gauge area below to jump to the Safety Action Guide.</p>
                     </div>
 
@@ -508,10 +553,16 @@ export default function Home() {
                     <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center mb-4 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 min-w-0">
                             <h2 className="text-xs sm:text-sm font-bold text-slate-100 tracking-widest uppercase">Camera Feed</h2>
-                            {cameraLastUpdated && <span className="text-xs font-bold text-cyan-400 hidden sm:inline ml-2">(Manila: {cameraLastUpdated})</span>}
+                            {cameraCaptureClock && (
+                                <span className="text-xs font-bold text-cyan-400 hidden sm:inline ml-2">
+                                    Captured: {cameraCaptureClock}
+                                </span>
+                            )}
                         </div>
                         <span className="text-xs text-slate-300 flex items-center gap-2">
-                            {cameraLastUpdated && <span className="text-xs font-bold text-cyan-400 sm:hidden mr-1">Manila: {cameraLastUpdated}</span>}
+                            {cameraCaptureClock && (
+                                <span className="text-xs font-bold text-cyan-400 sm:hidden mr-1">Captured: {cameraCaptureClock}</span>
+                            )}
                             <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span> Snapshot
                         </span>
                     </div>
@@ -524,9 +575,9 @@ export default function Home() {
                                 <span>Camera feed currently unavailable</span>
                             </div>
                         )}
-                        {cameraLastUpdated && (
+                        {cameraCaptureClock && (
                             <div className="absolute top-4 right-4 bg-black/80 text-cyan-400 text-sm font-black font-mono px-3 py-1.5 rounded-lg border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.2)] backdrop-blur-md z-10">
-                                {cameraLastUpdated}
+                                {cameraCaptureClock}
                             </div>
                         )}
                         <div className="absolute bottom-4 left-4 bg-black/60 px-3 py-1 rounded backdrop-blur-sm text-sm font-bold text-white uppercase tracking-tighter">TULLAHAN STATION</div>
@@ -565,9 +616,9 @@ export default function Home() {
                         ) : (
                             <div className="grid grid-cols-1 gap-4">
                                 <div className="bg-gray-800/40 p-3 rounded-xl border border-cyan-900/40 flex flex-col items-center justify-center text-center">
-                                    <span className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Philippines (Manila)</span>
-                                    <p className="text-2xl font-black text-cyan-300 font-mono leading-tight">{cameraLastUpdated}</p>
-                                    <p className="text-[11px] text-gray-400 mt-1">{cameraClockDate}</p>
+                                    <span className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Current time (Manila)</span>
+                                    <p className="text-2xl font-black text-cyan-300 font-mono leading-tight">{liveManilaNow}</p>
+                                    <p className="text-[11px] text-gray-400 mt-1">{liveManilaNowDate}</p>
                                 </div>
                                 <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50 flex flex-col items-center justify-center">
                                     <span className="text-xs text-gray-400 uppercase tracking-wider mb-1">Current Tide</span>

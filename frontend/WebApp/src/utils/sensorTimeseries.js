@@ -81,6 +81,24 @@ export function countValidTimestampRows(rows) {
     return (rows || []).filter((r) => r?.timestamp && Number.isFinite(new Date(r.timestamp).getTime())).length;
 }
 
+/** Newest row by timestamp (for latest KPIs when API order is not guaranteed). */
+export function pickNewestSensorRow(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    if (list.length === 0) return null;
+    return list.reduce((best, row) => {
+        if (!row?.timestamp) return best;
+        const t = new Date(row.timestamp).getTime();
+        if (!Number.isFinite(t)) return best;
+        if (!best) return row;
+        const bt = new Date(best.timestamp).getTime();
+        return t >= bt ? row : best;
+    }, null);
+}
+
+export function sortSensorRowsNewestFirst(rows) {
+    return [...(rows || [])].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+}
+
 export function trimRowsToLastHours(rows, hours) {
     const cutoff = Date.now() - hours * 60 * 60 * 1000;
     return (rows || []).filter((r) => new Date(r.timestamp).getTime() >= cutoff);

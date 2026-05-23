@@ -2,6 +2,7 @@ import { API_BASE_URL } from '../config.js';
 import { getAccessToken, getRefreshToken, updateTokens, clearUser } from './auth.js';
 import {
     normalizeSensorRows,
+    sortSensorRowsNewestFirst,
     countValidTimestampRows,
     trimRowsToLastHours,
     loadShiftedSensorRowsFromPublicCsv,
@@ -383,7 +384,7 @@ export async function fetchSensorData(hours = 24) {
             }
         }
         if (countValidTimestampRows(normalized) === 0) return [];
-        return trimRowsToLastHours(normalized, hours);
+        return sortSensorRowsNewestFirst(trimRowsToLastHours(normalized, hours));
     };
 
     const url = `${API_BASE_URL}/sensor-data/recent?hours=${encodeURIComponent(hours)}`;

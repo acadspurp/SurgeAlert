@@ -16,7 +16,7 @@ import {
     toggleResidentPriority,
 } from '../../services/api.js';
 import { computeHardwareHealth } from '../../utils/edgeConnectivity.js';
-import { isCsvDemoFallbackEnabled } from '../../utils/sensorTimeseries.js';
+import { isCsvDemoFallbackEnabled, pickNewestSensorRow } from '../../utils/sensorTimeseries.js';
 import { useLatestSensorPolling } from '../../hooks/useLatestSensorPolling.js';
 import 'chartjs-adapter-date-fns';
 import annotationPlugin from 'chartjs-plugin-annotation';
@@ -157,7 +157,7 @@ export default function Admin() {
     const [trendIndicators, setTrendIndicators] = useState({ waterLevel: '-', flowRate: '-' });
     const prevReadings = useRef({ waterLevel: null, flowRate: null });
     const [lastMqttAt, setLastMqttAt] = useState(null);
-    const [secondsSinceUpdate, setSecondsSinceUpdate] = useState(null);
+    const [ageTick, setAgeTick] = useState(0);
     const [evacuationSites, setEvacuationSites] = useState([]);
     const [pendingCriticalAlerts, setPendingCriticalAlerts] = useState([]);
     const [canaryState, setCanaryState] = useState(null);
@@ -165,7 +165,7 @@ export default function Admin() {
 
     const hardwareHealth = useMemo(
         () => computeHardwareHealth(lastMqttAt, mqttData),
-        [lastMqttAt, mqttData, secondsSinceUpdate]
+        [lastMqttAt, mqttData, ageTick]
     );
     const hardwareOnline = hardwareHealth.edgeConnected;
 
@@ -221,6 +221,42 @@ export default function Admin() {
 
     const displayName = (user && (user.fullName || user.username)) || 'Admin';
 
+    const touchSensorTimestamp = (row) => {
+        if (!row?.timestamp || isCsvDemoFallbackEnabled()) return;
+        const tsIso = normalizeSensorInstant(row.timestamp);
+        const ms = tsIso ? Date.parse(tsIso) : NaN;
+        if (Number.isFinite(ms)) setLastMqttAt(ms);
+    };
+
+    const mergePollIntoDashData = (prev, row) => {
+        if (!row) return prev;
+        const next = { ...prev };
+        const floatWl = row.waterLevelM;
+        const isGhost = floatWl !== null && floatWl !== undefined && floatWl < 0.10;
+
+        if (floatWl !== null && floatWl !== undefined && !isGhost) {
+            next.waterLevel = floatWl.toFixed(2) + ' m';
+        }
+        if (row.sensorFlowRate !== null && row.sensorFlowRate !== undefined) {
+            next.flowRate = row.sensorFlowRate.toFixed(2) + ' m/s';
+        }
+        if (row.riseRate !== null && row.riseRate !== undefined) {
+            next.riseRate = row.riseRate;
+        }
+        if (row.predictedLevel !== null && row.predictedLevel !== undefined) {
+            next.prediction = row.predictedLevel.toFixed(2) + ' m';
+        }
+        if (row.predictedAlertLevel) {
+            next.predictedClassification = row.predictedAlertLevel;
+        }
+        if (row.rainMm !== null && row.rainMm !== undefined) next.qcRain = row.rainMm.toFixed(1) + ' mm';
+        if (row.marulasRainMm !== null && row.marulasRainMm !== undefined) next.marulasRain = row.marulasRainMm.toFixed(1) + ' mm';
+        if (row.tideHeightM !== null && row.tideHeightM !== undefined) next.tideHeight = row.tideHeightM.toFixed(2) + ' m';
+        if (row.pressureHpa !== null && row.pressureHpa !== undefined) next.pressure = row.pressureHpa.toFixed(0) + ' hPa';
+        if (row.windSpeedKph !== null && row.windSpeedKph !== undefined) next.wind = row.windSpeedKph.toFixed(1) + ' kph';
+        return next;
+    };
+
     const applyCameraSnapshot = (base64, capturedAtIso) => {
         if (!base64) return;
         const ts = capturedAtIso ? normalizeSensorInstant(capturedAtIso) : null;
@@ -250,23 +286,14 @@ export default function Admin() {
             // 2. Get the latest detailed telemetry for environmental cards
             // First try recent (last 1h) for live data, then fall back to the all-time latest merged record
             const latestRecords = await fetchSensorData(1);
-            let latest = latestRecords.length > 0 ? latestRecords[0] : null;
+            let latest = pickNewestSensorRow(latestRecords);
             if (!latest) {
                 // Pi may have been offline >1h; /api/sensor-data/latest always returns the newest row
                 // and the backend already merges tide_metrics + weather_metrics into it.
                 latest = await fetchLatestSensorReading();
             }
-            
-            // Heartbeat only from live DB sensor_data (never CSV demo or alert API timestamps).
-            const liveSensorHeartbeat =
-                latest?.timestamp && !isCsvDemoFallbackEnabled();
-            if (liveSensorHeartbeat) {
-                const tsIso = normalizeSensorInstant(latest.timestamp);
-                const ms = tsIso ? Date.parse(tsIso) : NaN;
-                setLastMqttAt(Number.isFinite(ms) ? ms : null);
-            } else {
-                setLastMqttAt(null);
-            }
+
+            touchSensorTimestamp(latest);
             if (latest?.snapshotBase64) {
                 applyCameraSnapshot(latest.snapshotBase64, latest.timestamp);
             }
@@ -396,7 +423,11 @@ export default function Admin() {
 
     const loadChartData = async (hours, type = 'TELEMETRY') => {
         try {
-            const incoming = await fetchSensorData(hours);
+            let incoming = await fetchSensorData(hours);
+            if (!incoming?.length) {
+                const fallback = await fetchLatestSensorReading();
+                if (fallback) incoming = [fallback];
+            }
             const cutoffMs = Date.now() - hours * 60 * 60 * 1000;
             /** Hard cap so very fast ingest (e.g. 1 Hz) cannot freeze the dashboard; Chart.js still decimates. */
             const maxPointsSafety = 20000;
@@ -536,76 +567,43 @@ export default function Admin() {
     // -------------------------------------------------------------
     // EFFECTS
     // -------------------------------------------------------------
-    // Keep heartbeat in sync with /sensor-data/latest poll (Manila-aware timestamps).
-    useEffect(() => {
-        if (!mqttData?.timestamp) return;
-        const tsIso = normalizeSensorInstant(mqttData.timestamp);
-        const ms = tsIso ? Date.parse(tsIso) : NaN;
-        if (Number.isFinite(ms)) setLastMqttAt(ms);
-    }, [mqttData?.timestamp]);
-
     useEffect(() => {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
-        // Do not blank flow/ML when edge is stale — loadDashboardData still shows last DB row.
-        if (!hardwareOnline || !mqttData?.timestamp) {
-            return;
+        if (!mqttData?.timestamp) return;
+
+        touchSensorTimestamp(mqttData);
+        setDashData((prev) => mergePollIntoDashData(prev, mqttData));
+
+        const floatWl = mqttData.waterLevelM;
+        const isGhost = floatWl !== null && floatWl !== undefined && floatWl < 0.10;
+        const sensorLevel = isGhost ? null : (mqttData.currentAlertLevel || null);
+        setOverrideContext((prev) => ({
+            ...prev,
+            sensor: sensorLevel ?? prev.sensor,
+        }));
+
+        if (mqttData.snapshotBase64) {
+            applyCameraSnapshot(mqttData.snapshotBase64, mqttData.timestamp);
         }
 
-        {
-            const newDash = { ...dashData };
-            // Apply noise filter (anything below 0.10m is ghost data)
-            const floatWl = mqttData.waterLevelM;
-            const isGhost = floatWl !== null && floatWl !== undefined && floatWl < 0.10;
+        if (prevReadings.current.waterLevel !== null && mqttData.waterLevelM !== null) {
+            if (mqttData.waterLevelM > prevReadings.current.waterLevel + 0.05) setTrendIndicators(prev => ({ ...prev, waterLevel: '↑' }));
+            else if (mqttData.waterLevelM < prevReadings.current.waterLevel - 0.05) setTrendIndicators(prev => ({ ...prev, waterLevel: '↓' }));
+            else setTrendIndicators(prev => ({ ...prev, waterLevel: '-' }));
+        }
+        if (prevReadings.current.flowRate !== null && mqttData.sensorFlowRate !== null) {
+            if (mqttData.sensorFlowRate > prevReadings.current.flowRate + 0.05) setTrendIndicators(prev => ({ ...prev, flowRate: '↑' }));
+            else if (mqttData.sensorFlowRate < prevReadings.current.flowRate - 0.05) setTrendIndicators(prev => ({ ...prev, flowRate: '↓' }));
+            else setTrendIndicators(prev => ({ ...prev, flowRate: '-' }));
+        }
+        prevReadings.current.waterLevel = mqttData.waterLevelM;
+        prevReadings.current.flowRate = mqttData.sensorFlowRate;
 
-            newDash.waterLevel = (floatWl !== null && !isGhost) ? floatWl.toFixed(2) + ' m' : '-- m';
-            newDash.flowRate = (mqttData.sensorFlowRate !== null && mqttData.sensorFlowRate !== undefined)
-                ? mqttData.sensorFlowRate.toFixed(2) + ' m/s'
-                : '-- m/s';
-            if (mqttData.riseRate != null) {
-                newDash.riseRate = mqttData.riseRate;
-            }
-
-            const sensorLevel = isGhost ? null : (mqttData.currentAlertLevel || null);
-            setOverrideContext((prev) => ({
-                ...prev,
-                sensor: sensorLevel ?? prev.sensor,
-            }));
-
-            if (mqttData.predictedLevel !== null && mqttData.predictedLevel !== undefined) {
-                newDash.prediction = mqttData.predictedLevel.toFixed(2) + ' m';
-            }
-            newDash.predictedClassification = mqttData.predictedAlertLevel || '--';
-
-            // NEW ENVIRONMENTAL FIELDS
-            if (mqttData.rainMm !== null && mqttData.rainMm !== undefined) newDash.qcRain = mqttData.rainMm.toFixed(1) + ' mm';
-            if (mqttData.marulasRainMm !== null && mqttData.marulasRainMm !== undefined) newDash.marulasRain = mqttData.marulasRainMm.toFixed(1) + ' mm';
-            if (mqttData.tideHeightM !== null && mqttData.tideHeightM !== undefined) newDash.tideHeight = mqttData.tideHeightM.toFixed(2) + ' m';
-            if (mqttData.pressureHpa !== null && mqttData.pressureHpa !== undefined) newDash.pressure = mqttData.pressureHpa.toFixed(0) + ' hPa';
-            if (mqttData.windSpeedKph !== null && mqttData.windSpeedKph !== undefined) newDash.wind = mqttData.windSpeedKph.toFixed(1) + ' kph';
-
-            setDashData(newDash);
-
-            if (mqttData.snapshotBase64) {
-                applyCameraSnapshot(mqttData.snapshotBase64, mqttData.timestamp);
-            }
-            // Trend Indicator calculations
-            if (prevReadings.current.waterLevel !== null && mqttData.waterLevelM !== null) {
-                if (mqttData.waterLevelM > prevReadings.current.waterLevel + 0.05) setTrendIndicators(prev => ({ ...prev, waterLevel: '↑' }));
-                else if (mqttData.waterLevelM < prevReadings.current.waterLevel - 0.05) setTrendIndicators(prev => ({ ...prev, waterLevel: '↓' }));
-                else setTrendIndicators(prev => ({ ...prev, waterLevel: '-' }));
-            }
-            if (prevReadings.current.flowRate !== null && mqttData.sensorFlowRate !== null) {
-                if (mqttData.sensorFlowRate > prevReadings.current.flowRate + 0.05) setTrendIndicators(prev => ({ ...prev, flowRate: '↑' }));
-                else if (mqttData.sensorFlowRate < prevReadings.current.flowRate - 0.05) setTrendIndicators(prev => ({ ...prev, flowRate: '↓' }));
-                else setTrendIndicators(prev => ({ ...prev, flowRate: '-' }));
-            }
-            prevReadings.current.waterLevel = mqttData.waterLevelM;
-            prevReadings.current.flowRate = mqttData.sensorFlowRate;
-
+        if (hardwareOnline) {
             loadChartData(Math.max(telemetryTime, aiTime), 'TELEMETRY');
             loadChartData(cvTime, 'CV');
         }
-    }, [mqttData]);
+    }, [mqttData, hardwareOnline, user, role, telemetryTime, aiTime, cvTime]);
 
     useEffect(() => {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
@@ -663,17 +661,10 @@ export default function Admin() {
         if (user) loadChartData(cvTime, 'CV');
     }, [cvTime]);
 
-    // "Last updated" ticker
     useEffect(() => {
-        if (!lastMqttAt) {
-            setSecondsSinceUpdate(null);
-            return;
-        }
-        const t = setInterval(() => {
-            setSecondsSinceUpdate(Math.max(0, Math.floor((Date.now() - lastMqttAt) / 1000)));
-        }, 1000);
+        const t = setInterval(() => setAgeTick((n) => n + 1), 1000);
         return () => clearInterval(t);
-    }, [lastMqttAt]);
+    }, []);
 
     // -------------------------------------------------------------
     // HANDLERS
@@ -1247,7 +1238,7 @@ export default function Admin() {
                 </div>
                 {(() => {
                     const viewProps = {
-                        hardwareOnline, hardwareHealth, secondsSinceUpdate, isHeadAdmin, overrideContext, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, latestLogs, nextTide, cameraImg, cameraCaptureLabel, liveManilaClock, liveManilaClockDate, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, 
+                        hardwareOnline, hardwareHealth, lastSensorAtMs: lastMqttAt, isHeadAdmin, overrideContext, aiRecommendedStatus, dashData, isDivergent, handleOverride, getWaterLevelContext, getFlowContext, latestLogs, nextTide, cameraImg, cameraCaptureLabel, liveManilaClock, liveManilaClockDate, rawSensorData, cvSensorData, telemetryChartData, cvChartData, telemetryChartOptions, telemetryTime, setTelemetryTime, cvTime, setCvTime, aiChartData, commonChartOptions, aiChartOptions, searchTerm, setSearchTerm, filteredResidents, residents, handleTogglePriority, setIsAddingResident, handleDeleteResident, isAddingResident, newResidentState, setNewResidentState, handleAddManualResident, templates, setEditingTemplateType, editingTemplateType, templateDrafts, setTemplateDrafts, uiToBackend, handleSaveTemplate, datasetRequests, reportStart, setReportStart, reportEnd, setReportEnd, 
                         reportRaw, setReportRaw, reportCalculated, setReportCalculated, reportAlerts, setReportAlerts,
                         reportAI, setReportAI, reportSms, setReportSms, reportSubscribers, setReportSubscribers, handleDownloadReport, adminUsers, setShowUserModal, setEditingUser, editingUser, setUserForm, showUserModal, userForm, systemLogs, activeView, trendIndicators,
                         openCreateUserModal, openEditUserModal, saveUserModal,
