@@ -45,10 +45,17 @@ public class ResidentController {
         String otpMessage = notificationService.getOtpMessage(otp);
         OtpDeliveryService.DeliveryResult delivery = otpDeliveryService.deliverOtp(tenDigit, otpMessage);
 
-        if ("GSM_FALLBACK".equals(delivery.channel())) {
-            mqttSubscriberService.publishSmsToGsm(tenDigit, otpMessage);
-        } else if ("INVALID_PHONE".equals(delivery.status())) {
+        if ("INVALID_PHONE".equals(delivery.status())) {
             return ResponseEntity.badRequest().body(delivery.detail());
+        }
+
+        if ("GSM_FALLBACK".equals(delivery.channel())) {
+            if (!mqttSubscriberService.isMqttConnected()) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
+                        "SMS could not be sent: the edge GSM gateway is offline and online SMS (Semaphore) is not enabled. "
+                                + "Start the Raspberry Pi edge service, or set SEMAPHORE_ENABLED=true with a valid API key on the server.");
+            }
+            mqttSubscriberService.publishSmsToGsm(tenDigit, otpMessage);
         }
 
         return ResponseEntity.ok(Map.of(

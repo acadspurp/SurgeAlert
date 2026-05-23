@@ -615,11 +615,6 @@ export default function Home() {
                             <div className="text-center text-gray-500">No tide data available for today.</div>
                         ) : (
                             <div className="grid grid-cols-1 gap-4">
-                                <div className="bg-gray-800/40 p-3 rounded-xl border border-cyan-900/40 flex flex-col items-center justify-center text-center">
-                                    <span className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Current time (Manila)</span>
-                                    <p className="text-2xl font-black text-cyan-300 font-mono leading-tight">{liveManilaNow}</p>
-                                    <p className="text-[11px] text-gray-400 mt-1">{liveManilaNowDate}</p>
-                                </div>
                                 <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50 flex flex-col items-center justify-center">
                                     <span className="text-xs text-gray-400 uppercase tracking-wider mb-1">Current Tide</span>
                                     <div className="flex items-center gap-2">

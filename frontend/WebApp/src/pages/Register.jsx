@@ -42,13 +42,18 @@ export default function Register() {
         setSending(true);
         try {
             const data = await sendOtp(normalized);
-            const via = data?.deliveryChannel ? ` via ${data.deliveryChannel}` : '';
+            const via = data?.deliveryChannel === 'SEMAPHORE'
+                ? ' via SMS'
+                : data?.deliveryChannel === 'GSM_FALLBACK'
+                    ? ' via the station GSM modem (may take a minute)'
+                    : '';
             alert(`Verification code sent${via}. Please check your messages.`);
             setStep('subscribe_otp');
         } catch (err) {
             console.error(err);
             if (strictVerification) {
-                alert("Could not send verification code. Check your number and try again, or contact support.");
+                const detail = err?.message && err.message.length < 280 ? err.message : null;
+                alert(detail || "Could not send verification code. Check your number and try again, or contact support.");
             } else {
                 alert("OTP delivery is temporarily unavailable. Enter any 6-digit code to continue.");
                 setStep('subscribe_otp');
@@ -93,7 +98,8 @@ export default function Register() {
             setStep('unsubscribe_otp');
         } catch (err) {
             console.error(err);
-            alert("Error sending OTP: " + err.message);
+            const detail = err?.message && err.message.length < 280 ? err.message : null;
+            alert(detail || "Error sending OTP. Please try again later.");
         } finally {
             setSending(false);
         }
