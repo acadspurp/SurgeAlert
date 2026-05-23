@@ -23,19 +23,16 @@ public class ResidentController {
     private final NotificationService notificationService;
     private final OtpDeliveryService otpDeliveryService;
     private final com.surgealert.service.MqttSubscriberService mqttSubscriberService;
-    private final com.surgealert.service.SensorDataService sensorDataService;
 
     @Value("${surgealert.otp.strict-verification:true}")
     private boolean strictOtpVerification;
 
     public ResidentController(ResidentService residentService, NotificationService notificationService,
-            OtpDeliveryService otpDeliveryService, com.surgealert.service.MqttSubscriberService mqttSubscriberService,
-            com.surgealert.service.SensorDataService sensorDataService) {
+            OtpDeliveryService otpDeliveryService, com.surgealert.service.MqttSubscriberService mqttSubscriberService) {
         this.residentService = residentService;
         this.notificationService = notificationService;
         this.otpDeliveryService = otpDeliveryService;
         this.mqttSubscriberService = mqttSubscriberService;
-        this.sensorDataService = sensorDataService;
     }
 
     @PostMapping("/send-otp")
@@ -58,16 +55,12 @@ public class ResidentController {
                         "SMS could not be sent: server MQTT is offline. Start the backend or check HiveMQ credentials.");
             }
             // GSM delivery uses MQTT → Pi main_loop (background loop), not the 5-minute sensor wake window.
-            mqttSubscriberService.publishSmsToGsm(tenDigit, otpMessage);
-            boolean sensorRecent = sensorDataService.isEdgeRecentlyActive(12);
-            String detail = sensorRecent
-                    ? "OTP queued to the station GSM modem via MQTT. Check the Pi terminal for [GSM] OK within 30 seconds."
-                    : "OTP queued via MQTT. The Pi may be between 5-minute sensor cycles — ensure main_loop is running on the Pi for GSM delivery.";
+            mqttSubscriberService.publishSmsToGsm(tenDigit, otpMessage, "otp");
+            String detail = "OTP sent to the station GSM modem — you should receive it within a few seconds.";
             return ResponseEntity.ok(Map.of(
                     "status", "OTP_ISSUED",
                     "deliveryChannel", "GSM_FALLBACK",
-                    "detail", detail,
-                    "piSensorRecent", sensorRecent));
+                    "detail", detail));
         }
 
         return ResponseEntity.ok(Map.of(
@@ -135,7 +128,7 @@ public class ResidentController {
         String successMsg = notificationService.getRegistrationSuccessMessage();
         OtpDeliveryService.DeliveryResult delivery = otpDeliveryService.deliverOtp(tenDigit, successMsg);
         if ("GSM_FALLBACK".equals(delivery.channel())) {
-            mqttSubscriberService.publishSmsToGsm(tenDigit, successMsg);
+            mqttSubscriberService.publishSmsToGsm(tenDigit, successMsg, "alert");
         }
 
         return ResponseEntity.status(HttpStatus.CREATED).body("Resident registered successfully");

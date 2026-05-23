@@ -1112,13 +1112,24 @@ export default function Admin() {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
-        timeZone: TIDE_DISPLAY_TIMEZONE
+        timeZone: TIDE_DISPLAY_TIMEZONE,
     });
 
     const formatTideTimeUtc = (value) => new Date(value).toLocaleTimeString('en-US', {
-        hour: '2-digit',
+        hour: 'numeric',
         minute: '2-digit',
-        timeZone: TIDE_DISPLAY_TIMEZONE
+        hour12: true,
+        timeZone: TIDE_DISPLAY_TIMEZONE,
+    });
+
+    const formatTideDateTimeUtc = (value) => new Date(value).toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: TIDE_DISPLAY_TIMEZONE,
     });
 
     const filteredResidents = (Array.isArray(residents) ? residents : []).filter(r => {
@@ -1274,7 +1285,7 @@ export default function Admin() {
                         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
                         handleDeleteAdminUser,
                         handleUpdateDatasetStatus, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert, canaryState, handleAdvanceCanaryPhase, handleRollbackCanaryPhase, handleUpdateCanaryConfig,
-                        formatTideDateUtc, formatTideTimeUtc
+                        formatTideDateUtc, formatTideTimeUtc, formatTideDateTimeUtc
                     }; return (<>
 
 

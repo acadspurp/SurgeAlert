@@ -7,6 +7,7 @@ import json
 import os
 import ssl
 import sys
+import threading
 import time
 import warnings
 from datetime import datetime
@@ -58,6 +59,7 @@ from system_main.edge_sync import (
 )
 from system_main.edge_time_utils import grid_timestamp_iso
 from system_main.mqtt_publisher import frame_to_base64, publish_sensor_data
+from system_main.gsm_outbound import GsmOutboundWorker
 from system_main.sms_manager import SMSManager
 
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="paho.mqtt")
@@ -245,9 +247,11 @@ def main():
     image_processor = ImageProcessor()
 
     sms = None
+    gsm_worker = None
     try:
         sms = SMSManager(port=GSM_PORT, baudrate=GSM_BAUDRATE)
-        sms.probe_module()
+        gsm_worker = GsmOutboundWorker(sms)
+        threading.Thread(target=sms.probe_module, name="gsm-probe", daemon=True).start()
     except Exception as e:
         print(f"\033[33m [GSM] Init warning (offline SMS may fail): {e}\033[0m")
 
@@ -256,28 +260,25 @@ def main():
         mqtt_client = _create_mqtt_client()
 
         def on_sms(client, userdata, msg):
-            if msg.topic == "surgealert/outbound/sms" and sms:
-                try:
-                    data = json.loads(msg.payload.decode())
-                    # Support both legacy and new key formats
-                    num = data.get("number") or data.get("phoneNumber")
-                    txt = data.get("message") or data.get("textMessage")
-                    if num and txt:
-                        print(f" [SMS] MQTT outbound received for {num} ({len(txt)} chars)")
-                        ok = sms.send_gsm_only(num, txt)
-                        if ok:
-                            print(f" [SMS] MQTT outbound delivered to {num}")
-                        else:
-                            print(
-                                f"\033[31m [SMS] MQTT outbound FAILED for {num} — "
-                                "check GSM on ttyUSB2, SIM, and antenna.\033[0m"
-                            )
-                    else:
-                        print(f"\033[31m [SMS] MQTT outbound missing number/message: {data}\033[0m")
-                except Exception as e:
-                    print(f"\033[31m [SMS] MQTT outbound error: {e}\033[0m")
-            elif msg.topic == "surgealert/outbound/sms" and not sms:
+            if msg.topic != "surgealert/outbound/sms":
+                return
+            if not gsm_worker:
                 print("\033[31m [SMS] MQTT outbound ignored — GSM module not initialized.\033[0m")
+                return
+            try:
+                data = json.loads(msg.payload.decode())
+                num = data.get("number") or data.get("phoneNumber")
+                txt = data.get("message") or data.get("textMessage")
+                if num and txt:
+                    print(f" [SMS] MQTT outbound received for {num} ({len(txt)} chars) — dispatching now")
+                    if str(data.get("priority", "")).lower() == "alert":
+                        gsm_worker.enqueue(num, txt)
+                    else:
+                        gsm_worker.enqueue_otp(num, txt)
+                else:
+                    print(f"\033[31m [SMS] MQTT outbound missing number/message: {data}\033[0m")
+            except Exception as e:
+                print(f"\033[31m [SMS] MQTT outbound error: {e}\033[0m")
 
         mqtt_client.on_message = on_sms
         mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)

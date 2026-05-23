@@ -45,7 +45,7 @@ export default function Register() {
             const via = data?.deliveryChannel === 'SEMAPHORE'
                 ? ' via SMS'
                 : data?.deliveryChannel === 'GSM_FALLBACK'
-                    ? ' via the station GSM modem (may take a minute)'
+                    ? ' via the station GSM modem (usually within seconds)'
                     : '';
             alert(`Verification code sent${via}. Please check your messages.`);
             setStep('subscribe_otp');

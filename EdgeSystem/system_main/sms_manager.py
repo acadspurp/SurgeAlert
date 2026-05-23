@@ -13,7 +13,7 @@ class SMSManager:
         self.baudrate = baudrate
         print(f" [GSM] Configured SIM7600 on {self.port} @ {self.baudrate}.")
 
-    def send_gsm_only(self, phone_number, message):
+    def send_gsm_only(self, phone_number, message, *, fast=False):
         """Send via SIM7600 only (backend MQTT fallback and offline alerts)."""
         ten = normalize_ph_mobile(phone_number)
         if not ten:
@@ -25,7 +25,7 @@ class SMSManager:
             return False
         # Try 09XXXXXXXXX first (typical PH SIM7600), then +63XXXXXXXXXX.
         for dial in (format_for_gsm(ten), format_for_gsm_intl(ten)):
-            if dial and self._send_via_gsm(dial, text):
+            if dial and self._send_via_gsm(dial, text, fast=fast):
                 return True
         return False
 
@@ -54,16 +54,20 @@ class SMSManager:
                 print(f" [GSM] Probe failed on {self.port}: {e}")
                 return False
 
-    def _send_via_gsm(self, dial_number, message):
+    def _send_via_gsm(self, dial_number, message, *, fast=False):
+        at_wait = 0.25 if fast else 0.4
+        prompt_timeout = 6.0 if fast else 8.0
+        send_wait = 4.0 if fast else 7.0
         with self._lock:
             try:
                 print(f" [GSM] Sending to {dial_number} via {self.port}...")
-                ser = serial.Serial(self.port, self.baudrate, timeout=3)
+                ser = serial.Serial(self.port, self.baudrate, timeout=2 if fast else 3)
 
-                def _at(cmd, wait=0.5):
+                def _at(cmd, wait=None):
+                    w = at_wait if wait is None else wait
                     ser.reset_input_buffer()
                     ser.write(cmd if isinstance(cmd, bytes) else cmd.encode())
-                    time.sleep(wait)
+                    time.sleep(w)
                     return ser.read_all().decode(errors="ignore")
 
                 if "OK" not in _at(b"AT\r"):
@@ -79,13 +83,13 @@ class SMSManager:
 
                 start_time = time.time()
                 prompt_received = False
-                while time.time() - start_time < 8:
+                while time.time() - start_time < prompt_timeout:
                     if ser.in_waiting > 0:
                         chunk = ser.read_all().decode(errors="ignore")
                         if ">" in chunk:
                             prompt_received = True
                             break
-                    time.sleep(0.1)
+                    time.sleep(0.05 if fast else 0.1)
 
                 if not prompt_received:
                     print(
@@ -97,7 +101,7 @@ class SMSManager:
 
                 # GSM 7-bit; OTP templates are ASCII.
                 ser.write(f"{message}\x1A".encode("ascii", errors="replace"))
-                time.sleep(8)
+                time.sleep(send_wait)
 
                 response = ser.read_all().decode(errors="ignore")
                 ser.close()

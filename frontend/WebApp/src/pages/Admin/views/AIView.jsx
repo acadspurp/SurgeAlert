@@ -10,9 +10,9 @@ export default function AIView(props) {
         openCreateUserModal, openEditUserModal, saveUserModal,
         beginEditTemplate, cancelEditTemplate, saveEditedTemplate,
         handleDeleteAdminUser,
-        approveDatasetRequest, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert, formatTideDateUtc, formatTideTimeUtc } = props;
+        approveDatasetRequest, tides, pendingCriticalAlerts, handleApproveCriticalAlert, handleRejectCriticalAlert, formatTideDateUtc, formatTideTimeUtc, formatTideDateTimeUtc } = props;
 
-    const formatTideDateTime = (value) => new Date(value).toLocaleString('en-US', { timeZone: 'Asia/Manila' });
+    const formatTideDateTime = (value) => formatTideDateTimeUtc(value);
     const formatTideTime = (value) => formatTideTimeUtc(value);
     const formatTideDate = (value) => formatTideDateUtc(value);
 

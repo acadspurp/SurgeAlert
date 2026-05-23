@@ -64,7 +64,7 @@ public class AdminAlertController {
                 normalized,
                 waterLevelM,
                 reason,
-                mqttSubscriberService::publishSmsToGsm);
+                (phone, msg) -> mqttSubscriberService.publishSmsToGsm(phone, msg, "alert"));
         response.put("smsRecipients", smsRecipients);
         if (smsRecipients == 0) {
             response.put("smsWarning", "Override saved but no active subscribers found.");

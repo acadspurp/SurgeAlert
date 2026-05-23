@@ -4,9 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surgealert.dto.SensorDataDTO;
 import com.surgealert.entity.SensorData;
 import com.surgealert.util.PhilippinePhoneUtil;
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -61,7 +63,7 @@ public class MqttSubscriberService {
                             "mqtt-ingest",
                             savedData,
                             dto,
-                            this::publishSmsToGsm);
+                            (phone, msg) -> publishSmsToGsm(phone, msg, "alert"));
                     System.out.println(" [MQTT] Successfully processed sensor payload - Alert Level: "
                             + savedData.getCurrentAlertLevel());
                 } catch (Exception e) {
@@ -80,26 +82,36 @@ public class MqttSubscriberService {
     }
 
     public void publishSmsToGsm(String phoneNumber, String textMessage) {
+        publishSmsToGsm(phoneNumber, textMessage, "otp");
+    }
+
+    public void publishSmsToGsm(String phoneNumber, String textMessage, String priority) {
         try {
-            if (mqttClient.isConnected()) {
-                String tenDigit = PhilippinePhoneUtil.normalizeToTenDigit(phoneNumber);
-                if (tenDigit == null) {
-                    System.err.println(" [MQTT] Cannot publish SMS; invalid phone: " + phoneNumber);
-                    return;
-                }
-                String dial = PhilippinePhoneUtil.toGsmDial(tenDigit);
-                String safeText = textMessage != null ? textMessage.replace("\"", "\\\"").replace("\n", "\\n") : "";
-                String payload = String.format("{\"number\":\"%s\", \"message\":\"%s\"}", dial, safeText);
-                org.eclipse.paho.client.mqttv3.MqttMessage message = new org.eclipse.paho.client.mqttv3.MqttMessage(
-                        payload.getBytes());
-                message.setQos(1);
-                mqttClient.publish("surgealert/outbound/sms", message);
-                System.out.println(" [MQTT] Published SMS to GSM module for: " + phoneNumber);
-            } else {
+            if (!mqttClient.isConnected()) {
                 System.err.println(" [MQTT] Cannot publish SMS; client disconnected.");
+                return;
             }
+            String tenDigit = PhilippinePhoneUtil.normalizeToTenDigit(phoneNumber);
+            if (tenDigit == null) {
+                System.err.println(" [MQTT] Cannot publish SMS; invalid phone: " + phoneNumber);
+                return;
+            }
+            String dial = PhilippinePhoneUtil.toGsmDial(tenDigit);
+            String safeText = textMessage != null ? textMessage.replace("\"", "\\\"").replace("\n", "\\n") : "";
+            String safePriority = "alert".equalsIgnoreCase(priority) ? "alert" : "otp";
+            String payload = String.format(
+                    "{\"number\":\"%s\",\"phoneNumber\":\"%s\",\"message\":\"%s\",\"priority\":\"%s\"}",
+                    dial, tenDigit, safeText, safePriority);
+            MqttMessage message = new MqttMessage(payload.getBytes());
+            message.setQos(1);
+            IMqttDeliveryToken token = mqttClient.publish("surgealert/outbound/sms", message);
+            token.waitForCompletion(5000);
+            System.out.println(" [MQTT] Published SMS to GSM (priority=" + safePriority + ") for: " + phoneNumber);
         } catch (MqttException e) {
             System.err.println(" [MQTT] Failed to publish SMS to GSM module: " + e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            System.err.println(" [MQTT] SMS publish interrupted: " + e.getMessage());
         }
     }
 
