@@ -41,9 +41,11 @@ public class ResidentController {
         if (tenDigit == null) {
             return ResponseEntity.badRequest().body("Invalid Philippine mobile number");
         }
+        System.out.println(" [OTP] send-otp requested for ***" + tenDigit.substring(Math.max(0, tenDigit.length() - 4)));
         String otp = residentService.generateOtp(tenDigit);
         String otpMessage = notificationService.getOtpMessage(otp);
         OtpDeliveryService.DeliveryResult delivery = otpDeliveryService.deliverOtp(tenDigit, otpMessage);
+        System.out.println(" [OTP] delivery channel=" + delivery.channel() + " status=" + delivery.status());
 
         if ("INVALID_PHONE".equals(delivery.status())) {
             return ResponseEntity.badRequest().body(delivery.detail());
@@ -51,12 +53,18 @@ public class ResidentController {
 
         if ("GSM_FALLBACK".equals(delivery.channel())) {
             if (!mqttSubscriberService.isMqttConnected()) {
+                System.err.println(" [OTP] GSM path blocked: backend MQTT is not connected.");
                 return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
                         "SMS could not be sent: server MQTT is offline. Start the backend or check HiveMQ credentials.");
             }
-            // GSM delivery uses MQTT → Pi main_loop (background loop), not the 5-minute sensor wake window.
-            mqttSubscriberService.publishSmsToGsm(tenDigit, otpMessage, "otp");
-            String detail = "OTP sent to the station GSM modem — you should receive it within a few seconds.";
+            boolean published = mqttSubscriberService.publishSmsToGsm(tenDigit, otpMessage, "otp");
+            if (!published) {
+                System.err.println(" [OTP] MQTT publish to Pi failed — check HiveMQ ACL and broker URL.");
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
+                        "SMS could not be queued: MQTT publish failed. Check backend MQTT logs.");
+            }
+            System.out.println(" [OTP] MQTT message queued for Pi GSM on topic surgealert/outbound/sms");
+            String detail = "OTP queued to the station GSM modem — you should receive it within a few seconds.";
             return ResponseEntity.ok(Map.of(
                     "status", "OTP_ISSUED",
                     "deliveryChannel", "GSM_FALLBACK",

@@ -60,6 +60,7 @@ from system_main.edge_sync import (
 from system_main.edge_time_utils import grid_timestamp_iso
 from system_main.mqtt_publisher import frame_to_base64, publish_sensor_data
 from system_main.gsm_outbound import GsmOutboundWorker
+from system_main.mqtt_sms_bridge import SMS_OUTBOUND_TOPIC, attach_outbound_sms_handler
 from system_main.sms_manager import SMSManager
 
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="paho.mqtt")
@@ -258,34 +259,13 @@ def main():
     mqtt_client = None
     try:
         mqtt_client = _create_mqtt_client()
-
-        def on_sms(client, userdata, msg):
-            if msg.topic != "surgealert/outbound/sms":
-                return
-            if not gsm_worker:
-                print("\033[31m [SMS] MQTT outbound ignored — GSM module not initialized.\033[0m")
-                return
-            try:
-                data = json.loads(msg.payload.decode())
-                num = data.get("number") or data.get("phoneNumber")
-                txt = data.get("message") or data.get("textMessage")
-                if num and txt:
-                    print(f" [SMS] MQTT outbound received for {num} ({len(txt)} chars) — dispatching now")
-                    if str(data.get("priority", "")).lower() == "alert":
-                        gsm_worker.enqueue(num, txt)
-                    else:
-                        gsm_worker.enqueue_otp(num, txt)
-                else:
-                    print(f"\033[31m [SMS] MQTT outbound missing number/message: {data}\033[0m")
-            except Exception as e:
-                print(f"\033[31m [SMS] MQTT outbound error: {e}\033[0m")
-
-        mqtt_client.on_message = on_sms
+        attach_outbound_sms_handler(mqtt_client, gsm_worker)
         mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
-        mqtt_client.subscribe("surgealert/outbound/sms", qos=1)
         mqtt_client.loop_start()
-        print(f" [MQTT] OK: connected to {MQTT_BROKER}; publish → {MQTT_TOPIC_SENSOR}")
-        print(" [MQTT] Listening for OTP/alerts on topic surgealert/outbound/sms (QoS 1)")
+        print(f" [MQTT] OK: connected to {MQTT_BROKER}:{MQTT_PORT}; publish → {MQTT_TOPIC_SENSOR}")
+        print(f" [MQTT] Listening for OTP/alerts on {SMS_OUTBOUND_TOPIC}")
+        if not gsm_worker:
+            print("\033[33m [SMS] WARNING: GSM worker not started — OTP MQTT messages will be ignored.\033[0m")
     except Exception as e:
         print(
             f" [MQTT] CONNECTION FAILED ({MQTT_BROKER}:{MQTT_PORT}): {e} — "

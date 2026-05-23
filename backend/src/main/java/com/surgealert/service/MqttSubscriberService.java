@@ -81,20 +81,22 @@ public class MqttSubscriberService {
         return mqttConnected.get() && mqttClient.isConnected();
     }
 
-    public void publishSmsToGsm(String phoneNumber, String textMessage) {
-        publishSmsToGsm(phoneNumber, textMessage, "otp");
+    public static final String SMS_OUTBOUND_TOPIC = "surgealert/outbound/sms";
+
+    public boolean publishSmsToGsm(String phoneNumber, String textMessage) {
+        return publishSmsToGsm(phoneNumber, textMessage, "otp");
     }
 
-    public void publishSmsToGsm(String phoneNumber, String textMessage, String priority) {
+    public boolean publishSmsToGsm(String phoneNumber, String textMessage, String priority) {
         try {
             if (!mqttClient.isConnected()) {
                 System.err.println(" [MQTT] Cannot publish SMS; client disconnected.");
-                return;
+                return false;
             }
             String tenDigit = PhilippinePhoneUtil.normalizeToTenDigit(phoneNumber);
             if (tenDigit == null) {
                 System.err.println(" [MQTT] Cannot publish SMS; invalid phone: " + phoneNumber);
-                return;
+                return false;
             }
             String dial = PhilippinePhoneUtil.toGsmDial(tenDigit);
             String safeText = textMessage != null ? textMessage.replace("\"", "\\\"").replace("\n", "\\n") : "";
@@ -104,14 +106,19 @@ public class MqttSubscriberService {
                     dial, tenDigit, safeText, safePriority);
             MqttMessage message = new MqttMessage(payload.getBytes());
             message.setQos(1);
-            IMqttDeliveryToken token = mqttClient.publish("surgealert/outbound/sms", message);
+            IMqttDeliveryToken token = mqttClient.publish(SMS_OUTBOUND_TOPIC, message);
             token.waitForCompletion(5000);
-            System.out.println(" [MQTT] Published SMS to GSM (priority=" + safePriority + ") for: " + phoneNumber);
+            System.out.println(
+                    " [MQTT] Published to " + SMS_OUTBOUND_TOPIC + " (priority=" + safePriority + ") for ***"
+                            + tenDigit.substring(Math.max(0, tenDigit.length() - 4)));
+            return true;
         } catch (MqttException e) {
             System.err.println(" [MQTT] Failed to publish SMS to GSM module: " + e.getMessage());
+            return false;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             System.err.println(" [MQTT] SMS publish interrupted: " + e.getMessage());
+            return false;
         }
     }
 
