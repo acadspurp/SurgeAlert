@@ -74,6 +74,10 @@ class ImageProcessor:
         # --- PHYSICS CALCULATION ---
         displacements = good_new - good_old
         velocities_px = displacements / dt
+        # Guard against empty optical‑flow vectors
+        if velocities_px.size == 0:
+            # No motion detected – return zeros without warnings
+            return 0.0, 0.0, viz_frame, []
         avg_vel_px = np.mean(velocities_px, axis=0)
 
         # Result Conversion (Dynamic Scale based on water level)

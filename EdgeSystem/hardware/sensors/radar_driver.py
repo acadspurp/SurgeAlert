@@ -27,22 +27,19 @@ def init_radar():
         print(" [Radar] Simulated mode (USE_HARDWARE=false).")
         return
 
-    try:
-        print(f" [Radar] Opening HLK-LD2415H on {RADAR_PORT} @ {RADAR_BAUDRATE}...")
-        if not hasattr(serial, "Serial"):
-            raise AttributeError(
-                "module 'serial' has no attribute 'Serial' — install pyserial, not package 'serial'."
-            )
-        _serial_conn = serial.Serial(RADAR_PORT, RADAR_BAUDRATE, timeout=1)
-        _running = True
-        threading.Thread(target=_read_serial_loop, daemon=True).start()
-        print(f" [Radar] OK: serial open on {RADAR_PORT}.")
-    except Exception as e:
-        print(
-            f" [Radar] CONNECTION FAILED on {RADAR_PORT}: {e} — "
-            "check USB cable, power, and udev port mapping (expected radar on ttyUSB0)."
-        )
-        _running = False
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
+        try:
+            print(f" [Radar] CONNECT TRY {attempt}/{max_attempts} on {RADAR_PORT}...")
+            _serial_conn = serial.Serial(RADAR_PORT, RADAR_BAUDRATE, timeout=1)
+            _running = True
+            threading.Thread(target=_read_serial_loop, daemon=True).start()
+            print(f" [Radar] OK: serial open on {RADAR_PORT}.")
+            break
+        except Exception as e:
+            print(f" [Radar] CONNECTION FAILED attempt {attempt}/{max_attempts}: {e} — check USB cable, power, and udev port mapping.")
+            if attempt == max_attempts:
+                _running = False
 
 
 def _read_serial_loop():

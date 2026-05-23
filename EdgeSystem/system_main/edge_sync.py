@@ -1,7 +1,8 @@
 """Sync ml_features, residents, templates, and model artifacts via backend API."""
+import functools
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import requests
 
@@ -23,17 +24,38 @@ def _headers():
     return h
 
 
+def _retry(attempts=3, backoff=2):
+    """Retry HTTP helpers with exponential backoff."""
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            last_error = None
+            for attempt in range(1, attempts + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_error = e
+                    if attempt < attempts:
+                        print(f" [Sync] {func.__name__} retry {attempt}/{attempts}: {e}")
+                        time.sleep(backoff ** attempt)
+            print(f" [Sync] {func.__name__} failed after {attempts} attempts: {last_error}")
+            raise last_error
+
+        return wrapper
+
+    return decorator
+
+
+@_retry(attempts=3, backoff=2)
 def fetch_ml_features_realtime():
     """Latest row from ml_features_realtime (Render via backend)."""
-    try:
-        url = f"{BACKEND_API_URL}/edge/sync/ml-features"
-        r = requests.get(url, headers=_headers(), timeout=45)
-        if r.status_code == 200:
-            data = r.json()
-            return data if data else None
-    except Exception as e:
-        print(f" [Sync] ml_features_realtime unavailable: {e}")
-    return None
+    url = f"{BACKEND_API_URL}/edge/sync/ml-features"
+    r = requests.get(url, headers=_headers(), timeout=45)
+    if r.status_code == 200:
+        data = r.json()
+        return data if data else None
+    raise RuntimeError(f"ml_features HTTP {r.status_code}")
 
 
 def resolve_ml_features(db_manager):
@@ -42,7 +64,12 @@ def resolve_ml_features(db_manager):
     Offline: use latest SQLite cache.
     Returns (features_dict, is_stale).
     """
-    fresh = fetch_ml_features_realtime()
+    try:
+        fresh = fetch_ml_features_realtime()
+    except Exception as e:
+        print(f" [Sync] ml_features_realtime unavailable: {e}")
+        fresh = None
+
     has_features = bool(fresh) and any(
         fresh.get(k) is not None
         for k in ("Tide_Height_m", "QC_Rain_mm", "Pressure_hPa", "timestamp")
@@ -67,14 +94,19 @@ def resolve_ml_features(db_manager):
     return cached, stale
 
 
+@_retry(attempts=3, backoff=2)
+def _fetch_offline_bundle_http():
+    url = f"{BACKEND_API_URL}/edge/sync/all"
+    r = requests.get(url, headers=_headers(), timeout=45)
+    if r.status_code != 200:
+        raise RuntimeError(f"offline bundle HTTP {r.status_code}")
+    return r.json()
+
+
 def fetch_offline_bundle(db_manager):
     """Residents (with priority), SMS templates, OTP cache."""
     try:
-        url = f"{BACKEND_API_URL}/edge/sync/all"
-        r = requests.get(url, headers=_headers(), timeout=45)
-        if r.status_code != 200:
-            return False
-        data = r.json()
+        data = _fetch_offline_bundle_http()
         db_manager.sync_residents(data.get("residents") or [])
         db_manager.sync_templates(data.get("templates") or [])
         db_manager.sync_otps(data.get("otps") or {})

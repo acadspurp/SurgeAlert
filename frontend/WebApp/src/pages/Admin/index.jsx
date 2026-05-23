@@ -12,7 +12,7 @@ import {
     fetchTemplates as fetchTemplatesAPI, saveTemplate as saveTemplateAPI,
     fetchSensorData, overrideAlert, downloadReport,
     fetchAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser, fetchSystemLogs, fetchEvacuationSites,
-    fetchAllDatasetRequests, updateDatasetRequestStatus, registerResident, updateCanaryConfig,
+    fetchAllDatasetRequests, updateDatasetRequestStatus, registerResidentAsAdmin, updateCanaryConfig,
     toggleResidentPriority,
 } from '../../services/api.js';
 import { computeHardwareHealth } from '../../utils/edgeConnectivity.js';
@@ -737,7 +737,7 @@ export default function Admin() {
     const handleAddManualResident = async (e, phoneOverride = null) => {
         if (e && e.preventDefault) e.preventDefault();
         try {
-            await registerResident({
+            await registerResidentAsAdmin({
                 fullName: newResidentState.name,
                 phoneNumber: phoneOverride || newResidentState.phone,
                 isPriority: newResidentState.isPriority

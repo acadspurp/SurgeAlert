@@ -85,19 +85,41 @@ public class ResidentController {
                         .body("OTP verification required before registration");
             }
 
-            residentService.registerResident(request);
-            residentService.consumeRegistrationVerification(tenDigit);
-
-            String successMsg = notificationService.getRegistrationSuccessMessage();
-            OtpDeliveryService.DeliveryResult delivery = otpDeliveryService.deliverOtp(tenDigit, successMsg);
-            if ("GSM_FALLBACK".equals(delivery.channel())) {
-                mqttSubscriberService.publishSmsToGsm(tenDigit, successMsg);
-            }
-
-            return ResponseEntity.status(HttpStatus.CREATED).body("Resident registered successfully");
+            return completeRegistration(request, tenDigit, true);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
+    }
+
+    /** Admin subscriber list: no OTP; requires ADMIN or HEAD_ADMIN (see SecurityConfig). */
+    @PostMapping("/admin/register")
+    public ResponseEntity<?> registerResidentAsAdmin(@RequestBody ResidentRequest request) {
+        try {
+            String tenDigit = PhilippinePhoneUtil.normalizeToTenDigit(request.getPhoneNumber());
+            if (tenDigit == null) {
+                return ResponseEntity.badRequest().body("Invalid Philippine mobile number");
+            }
+            request.setPhoneNumber(tenDigit);
+            return completeRegistration(request, tenDigit, false);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    private ResponseEntity<?> completeRegistration(
+            ResidentRequest request, String tenDigit, boolean consumeOtpVerification) {
+        residentService.registerResident(request);
+        if (consumeOtpVerification) {
+            residentService.consumeRegistrationVerification(tenDigit);
+        }
+
+        String successMsg = notificationService.getRegistrationSuccessMessage();
+        OtpDeliveryService.DeliveryResult delivery = otpDeliveryService.deliverOtp(tenDigit, successMsg);
+        if ("GSM_FALLBACK".equals(delivery.channel())) {
+            mqttSubscriberService.publishSmsToGsm(tenDigit, successMsg);
+        }
+
+        return ResponseEntity.status(HttpStatus.CREATED).body("Resident registered successfully");
     }
 
     @DeleteMapping("/{phoneNumber}")

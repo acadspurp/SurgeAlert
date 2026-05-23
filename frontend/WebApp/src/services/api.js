@@ -214,6 +214,21 @@ export async function registerResident(userData) {
     return await response.text();
 }
 
+/** Admin Add Subscriber — authenticated, skips public OTP gate. */
+export async function registerResidentAsAdmin(userData) {
+    const response = await apiFetch(`${API_BASE_URL}/residents/admin/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Registration failed');
+    }
+    return await response.text();
+}
+
 // --- OTP ---
 export async function fetchOtpConfig() {
     const response = await fetch(`${API_BASE_URL}/public/config/otp`, { mode: 'cors' });
