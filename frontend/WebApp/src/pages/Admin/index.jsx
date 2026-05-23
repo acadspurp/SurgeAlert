@@ -709,7 +709,7 @@ export default function Admin() {
             loadDashboardData();
             if (isHeadAdmin) loadAdminUsersData(); // Reload logs
         } catch (e) {
-            alert('Error overriding alert.');
+            alert(e?.message || 'Error overriding alert.');
         }
     };
 

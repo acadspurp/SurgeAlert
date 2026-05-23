@@ -115,12 +115,21 @@ export async function fetchSystemThresholds() {
 }
 
 export async function overrideAlert(level, reason = "") {
-    const response = await apiFetch(`${API_BASE_URL}/public/alerts/override`, {
+    const response = await apiFetch(`${API_BASE_URL}/admin/alerts/override`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ level, reason })
     });
-    if (!response.ok) throw new Error('Failed to override alert');
+    if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        if (response.status === 401) {
+            throw new Error('Session expired. Log in again as Head Admin.');
+        }
+        if (response.status === 403) {
+            throw new Error('Only Head Admin accounts can override alerts.');
+        }
+        throw new Error(detail || `Override failed (HTTP ${response.status})`);
+    }
     return await response.json();
 }
 
@@ -137,13 +146,13 @@ export async function fetchPendingCriticalAlerts() {
 }
 
 export async function approvePendingCriticalAlert(id) {
-    const response = await apiFetch(`${API_BASE_URL}/public/alerts/critical/pending/${id}/approve`, { method: 'POST' });
+    const response = await apiFetch(`${API_BASE_URL}/admin/alerts/critical/pending/${id}/approve`, { method: 'POST' });
     if (!response.ok) throw new Error('Failed to approve critical alert');
     return await response.json();
 }
 
 export async function rejectPendingCriticalAlert(id) {
-    const response = await apiFetch(`${API_BASE_URL}/public/alerts/critical/pending/${id}/reject`, { method: 'POST' });
+    const response = await apiFetch(`${API_BASE_URL}/admin/alerts/critical/pending/${id}/reject`, { method: 'POST' });
     if (!response.ok) throw new Error('Failed to reject critical alert');
     return await response.json();
 }

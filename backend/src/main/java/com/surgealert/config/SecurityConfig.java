@@ -51,9 +51,6 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/public/alerts/override").hasRole("HEAD_ADMIN")
-                        .requestMatchers("/api/public/alerts/critical/pending/*/approve").hasRole("HEAD_ADMIN")
-                        .requestMatchers("/api/public/alerts/critical/pending/*/reject").hasRole("HEAD_ADMIN")
                         .anyRequest().permitAll());
         return http.build();
     }
@@ -90,6 +87,9 @@ public class SecurityConfig {
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/public/alerts/critical/pending/**").permitAll()
                 .requestMatchers("/api/residents/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/admin/alerts/override").hasRole("HEAD_ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/admin/alerts/critical/pending/*/approve").hasRole("HEAD_ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/admin/alerts/critical/pending/*/reject").hasRole("HEAD_ADMIN")
                 .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
                 .requestMatchers("/api/sensor-data/reports/**").hasAnyRole("ADMIN", "HEAD_ADMIN")
                 .anyRequest().authenticated()
