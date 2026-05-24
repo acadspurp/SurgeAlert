@@ -44,9 +44,9 @@ PROFILES = {
     },
     "POOL": {
         "sensor_height_m": 1.2,
-        "water_level_scale_factor": 6.0,
-        "rise_rate_scale_factor": 6.0,
-        "flow_scale_factor": 6.0,
+        "water_level_scale_factor": 8.0,
+        "rise_rate_scale_factor": 8.0,
+        "flow_scale_factor": 2.0,
         "smoothing_window": 5,
         "max_delta_m_per_cycle": 0.7,
         "water_level_yellow_threshold": 3.50,
