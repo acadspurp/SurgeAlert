@@ -104,15 +104,27 @@ def _fetch_offline_bundle_http():
 
 
 def fetch_offline_bundle(db_manager):
-    """Residents (with priority), SMS templates, OTP cache."""
+    """Residents (with priority), SMS templates, OTP cache, pending override SMS."""
     try:
         data = _fetch_offline_bundle_http()
         db_manager.sync_residents(data.get("residents") or [])
         db_manager.sync_templates(data.get("templates") or [])
         db_manager.sync_otps(data.get("otps") or {})
-        return True
+        return data
     except Exception as e:
         print(f" [Sync] Offline bundle fetch failed: {e}")
+        return None
+
+
+def ack_override_sms_broadcast(broadcast_id):
+    if not broadcast_id:
+        return False
+    try:
+        url = f"{BACKEND_API_URL}/edge/sync/override-sms/ack"
+        r = requests.post(url, headers=_headers(), json={"id": broadcast_id}, timeout=20)
+        return r.status_code == 200
+    except Exception as e:
+        print(f" [Sync] Override SMS ack failed: {e}")
         return False
 
 

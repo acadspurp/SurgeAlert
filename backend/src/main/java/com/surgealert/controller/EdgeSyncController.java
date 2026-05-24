@@ -6,6 +6,7 @@ import com.surgealert.entity.SensorData;
 import com.surgealert.repository.AlertTemplateRepository;
 import com.surgealert.repository.MLFeaturesRealtimeRepository;
 import com.surgealert.service.ResidentService;
+import com.surgealert.service.OverrideSmsBroadcastService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -38,6 +39,7 @@ public class EdgeSyncController {
     private final com.surgealert.service.SensorDataService sensorDataService;
     private final com.surgealert.service.MlModelRegistryService mlModelRegistry;
     private final com.surgealert.service.MlTrainingService mlTrainingService;
+    private final OverrideSmsBroadcastService overrideSmsBroadcastService;
 
     @Autowired
     public EdgeSyncController(ResidentService residentService,
@@ -45,13 +47,15 @@ public class EdgeSyncController {
                               MLFeaturesRealtimeRepository mlRepository,
                               com.surgealert.service.SensorDataService sensorDataService,
                               com.surgealert.service.MlModelRegistryService mlModelRegistry,
-                              com.surgealert.service.MlTrainingService mlTrainingService) {
+                              com.surgealert.service.MlTrainingService mlTrainingService,
+                              OverrideSmsBroadcastService overrideSmsBroadcastService) {
         this.residentService = residentService;
         this.templateRepository = templateRepository;
         this.mlRepository = mlRepository;
         this.sensorDataService = sensorDataService;
         this.mlModelRegistry = mlModelRegistry;
         this.mlTrainingService = mlTrainingService;
+        this.overrideSmsBroadcastService = overrideSmsBroadcastService;
     }
 
     /**
@@ -66,7 +70,25 @@ public class EdgeSyncController {
                 .collect(Collectors.toList());
         data.put("templates", templates);
         data.put("otps", getActiveOtps());
+        overrideSmsBroadcastService.peekPending().ifPresent(b -> {
+            Map<String, String> override = new LinkedHashMap<>();
+            override.put("id", b.id());
+            override.put("level", b.level());
+            override.put("message", b.message());
+            data.put("overrideSmsBroadcast", override);
+        });
         return ResponseEntity.ok(data);
+    }
+
+    /** Pi confirms manual-override GSM broadcast was delivered locally. */
+    @PostMapping("/override-sms/ack")
+    public ResponseEntity<Map<String, String>> ackOverrideSms(@RequestBody Map<String, String> body) {
+        if (body != null && body.get("id") != null) {
+            overrideSmsBroadcastService.clearPending(body.get("id"));
+        }
+        Map<String, String> resp = new LinkedHashMap<>();
+        resp.put("status", "ok");
+        return ResponseEntity.ok(resp);
     }
 
     @Autowired

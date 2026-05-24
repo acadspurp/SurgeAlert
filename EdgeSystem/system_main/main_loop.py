@@ -51,6 +51,7 @@ from processing.sensor_fusion import build_cycle_reading
 from system_main.database_manager import DatabaseManager
 from system_main.data_logger import DataLogger
 from system_main.edge_sync import (
+    ack_override_sms_broadcast,
     download_model_if_updated,
     fetch_offline_bundle,
     ml_features_to_weather_dict,
@@ -67,6 +68,7 @@ from system_main.sms_manager import SMSManager
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="paho.mqtt")
 
 _last_sent_alert_level = None
+_last_override_sms_id = None
 _GSM_LOCAL_LEVELS = frozenset({"YELLOW", "ORANGE", "RED"})
 
 
@@ -173,6 +175,51 @@ def _commit_alert_level_dispatched(new_level):
     _last_sent_alert_level = (new_level or "GREEN").upper()
 
 
+def _broadcast_gsm_message(sms, phones, message):
+    """Send the same alert text to subscribers (priority order). Returns success count."""
+    if not sms or not message or not phones:
+        return 0
+    sent = 0
+    for phone in phones:
+        if sms.send_gsm_only(phone, message):
+            sent += 1
+    return sent
+
+
+def _maybe_send_override_sms(sms, db, bundle):
+    """Deliver head-admin manual override SMS via local GSM (sync fallback)."""
+    global _last_override_sms_id
+    if not sms or not bundle:
+        return
+    override = bundle.get("overrideSmsBroadcast")
+    if not override:
+        return
+    broadcast_id = override.get("id")
+    if not broadcast_id or broadcast_id == _last_override_sms_id:
+        return
+    message = (override.get("message") or "").strip()
+    level = (override.get("level") or "RED").upper()
+    if not message:
+        return
+    phones = db.get_residents_for_sms()
+    if not phones:
+        print(" [SMS] Manual override skipped: no residents in local DB.")
+        return
+    sent = _broadcast_gsm_message(sms, phones, message)
+    if not sent:
+        return
+    _last_override_sms_id = broadcast_id
+    _commit_alert_level_dispatched(level)
+    if ack_override_sms_broadcast(broadcast_id):
+        print(
+            f" [SMS] Manual override GSM: sent to {sent} resident(s) (priority first)."
+        )
+    else:
+        print(
+            f" [SMS] Manual override GSM: sent to {sent} resident(s); ack pending."
+        )
+
+
 def _maybe_send_offline_alerts(sms, db, reading, cloud_online):
     if not sms:
         return
@@ -189,10 +236,7 @@ def _maybe_send_offline_alerts(sms, db, reading, cloud_online):
         print(" [SMS] Alert skipped: no residents in local DB.")
         return
 
-    sent = 0
-    for phone in phones:
-        if sms.send_gsm_only(phone, message):
-            sent += 1
+    sent = _broadcast_gsm_message(sms, phones, message)
     if sent:
         _commit_alert_level_dispatched(level)
         print(
@@ -270,14 +314,18 @@ def main():
                 f" [Camera] Init failed (CV flow will be 0): {e}"
             )
 
-    cloud_online = fetch_offline_bundle(db)
+    sync_bundle = fetch_offline_bundle(db)
+    cloud_online = sync_bundle is not None
+    _maybe_send_override_sms(sms, db, sync_bundle)
 
     try:
         while True:
             cycle_start = time.time()
             cycle_ts = grid_timestamp_iso()
 
-            cloud_online = fetch_offline_bundle(db)
+            sync_bundle = fetch_offline_bundle(db)
+            cloud_online = sync_bundle is not None
+            _maybe_send_override_sms(sms, db, sync_bundle)
             if cloud_online and download_model_if_updated():
                 alert_mgr.reload_model()
                 predictor.alert_manager.reload_model()

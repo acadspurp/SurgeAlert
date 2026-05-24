@@ -84,26 +84,72 @@ public class AlertSmsDispatchService {
     }
 
     private int broadcastToResidents(String levelToMark, String messageToSend, BiConsumer<String, String> gsmPublisher) {
-        int attempted = 0;
         List<String> phones = residentService.getAllActivePhoneNumbers();
+        int sent = publishViaGsmModule(phones, messageToSend, gsmPublisher);
+        if (sent > 0) {
+            alertNotificationStateService.markDispatched(levelToMark);
+            System.out.println(
+                    " [SMS] Alert " + levelToMark + " dispatched to " + sent + " subscriber(s).");
+        } else {
+            System.err.println(" [SMS] No active subscriber phone numbers — alert not sent.");
+        }
+        return sent;
+    }
+
+    /** Publish alert SMS to Pi GSM module (Semaphore disabled — all alerts use SIM7600). */
+    private int publishViaGsmModule(
+            List<String> phones, String messageToSend, BiConsumer<String, String> gsmPublisher) {
+        if (gsmPublisher == null || messageToSend == null || messageToSend.isBlank()) {
+            return 0;
+        }
+        int sent = 0;
         for (String phone : phones) {
             if (phone == null || phone.isBlank()) {
                 continue;
             }
-            attempted++;
-            OtpDeliveryService.DeliveryResult res = otpDeliveryService.deliverOtp(phone, messageToSend);
-            if ("GSM_FALLBACK".equals(res.channel()) && gsmPublisher != null) {
-                gsmPublisher.accept(phone, messageToSend);
-            }
+            gsmPublisher.accept(phone, messageToSend);
+            sent++;
         }
-        if (attempted > 0) {
-            alertNotificationStateService.markDispatched(levelToMark);
-            System.out.println(
-                    " [SMS] Alert " + levelToMark + " dispatched to " + attempted + " subscriber(s).");
-        } else {
-            System.err.println(" [SMS] No active subscriber phone numbers — alert not sent.");
+        return sent;
+    }
+
+    public String composeManualOverrideMessage(String level, Double waterLevelM, String reason) {
+        String normalized = level == null ? "" : level.trim().toUpperCase(Locale.ROOT);
+        if (normalized.equals("NORMAL")) {
+            normalized = "GREEN";
         }
-        return attempted;
+        String message = notificationService.getAlertMessage(normalized, waterLevelM);
+        if (message == null || message.isBlank()) {
+            message = String.format(
+                    Locale.ENGLISH,
+                    "SurgeAlert: Manual %s alert. Water level %.2fm.",
+                    normalized,
+                    waterLevelM != null ? waterLevelM : 0.0);
+        }
+        if (reason != null && !reason.isBlank()) {
+            message = message.trim() + " Admin note: " + reason.trim();
+        }
+        return message;
+    }
+
+    public int dispatchManualOverrideMessage(String message, BiConsumer<String, String> gsmPublisher) {
+        if (message == null || message.isBlank()) {
+            return 0;
+        }
+        return publishViaGsmModule(residentService.getAllActivePhoneNumbers(), message, gsmPublisher);
+    }
+
+    public void markManualOverrideDispatched(String level) {
+        String normalized = level == null ? "" : level.trim().toUpperCase(Locale.ROOT);
+        if (!normalized.isBlank()) {
+            alertNotificationStateService.markDispatched(normalized);
+        }
+    }
+
+    public int getActiveSubscriberCount() {
+        return (int) residentService.getAllActivePhoneNumbers().stream()
+                .filter(p -> p != null && !p.isBlank())
+                .count();
     }
 
     private boolean isPhysicalRed(Double waterLevelM) {
@@ -139,32 +185,12 @@ public class AlertSmsDispatchService {
             return 0;
         }
 
-        String message = notificationService.getAlertMessage(normalized, waterLevelM);
-        if (message == null || message.isBlank()) {
-            message = String.format(
-                    Locale.ENGLISH,
-                    "SurgeAlert: Manual %s alert. Water level %.2fm.",
-                    normalized,
-                    waterLevelM != null ? waterLevelM : 0.0);
+        String message = composeManualOverrideMessage(normalized, waterLevelM, reason);
+        int sent = dispatchManualOverrideMessage(message, gsmPublisher);
+        if (sent > 0) {
+            markManualOverrideDispatched(normalized);
+            System.out.println(" [SMS] Manual override " + normalized + " dispatched to " + sent + " subscriber(s).");
         }
-        if (reason != null && !reason.isBlank()) {
-            message = message.trim() + " Admin note: " + reason.trim();
-        }
-
-        int attempted = 0;
-        List<String> phones = residentService.getAllActivePhoneNumbers();
-        for (String phone : phones) {
-            if (phone == null || phone.isBlank()) {
-                continue;
-            }
-            attempted++;
-            OtpDeliveryService.DeliveryResult res = otpDeliveryService.deliverOtp(phone, message);
-            if ("GSM_FALLBACK".equals(res.channel()) && gsmPublisher != null) {
-                gsmPublisher.accept(phone, message);
-            }
-        }
-        alertNotificationStateService.markDispatched(normalized);
-        System.out.println(" [SMS] Manual override " + normalized + " dispatched to " + attempted + " subscriber(s).");
-        return attempted;
+        return sent;
     }
 }

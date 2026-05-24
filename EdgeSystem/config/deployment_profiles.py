@@ -59,7 +59,7 @@ PROFILES = {
         "prediction_anchor_min_uplift_m": 0.20,
         "prediction_anchor_rise_headroom_factor": 1.25,
         "prediction_ml_blend_weight": 0.35,
-        "pixels_to_meters": 0.01,
+        "pixels_to_meters": 0.05,
         "cv_min_dist_to_water_m": 0.20,
         "tide_scaling_factor": 0.025,
         "sleep_duration_sec": 270,

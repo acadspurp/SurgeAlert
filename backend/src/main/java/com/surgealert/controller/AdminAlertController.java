@@ -5,6 +5,8 @@ import com.surgealert.service.AlertSmsDispatchService;
 import com.surgealert.service.CriticalAlertApprovalService;
 import com.surgealert.service.ManualOverrideService;
 import com.surgealert.service.MqttSubscriberService;
+import com.surgealert.service.OverrideSmsBroadcastService;
+import com.surgealert.service.OverrideSmsBroadcastService.OverrideBroadcast;
 import com.surgealert.service.SensorDataService;
 import com.surgealert.util.AlertLevelUtils;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Head-admin alert controls (requires JWT on /api/admin/**, not the public API chain).
@@ -26,18 +29,21 @@ public class AdminAlertController {
     private final AlertSmsDispatchService alertSmsDispatchService;
     private final SensorDataService sensorDataService;
     private final MqttSubscriberService mqttSubscriberService;
+    private final OverrideSmsBroadcastService overrideSmsBroadcastService;
 
     public AdminAlertController(
             ManualOverrideService manualOverrideService,
             CriticalAlertApprovalService criticalAlertApprovalService,
             AlertSmsDispatchService alertSmsDispatchService,
             SensorDataService sensorDataService,
-            MqttSubscriberService mqttSubscriberService) {
+            MqttSubscriberService mqttSubscriberService,
+            OverrideSmsBroadcastService overrideSmsBroadcastService) {
         this.manualOverrideService = manualOverrideService;
         this.criticalAlertApprovalService = criticalAlertApprovalService;
         this.alertSmsDispatchService = alertSmsDispatchService;
         this.sensorDataService = sensorDataService;
         this.mqttSubscriberService = mqttSubscriberService;
+        this.overrideSmsBroadcastService = overrideSmsBroadcastService;
     }
 
     @PostMapping("/override")
@@ -51,6 +57,7 @@ public class AdminAlertController {
 
         if (level == null || level.trim().isEmpty() || level.equalsIgnoreCase("NORMAL")) {
             manualOverrideService.clearOverride();
+            overrideSmsBroadcastService.clearAnyPending();
             UserController.addLog("Admin cleared manual override. System returned to AUTO.");
             return ResponseEntity.ok(response);
         }
@@ -66,16 +73,35 @@ public class AdminAlertController {
 
         SensorDataDTO latest = sensorDataService.getLatestSensorData();
         Double waterLevelM = latest != null ? latest.getWaterLevelM() : null;
-        int smsRecipients = alertSmsDispatchService.dispatchManualOverride(
-                normalized,
-                waterLevelM,
-                reason,
-                (phone, msg) -> mqttSubscriberService.publishSmsToGsm(phone, msg, "alert"));
+        String message = alertSmsDispatchService.composeManualOverrideMessage(normalized, waterLevelM, reason);
+        OverrideBroadcast pending = overrideSmsBroadcastService.setPending(normalized, message);
+        AtomicInteger published = new AtomicInteger(0);
+        int attempted = alertSmsDispatchService.dispatchManualOverrideMessage(
+                message,
+                (phone, msg) -> {
+                    if (mqttSubscriberService.publishSmsToGsm(phone, msg, "alert")) {
+                        published.incrementAndGet();
+                    }
+                });
+        int smsRecipients = published.get();
+        if (smsRecipients > 0) {
+            alertSmsDispatchService.markManualOverrideDispatched(normalized);
+        }
+        int totalPhones = alertSmsDispatchService.getActiveSubscriberCount();
+        if (smsRecipients >= totalPhones && totalPhones > 0) {
+            overrideSmsBroadcastService.clearPending(pending.id());
+        }
         response.put("smsRecipients", smsRecipients);
         if (smsRecipients == 0) {
-            response.put(
-                    "smsWarning",
-                    "Override saved but SMS was not sent (no active subscribers or delivery failed).");
+            if (attempted == 0) {
+                response.put(
+                        "smsWarning",
+                        "Override saved but SMS was not sent (no active subscribers).");
+            } else {
+                response.put(
+                        "smsWarning",
+                        "Override saved. MQTT publish failed — Pi will retry via edge sync on next sync.");
+            }
         } else if (!mqttSubscriberService.isMqttConnected()) {
             response.put(
                     "smsWarning",

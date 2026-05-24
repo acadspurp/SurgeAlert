@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
@@ -99,12 +101,14 @@ public class MqttSubscriberService {
                 return false;
             }
             String dial = PhilippinePhoneUtil.toGsmDial(tenDigit);
-            String safeText = textMessage != null ? textMessage.replace("\"", "\\\"").replace("\n", "\\n") : "";
             String safePriority = "alert".equalsIgnoreCase(priority) ? "alert" : "otp";
-            String payload = String.format(
-                    "{\"number\":\"%s\",\"phoneNumber\":\"%s\",\"message\":\"%s\",\"priority\":\"%s\"}",
-                    dial, tenDigit, safeText, safePriority);
-            MqttMessage message = new MqttMessage(payload.getBytes());
+            Map<String, String> payloadMap = new LinkedHashMap<>();
+            payloadMap.put("number", dial);
+            payloadMap.put("phoneNumber", tenDigit);
+            payloadMap.put("message", textMessage != null ? textMessage : "");
+            payloadMap.put("priority", safePriority);
+            byte[] payloadBytes = objectMapper.writeValueAsBytes(payloadMap);
+            MqttMessage message = new MqttMessage(payloadBytes);
             message.setQos(1);
             // MqttClient.publish(topic, message) is void in Paho 1.2.x; use topic.publish for delivery token.
             IMqttDeliveryToken token = mqttClient.getTopic(SMS_OUTBOUND_TOPIC).publish(message);
