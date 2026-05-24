@@ -75,33 +75,55 @@ public class ExternalApiService {
     }
 
     public WeatherResponse fetchWeatherForecast(boolean forceRefresh) {
-        LocalDate today = LocalDate.now(MANILA);
-
         if (!forceRefresh) {
-            try {
-                Optional<WeatherCachePayload> cached = readCachedPayload(today);
-                if (cached.isPresent() && hasUsableForecast(cached.get())) {
-                    return cached.get().getForecast();
-                }
-
-                Optional<WeatherCache> latestOpt = weatherCacheRepository.findTopByOrderByFetchDateDesc();
-                if (latestOpt.isPresent()) {
-                    WeatherCache latest = latestOpt.get();
-                    long age = Math.abs(ChronoUnit.DAYS.between(latest.getFetchDate(), today));
-                    if (age <= Math.max(0, weatherCacheMaxAgeDays)) {
-                        Optional<WeatherCachePayload> stale = parsePayload(latest.getJsonResponse());
-                        if (stale.isPresent() && hasUsableForecast(stale.get())) {
-                            return stale.get().getForecast();
-                        }
-                    }
-                }
-            } catch (Exception db) {
-                System.err.println("Weather cache DB unavailable, skipping cache: " + db.getMessage());
+            WeatherResponse cached = resolveCachedForecast(false);
+            if (cached != null) {
+                return cached;
             }
         }
 
         WeatherCachePayload refreshed = refreshWeatherCache();
-        return refreshed != null ? refreshed.getForecast() : null;
+        if (refreshed != null) {
+            return refreshed.getForecast();
+        }
+
+        WeatherResponse stale = resolveCachedForecast(true);
+        if (stale != null) {
+            System.out.println(" [Weather] Live fetch failed — serving last cached forecast from DB.");
+            return stale;
+        }
+        return null;
+    }
+
+    /** Prefer today's row, then recent cache; with {@code allowAnyAge}, return any displayable row. */
+    private WeatherResponse resolveCachedForecast(boolean allowAnyAge) {
+        LocalDate today = LocalDate.now(MANILA);
+        try {
+            Optional<WeatherCachePayload> todayPayload = readCachedPayload(today);
+            if (todayPayload.isPresent() && hasUsableForecast(todayPayload.get())) {
+                return todayPayload.get().getForecast();
+            }
+
+            Optional<WeatherCache> latestOpt = weatherCacheRepository.findTopByOrderByFetchDateDesc();
+            if (latestOpt.isPresent()) {
+                WeatherCache latest = latestOpt.get();
+                Optional<WeatherCachePayload> parsed = parsePayload(latest.getJsonResponse());
+                if (parsed.isPresent()) {
+                    if (!allowAnyAge) {
+                        long age = Math.abs(ChronoUnit.DAYS.between(latest.getFetchDate(), today));
+                        if (age <= Math.max(0, weatherCacheMaxAgeDays)
+                                && hasUsableForecast(parsed.get())) {
+                            return parsed.get().getForecast();
+                        }
+                    } else if (hasDisplayableForecast(parsed.get())) {
+                        return parsed.get().getForecast();
+                    }
+                }
+            }
+        } catch (Exception db) {
+            System.err.println("Weather cache DB unavailable, skipping cache: " + db.getMessage());
+        }
+        return null;
     }
 
     /** Latest cached QC + Marulas hourly JSON for ML metrics (no live API). */
@@ -277,19 +299,32 @@ public class ExternalApiService {
     }
 
     private boolean hasUsableForecast(WeatherResponse response) {
+        if (!hasDisplayableForecast(response)) {
+            return false;
+        }
+        List<String> times = response.getDaily().getTime();
+        String today = LocalDate.now(MANILA).toString();
+        boolean hasToday = times.stream().anyMatch(t -> t != null && t.startsWith(today));
+        boolean hasFuture = times.stream().anyMatch(t -> t != null && t.compareTo(today) >= 0);
+        return hasToday && hasFuture;
+    }
+
+    /** Any non-empty daily forecast — used when live API is down but DB still has data. */
+    private boolean hasDisplayableForecast(WeatherCachePayload payload) {
+        return payload != null && hasDisplayableForecast(payload.getForecast());
+    }
+
+    private boolean hasDisplayableForecast(WeatherResponse response) {
         if (response == null || response.getDaily() == null) {
             return false;
         }
         List<String> times = response.getDaily().getTime();
-        if (times == null || times.isEmpty()) {
-            return false;
-        }
-        String today = LocalDate.now(MANILA).toString();
-        boolean hasToday = times.stream().anyMatch(t -> t != null && t.startsWith(today));
-        boolean hasFuture = times.stream().anyMatch(t -> t != null && t.compareTo(today) >= 0);
-        return hasToday && hasFuture
-                && response.getDaily().getWeathercode() != null
-                && !response.getDaily().getWeathercode().isEmpty();
+        List<Integer> codes = response.getDaily().getWeathercode();
+        return times != null
+                && !times.isEmpty()
+                && codes != null
+                && !codes.isEmpty()
+                && codes.size() >= times.size();
     }
 
     private boolean hasUsableHourly(WeatherCachePayload payload) {

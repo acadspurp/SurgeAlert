@@ -327,9 +327,13 @@ export default function Home() {
             const hasToday = Array.isArray(primary?.daily?.time)
                 && primary.daily.time.some((t) => String(t).startsWith(todayKey));
 
-            if ((!hasToday || !primary?.daily?.time?.length) && primary) {
-                const refreshed = await fetchWeatherData(true);
-                if (refreshed?.daily?.time?.length) data = refreshed;
+            if ((!hasToday || !primary?.daily?.time?.length) && primary?.daily?.time?.length) {
+                try {
+                    const refreshed = await fetchWeatherData(true);
+                    if (refreshed?.daily?.time?.length) data = refreshed;
+                } catch (refreshErr) {
+                    console.warn('Weather refresh failed; using cached forecast.', refreshErr);
+                }
             }
 
             const dayData = data?.daily;
