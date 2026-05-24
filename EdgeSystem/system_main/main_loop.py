@@ -67,8 +67,7 @@ from system_main.sms_manager import SMSManager
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="paho.mqtt")
 
 _last_sent_alert_level = None
-
-_ALERT_RANK = {"GREEN": 0, "YELLOW": 1, "ORANGE": 2, "RED": 3}
+_GSM_LOCAL_LEVELS = frozenset({"YELLOW", "ORANGE", "RED"})
 
 
 def _create_mqtt_client(client_id="SurgeAlertEdge"):
@@ -160,27 +159,12 @@ def _format_offline_sms(template, reading):
     return msg
 
 
-def _alert_rank(level):
-    return _ALERT_RANK.get((level or "GREEN").upper(), 0)
-
-
-def _should_block_sms_by_prediction(current_level, reading):
-    """Hold SMS if ML +1h alert is materially lower than current (not used in message body)."""
-    pred = (reading.get("predicted_alert_level") or "GREEN").upper()
-    if _alert_rank(pred) + 1 < _alert_rank(current_level):
-        print(
-            f" [SMS] Skipped: predicted alert {pred} vs current {current_level}."
-        )
-        return True
-    return False
-
-
 def _alert_level_changed(new_level):
     """True when alert level differs from last dispatched SMS level."""
     global _last_sent_alert_level
     level = (new_level or "GREEN").upper()
     if _last_sent_alert_level is None:
-        return level in ("YELLOW", "ORANGE", "RED")
+        return level in _GSM_LOCAL_LEVELS
     return _last_sent_alert_level != level
 
 
@@ -190,19 +174,19 @@ def _commit_alert_level_dispatched(new_level):
 
 
 def _maybe_send_offline_alerts(sms, db, reading, cloud_online):
-    if cloud_online or not sms:
+    if not sms:
         return
     level = (reading.get("current_alert_level") or "GREEN").upper()
-    if not _alert_level_changed(level):
+    if level not in _GSM_LOCAL_LEVELS:
         return
-    if _should_block_sms_by_prediction(level, reading):
+    if not _alert_level_changed(level):
         return
 
     template = db.get_template(level) or db.get_template("RED")
     message = _format_offline_sms(template, reading)
     phones = db.get_residents_for_sms()
     if not phones:
-        print(" [SMS] Offline alert skipped: no residents in local DB.")
+        print(" [SMS] Alert skipped: no residents in local DB.")
         return
 
     sent = 0
@@ -212,7 +196,7 @@ def _maybe_send_offline_alerts(sms, db, reading, cloud_online):
     if sent:
         _commit_alert_level_dispatched(level)
         print(
-            f" [SMS] Offline GSM: level change → {level}, sent to {sent} resident(s)."
+            f" [SMS] GSM alert: level change → {level}, sent to {sent} resident(s) (priority first)."
         )
 
 

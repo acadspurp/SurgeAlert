@@ -2,6 +2,8 @@ package com.surgealert.service;
 
 import com.surgealert.dto.SensorDataDTO;
 import com.surgealert.entity.SensorData;
+import com.surgealert.service.CriticalAlertApprovalService.PendingCriticalAlert;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -20,6 +22,9 @@ public class AlertSmsDispatchService {
     private final CriticalAlertApprovalService criticalAlertApprovalService;
     private final AlertConfidenceService alertConfidenceService;
     private final OtpDeliveryService otpDeliveryService;
+
+    @Value("${surgealert.thresholds.red:5.50}")
+    private double redThresholdM;
 
     public AlertSmsDispatchService(
             AlertNotificationStateService alertNotificationStateService,
@@ -51,51 +56,69 @@ public class AlertSmsDispatchService {
         if (!alertNotificationStateService.shouldDispatchSms(level, savedData.getPredictedAlertLevel())) {
             return false;
         }
+        // YELLOW/ORANGE/RED SMS is sent directly on the Pi GSM module.
+        if ("YELLOW".equalsIgnoreCase(level) || "ORANGE".equalsIgnoreCase(level) || "RED".equalsIgnoreCase(level)) {
+            return false;
+        }
         final String levelToMark = level;
 
         String messageToSend = notificationService.getAlertMessage(level, savedData.getWaterLevelM());
-        if (messageToSend == null) {
-            if ("GREEN".equalsIgnoreCase(level)) {
-                messageToSend = String.format(
-                        Locale.ENGLISH,
-                        "SurgeAlert: Alert level is now GREEN. Water level %.2fm.",
-                        savedData.getWaterLevelM() != null ? savedData.getWaterLevelM() : 0.0);
-            } else {
+        if (messageToSend == null || messageToSend.isBlank()) {
+            messageToSend = defaultAlertMessage(level, savedData.getWaterLevelM());
+            if (messageToSend == null) {
                 return false;
             }
         }
 
-        boolean isCritical = level.equalsIgnoreCase("YELLOW")
-                || level.equalsIgnoreCase("ORANGE")
-                || level.equalsIgnoreCase("RED");
+        return broadcastToResidents(levelToMark, messageToSend, gsmPublisher) > 0;
+    }
 
-        if (isCritical) {
-            AlertConfidenceService.ConfidenceResult confidence = alertConfidenceService.evaluate(
-                    sensorId == null ? "mqtt-ingest" : sensorId,
-                    dto,
-                    level,
-                    savedData.getPredictedAlertLevel());
-            if (criticalAlertApprovalService.requiresApproval(level) && !confidence.highConfidence()) {
-                criticalAlertApprovalService.createPendingAlert(
-                        sensorId == null ? "edge-unknown" : sensorId,
-                        messageToSend,
-                        savedData.getWaterLevelM());
-                return false;
-            }
+    /**
+     * Sends SMS for a head-admin-approved pending RED alert and marks RED as dispatched.
+     */
+    public int dispatchApprovedRedAlert(PendingCriticalAlert pending, BiConsumer<String, String> gsmPublisher) {
+        if (pending == null || pending.message() == null || pending.message().isBlank()) {
+            return 0;
         }
+        return broadcastToResidents("RED", pending.message(), gsmPublisher);
+    }
 
+    private int broadcastToResidents(String levelToMark, String messageToSend, BiConsumer<String, String> gsmPublisher) {
+        int attempted = 0;
         List<String> phones = residentService.getAllActivePhoneNumbers();
         for (String phone : phones) {
             if (phone == null || phone.isBlank()) {
                 continue;
             }
+            attempted++;
             OtpDeliveryService.DeliveryResult res = otpDeliveryService.deliverOtp(phone, messageToSend);
             if ("GSM_FALLBACK".equals(res.channel()) && gsmPublisher != null) {
                 gsmPublisher.accept(phone, messageToSend);
             }
         }
-        alertNotificationStateService.markDispatched(levelToMark);
-        return true;
+        if (attempted > 0) {
+            alertNotificationStateService.markDispatched(levelToMark);
+            System.out.println(
+                    " [SMS] Alert " + levelToMark + " dispatched to " + attempted + " subscriber(s).");
+        } else {
+            System.err.println(" [SMS] No active subscriber phone numbers — alert not sent.");
+        }
+        return attempted;
+    }
+
+    private boolean isPhysicalRed(Double waterLevelM) {
+        return waterLevelM != null && waterLevelM >= redThresholdM;
+    }
+
+    private String defaultAlertMessage(String level, Double waterLevelM) {
+        String normalized = level == null ? "" : level.trim().toUpperCase(Locale.ROOT);
+        double wl = waterLevelM != null ? waterLevelM : 0.0;
+        return switch (normalized) {
+            case "GREEN" -> String.format(Locale.ENGLISH, "SurgeAlert: Alert level is now GREEN. Water level %.2fm.", wl);
+            case "YELLOW", "ORANGE", "RED" -> String.format(
+                    Locale.ENGLISH, "SurgeAlert: %s alert. Water level %.2fm.", normalized, wl);
+            default -> null;
+        };
     }
 
     /**

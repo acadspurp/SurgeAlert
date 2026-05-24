@@ -30,6 +30,9 @@ public class AlertConfidenceService {
     @Value("${surgealert.confidence.cv-min-rise-mps:0.005}")
     private double cvMinRiseMps;
 
+    @Value("${surgealert.thresholds.red:5.50}")
+    private double redThresholdM;
+
     public ConfidenceResult evaluate(String sensorId, SensorDataDTO dto, String currentAlertLevel, String predictedAlertLevel) {
         String key = (sensorId == null || sensorId.isBlank()) ? "default-sensor" : sensorId.trim().toLowerCase();
         Deque<Double> history = levelHistoryBySensor.computeIfAbsent(key, ignored -> new ArrayDeque<>());
@@ -84,21 +87,32 @@ public class AlertConfidenceService {
 
     private boolean crossModalConsistencyGate(SensorDataDTO dto) {
         if (dto == null || dto.getWaterLevelM() == null) return false;
+        if (dto.getWaterLevelM() >= redThresholdM) {
+            return true;
+        }
         Double riseMph = dto.getRiseRate();
         if (riseMph == null) return false;
-        boolean sensorRiskHigh = dto.getWaterLevelM() >= 8.5;
+        boolean sensorRiskHigh = dto.getWaterLevelM() >= redThresholdM;
         boolean riseRiskHigh = (riseMph / 3600.0) >= cvMinRiseMps;
-        return sensorRiskHigh == riseRiskHigh || (sensorRiskHigh && riseRiskHigh);
+        return sensorRiskHigh == riseRiskHigh;
     }
 
     private boolean trendAndPredictionGate(Deque<Double> history, String currentAlertLevel, String predictedAlertLevel) {
-        boolean currentRed = "RED".equalsIgnoreCase(currentAlertLevel);
-        boolean predictedRed = "RED".equalsIgnoreCase(predictedAlertLevel);
-        if (!currentRed || !predictedRed) return false;
-        if (history.size() < 2) return false;
+        if (!"RED".equalsIgnoreCase(currentAlertLevel)) {
+            return true;
+        }
+        if (history.size() >= 1) {
+            Double last = history.peekLast();
+            if (last != null && last >= redThresholdM) {
+                return true;
+            }
+        }
+        if (history.size() < 2) {
+            return "RED".equalsIgnoreCase(predictedAlertLevel);
+        }
         Double first = history.peekFirst();
         Double last = history.peekLast();
-        return first != null && last != null && (last >= first);
+        return first != null && last != null && last >= first;
     }
 
     public record ConfidenceResult(

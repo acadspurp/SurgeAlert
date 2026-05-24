@@ -90,8 +90,22 @@ public class AdminAlertController {
         if (pending == null) {
             return ResponseEntity.notFound().build();
         }
-        UserController.addLog("RED alert approval " + id + " set to " + pending.status() + ".");
-        return ResponseEntity.ok(pending);
+        int smsRecipients = 0;
+        if ("APPROVED".equals(pending.status())) {
+            smsRecipients = alertSmsDispatchService.dispatchApprovedRedAlert(
+                    pending,
+                    (phone, msg) -> mqttSubscriberService.publishSmsToGsm(phone, msg, "alert"));
+        }
+        UserController.addLog(
+                "RED alert approval " + id + " set to " + pending.status() + " (SMS to " + smsRecipients + ").");
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("id", pending.id());
+        body.put("status", pending.status());
+        body.put("smsRecipients", smsRecipients);
+        if (smsRecipients == 0 && "APPROVED".equals(pending.status())) {
+            body.put("smsWarning", "Approved but SMS was not sent (no subscribers or delivery failed).");
+        }
+        return ResponseEntity.ok(body);
     }
 
     @PostMapping("/red/pending/{id}/reject")

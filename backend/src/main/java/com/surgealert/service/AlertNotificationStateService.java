@@ -41,9 +41,7 @@ public class AlertNotificationStateService {
     }
 
     private boolean shouldBlockByPrediction(String currentLevel, String predictedAlertLevel) {
-        int current = rank(currentLevel);
-        int predicted = rank(predictedAlertLevel);
-        return predicted + 1 < current;
+        return false;
     }
 
     private static int rank(String level) {

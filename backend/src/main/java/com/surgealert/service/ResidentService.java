@@ -142,7 +142,9 @@ public class ResidentService {
 
     public List<String> getAllActivePhoneNumbers() {
         return residentRepository.findByIsActiveTrue().stream()
-                .sorted((a, b) -> Boolean.compare(b.getIsPriority(), a.getIsPriority()))
+                .sorted((a, b) -> Boolean.compare(
+                        Boolean.TRUE.equals(b.getIsPriority()),
+                        Boolean.TRUE.equals(a.getIsPriority())))
                 .map(Resident::getPhoneNumber)
                 .collect(Collectors.toList());
     }
