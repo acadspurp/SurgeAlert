@@ -23,6 +23,19 @@ export function formatManilaWallDateFromMs(ms = Date.now()) {
     });
 }
 
+/** Human-readable age (minutes-first; hours/days when large). */
+export function formatRelativeAge(secondsAgo) {
+    if (secondsAgo == null || !Number.isFinite(secondsAgo)) return null;
+    const sec = Math.max(0, Math.floor(secondsAgo));
+    const minutes = Math.floor(sec / 60);
+    if (minutes < 1) return '< 1m ago';
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+}
+
 /** Relative + absolute labels for a sensor_data row timestamp (ms since epoch). */
 export function formatSensorAge(lastMs) {
     if (lastMs == null || !Number.isFinite(lastMs)) {
@@ -35,13 +48,14 @@ export function formatSensorAge(lastMs) {
         };
     }
     const secondsAgo = Math.max(0, Math.floor((Date.now() - lastMs) / 1000));
+    const relative = formatRelativeAge(secondsAgo);
     const absoluteClock = formatManilaWallClockFromMs(lastMs);
     const absoluteDate = formatManilaWallDateFromMs(lastMs);
     return {
         secondsAgo,
-        relative: `${secondsAgo}s ago`,
+        relative,
         absoluteClock,
         absoluteDate,
-        shortLabel: `${secondsAgo}s ago · ${absoluteClock} · ${absoluteDate} (Manila)`,
+        shortLabel: `${relative} · ${absoluteClock} · ${absoluteDate} (Manila)`,
     };
 }

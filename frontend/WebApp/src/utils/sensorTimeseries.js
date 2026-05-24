@@ -54,6 +54,17 @@ function parseNum(v) {
     return Number.isFinite(n) ? n : null;
 }
 
+/** True when edge marked the row as simulated (USE_HARDWARE=false or no Pi GPIO). */
+export function isSimulatedSensorRow(row) {
+    if (!row || typeof row !== 'object') return false;
+    const v = row.isSimulated ?? row.is_simulated;
+    return v === true || v === 'true' || v === 1;
+}
+
+export function filterSimulatedSensorRows(rows) {
+    return (Array.isArray(rows) ? rows : []).filter((r) => !isSimulatedSensorRow(r));
+}
+
 /** Radar/fused/CV flow from API row (snake_case or camelCase). */
 export function resolveSensorFlowMps(row) {
     if (!row || typeof row !== 'object') return null;
@@ -130,11 +141,14 @@ export function normalizeSensorRow(row) {
         predictedLevel: row.predictedLevel != null ? parseNum(row.predictedLevel) : parseNum(row.predicted_level),
         predictedAlertLevel: row.predictedAlertLevel ?? row.predicted_alert_level,
         snapshotBase64: row.snapshotBase64 ?? row.snapshot_base64 ?? null,
+        isSimulated: isSimulatedSensorRow(row),
     };
 }
 
 export function normalizeSensorRows(rows) {
-    return (Array.isArray(rows) ? rows : []).map(normalizeSensorRow).filter(Boolean);
+    return filterSimulatedSensorRows(
+        (Array.isArray(rows) ? rows : []).map(normalizeSensorRow).filter(Boolean)
+    );
 }
 
 export function countValidTimestampRows(rows) {
@@ -162,6 +176,17 @@ export function sortSensorRowsNewestFirst(rows) {
 export function trimRowsToLastHours(rows, hours) {
     const cutoff = Date.now() - hours * 60 * 60 * 1000;
     return (rows || []).filter((r) => new Date(r.timestamp).getTime() >= cutoff);
+}
+
+/** Drop points after the last real edge contact so stale history does not look live. */
+export function trimRowsThroughContact(rows, lastContactMs) {
+    if (lastContactMs == null || !Number.isFinite(lastContactMs)) {
+        return filterSimulatedSensorRows(rows);
+    }
+    return filterSimulatedSensorRows(rows).filter((r) => {
+        const t = new Date(r.timestamp).getTime();
+        return Number.isFinite(t) && t <= lastContactMs;
+    });
 }
 
 export function csvTextToSensorRows(csvText) {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../config.js';
-import { normalizeSensorRow } from '../utils/sensorTimeseries.js';
+import { normalizeSensorRow, isSimulatedSensorRow } from '../utils/sensorTimeseries.js';
 
 /** Polls GET /sensor-data/latest every 10s (Pi ingests via MQTT on the backend). */
 export function useLatestSensorPolling() {
@@ -24,7 +24,7 @@ export function useLatestSensorPolling() {
                 const payload = await response.json();
                 const row = normalizeSensorRow(payload);
                 if (isMounted) {
-                    setLatestSensor(row);
+                    setLatestSensor(row && !isSimulatedSensorRow(row) ? row : null);
                 }
             } catch (error) {
                 console.error('Latest sensor poll error:', error);

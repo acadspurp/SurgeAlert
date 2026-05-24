@@ -1,7 +1,7 @@
 """Publish sensor_data telemetry via MQTT (images via HTTPS, not MQTT)."""
 import json
 
-from config.settings import USE_HARDWARE
+from config.settings import TELEMETRY_IS_SIMULATED
 
 
 def build_mqtt_payload(reading):
@@ -17,7 +17,7 @@ def build_mqtt_payload(reading):
         "current_alert_level": reading["current_alert_level"],
         "predicted_level": reading["predicted_level"],
         "predicted_alert_level": reading["predicted_alert_level"],
-        "is_simulated": not USE_HARDWARE,
+        "is_simulated": TELEMETRY_IS_SIMULATED,
     }
 
 

@@ -34,6 +34,7 @@ from config.settings import (
     MQTT_USERNAME,
     RISE_RATE_WINDOW_SEC,
     SLEEP_DURATION_SEC,
+    TELEMETRY_IS_SIMULATED,
     USE_HARDWARE,
 )
 from alert_logic.alert_manager import AlertManager
@@ -384,7 +385,7 @@ def main():
                         "current_alert_level": row["current_alert_level"],
                         "predicted_level": row["predicted_level"],
                         "predicted_alert_level": row["predicted_alert_level"],
-                        "is_simulated": not USE_HARDWARE,
+                        "is_simulated": TELEMETRY_IS_SIMULATED,
                     }
                     try:
                         if mqtt_client:

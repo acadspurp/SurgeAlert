@@ -17,11 +17,14 @@ import {
 } from '../../services/api.js';
 import { computeHardwareHealth } from '../../utils/edgeConnectivity.js';
 import {
+    filterSimulatedSensorRows,
     isCsvDemoFallbackEnabled,
+    isSimulatedSensorRow,
     pickNewestSensorRow,
     resolveSensorFlowMps,
     resolveSensorHeartbeatMs,
     statusToSensorRow,
+    trimRowsThroughContact,
 } from '../../utils/sensorTimeseries.js';
 import { useLatestSensorPolling } from '../../hooks/useLatestSensorPolling.js';
 import 'chartjs-adapter-date-fns';
@@ -229,7 +232,7 @@ export default function Admin() {
     const displayName = (user && (user.fullName || user.username)) || 'Admin';
 
     const touchSensorRow = (row) => {
-        if (!row) return;
+        if (!row || isSimulatedSensorRow(row)) return;
         setCachedSensorRow(row);
         if (!row.timestamp || isCsvDemoFallbackEnabled()) return;
         const tsIso = normalizeSensorInstant(row.timestamp);
@@ -440,10 +443,10 @@ export default function Admin() {
 
     const loadChartData = async (hours, type = 'TELEMETRY') => {
         try {
-            let incoming = await fetchSensorData(hours);
-            if (!incoming?.length) {
+            let incoming = filterSimulatedSensorRows(await fetchSensorData(hours));
+            if (!incoming?.length && hardwareOnline) {
                 const fallback = await fetchLatestSensorReading();
-                if (fallback) incoming = [fallback];
+                if (fallback && !isSimulatedSensorRow(fallback)) incoming = [fallback];
             }
             const cutoffMs = Date.now() - hours * 60 * 60 * 1000;
             /** Hard cap so very fast ingest (e.g. 1 Hz) cannot freeze the dashboard; Chart.js still decimates. */
@@ -587,7 +590,7 @@ export default function Admin() {
     // -------------------------------------------------------------
     useEffect(() => {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
-        if (!mqttData?.timestamp) return;
+        if (!mqttData?.timestamp || isSimulatedSensorRow(mqttData)) return;
 
         touchSensorRow(mqttData);
         setDashData((prev) => mergePollIntoDashData(prev, mqttData));
@@ -958,15 +961,20 @@ export default function Admin() {
             return Number.isFinite(t) && t >= cutoff;
         });
     };
-    const telemetryForChart = sensorRowsThrough(sortedTelemetry, telemetryTime);
-    const cvForChart = sensorRowsThrough(sortedCv, cvTime);
-    const aiForChart = sensorRowsThrough(sortedTelemetry, aiTime);
+    const chartRowsBase = (rows, hours) =>
+        sensorRowsThrough(
+            hardwareOnline ? rows : trimRowsThroughContact(rows, lastMqttAt),
+            hours
+        );
+    const telemetryForChart = chartRowsBase(sortedTelemetry, telemetryTime);
+    const cvForChart = chartRowsBase(sortedCv, cvTime);
+    const aiForChart = chartRowsBase(sortedTelemetry, aiTime);
 
     const lineDatasetOpts = {
         borderWidth: 2,
         pointRadius: 0,
         pointHitRadius: 6,
-        spanGaps: true,
+        spanGaps: false,
     };
 
     // Telemetry Chart (Multiple Lines) — sensor_data: water_level, sensor_flow_rate_mps
@@ -986,9 +994,12 @@ export default function Admin() {
 
     // AI Chart — sensor_data: water_level + predicted_level (segment to +1h)
     const lastHistorical = aiForChart.length > 0 ? aiForChart[aiForChart.length - 1] : null;
-    const nextHour = lastHistorical 
+    const nextHour = lastHistorical
         ? new Date(new Date(lastHistorical.timestamp).getTime() + 60 * 60 * 1000).toISOString()
-        : new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        : null;
+    const showMlPrediction = hardwareOnline
+        && lastHistorical
+        && lastHistorical.predictedLevel != null;
 
     const aiChartData = {
         datasets: [
@@ -1001,7 +1012,7 @@ export default function Admin() {
             {
                 ...lineDatasetOpts,
                 label: 'ML Prediction (m)',
-                data: lastHistorical ? [
+                data: showMlPrediction ? [
                     { x: lastHistorical.timestamp, y: lastHistorical.waterLevelM },
                     { x: nextHour, y: lastHistorical.predictedLevel }
                 ] : [],

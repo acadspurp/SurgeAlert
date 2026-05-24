@@ -77,6 +77,16 @@ LK_CRITERIA = (3, 10, 0.03)
 # --- SYSTEM CONFIGURATION ---
 USE_HARDWARE = os.getenv("USE_HARDWARE", "true").lower() == "true"
 
+try:
+    import RPi.GPIO as GPIO  # noqa: F401
+
+    _IS_RASPBERRY_PI = True
+except (ImportError, RuntimeError):
+    _IS_RASPBERRY_PI = False
+
+# Edge may synthesize ultrasonic distance when not on Pi GPIO even if USE_HARDWARE=true.
+TELEMETRY_IS_SIMULATED = (not USE_HARDWARE) or (not _IS_RASPBERRY_PI)
+
 # --- DEPLOYMENT PROFILE (see config/deployment_profiles.py) ---
 # Switch here: "RIVER" (Tullahan) or "POOL" (tank test, ×6 telemetry)
 ENVIRONMENT_MODE = "POOL"
