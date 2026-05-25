@@ -126,6 +126,42 @@ public class ResidentController {
         }
     }
 
+    /**
+     * After successful subscribe (OTP verified + /register), send REGISTER template via Pi GSM.
+     */
+    private boolean sendRegistrationWelcomeSms(String tenDigit) {
+        String successMsg = notificationService.getRegistrationSuccessMessage();
+        if (successMsg == null || successMsg.isBlank()) {
+            successMsg =
+                    "SurgeAlert: Welcome! Matagumpay ang iyong pag-subscribe sa Marulas Flood Alert System. "
+                            + "Makakatanggap ka na ng mga SMS alerts kung may banta ng baha.";
+        }
+        OtpDeliveryService.DeliveryResult delivery = otpDeliveryService.deliverOtp(tenDigit, successMsg);
+        if (!"GSM_FALLBACK".equals(delivery.channel())) {
+            System.out.println(
+                    " [SMS] REGISTER welcome sent via " + delivery.channel() + " for ***"
+                            + tenDigit.substring(Math.max(0, tenDigit.length() - 4)));
+            return true;
+        }
+        if (!mqttSubscriberService.isMqttConnected()) {
+            System.err.println(
+                    " [SMS] REGISTER welcome not sent: backend MQTT offline for ***"
+                            + tenDigit.substring(Math.max(0, tenDigit.length() - 4)));
+            return false;
+        }
+        boolean published = mqttSubscriberService.publishSmsToGsm(tenDigit, successMsg, "alert");
+        if (published) {
+            System.out.println(
+                    " [SMS] REGISTER welcome queued to Pi GSM for ***"
+                            + tenDigit.substring(Math.max(0, tenDigit.length() - 4)));
+        } else {
+            System.err.println(
+                    " [SMS] REGISTER welcome MQTT publish failed for ***"
+                            + tenDigit.substring(Math.max(0, tenDigit.length() - 4)));
+        }
+        return published;
+    }
+
     private ResponseEntity<?> completeRegistration(
             ResidentRequest request, String tenDigit, boolean consumeOtpVerification) {
         residentService.registerResident(request);
@@ -133,11 +169,7 @@ public class ResidentController {
             residentService.consumeRegistrationVerification(tenDigit);
         }
 
-        String successMsg = notificationService.getRegistrationSuccessMessage();
-        OtpDeliveryService.DeliveryResult delivery = otpDeliveryService.deliverOtp(tenDigit, successMsg);
-        if ("GSM_FALLBACK".equals(delivery.channel())) {
-            mqttSubscriberService.publishSmsToGsm(tenDigit, successMsg, "alert");
-        }
+        sendRegistrationWelcomeSms(tenDigit);
 
         return ResponseEntity.status(HttpStatus.CREATED).body("Resident registered successfully");
     }
