@@ -1,5 +1,6 @@
 package com.surgealert.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surgealert.dto.SensorDataDTO;
 import com.surgealert.entity.SensorData;
@@ -117,6 +118,9 @@ public class MqttSubscriberService {
                     " [MQTT] Published to " + SMS_OUTBOUND_TOPIC + " (priority=" + safePriority + ") for ***"
                             + tenDigit.substring(Math.max(0, tenDigit.length() - 4)));
             return true;
+        } catch (JsonProcessingException e) {
+            System.err.println(" [MQTT] Failed to serialize SMS payload: " + e.getMessage());
+            return false;
         } catch (MqttException e) {
             System.err.println(" [MQTT] Failed to publish SMS to GSM module: " + e.getMessage());
             return false;
