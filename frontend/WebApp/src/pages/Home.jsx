@@ -44,6 +44,8 @@ export default function Home() {
     const [tidesError, setTidesError] = useState(null);
     const [isTidesLoading, setIsTidesLoading] = useState(true);
     const [isOffline, setIsOffline] = useState(false);
+    const [manualOverrideActive, setManualOverrideActive] = useState(false);
+    const [overrideLevel, setOverrideLevel] = useState(null);
     const [isFabOpen, setIsFabOpen] = useState(true);
     // Thresholds fetched from backend (driven by SENSOR_DEPTH_M in .env)
     const [sensorConfig, setSensorConfig] = useState({
@@ -187,9 +189,14 @@ export default function Home() {
 
             const isOverride = data.manualOverrideActive
                 || (data.description && data.description.includes('OVERRIDE'));
-            const alertLevel = data.alertLevel ?? data.alert_level ?? 'GREEN';
+            const officialLevel = data.alertLevel ?? data.alert_level ?? 'GREEN';
+            const sensorLevel = data.sensorAlertLevel ?? statusRow?.currentAlertLevel ?? officialLevel;
             const waterM = statusRow?.waterLevelM ?? data.waterLevelM ?? data.water_level;
-            processAlertData(alertLevel, waterM, isOverride);
+            // River gauge always reflects live Pi/Postgres sensor level, not head-admin override.
+            const displayLevel = sensorLevel ?? officialLevel;
+            setManualOverrideActive(isOverride);
+            setOverrideLevel(isOverride ? officialLevel : null);
+            processAlertData(displayLevel, waterM, false);
         } catch (error) {
             console.error("Failed to fetch status:", error);
             // Fallback path: pull directly from latest sensor_data when public status endpoint fails.
@@ -232,9 +239,7 @@ export default function Home() {
         };
         let normalized = String(rawLevel || 'GREEN').toUpperCase();
         if (normalized === 'CRITICAL') normalized = 'RED';
-        const levelKey = isOverride
-            ? rawLevel.toLowerCase()
-            : (levelMap[normalized] || classifyAlertLevel(floatVal, sensorConfigRef.current.thresholds));
+        const levelKey = levelMap[normalized] || classifyAlertLevel(floatVal, sensorConfigRef.current.thresholds);
 
         setWaterLevel(floatVal.toFixed(2) + ' m');
         setAlertLevelKey(levelKey);
@@ -532,6 +537,11 @@ export default function Home() {
                                     <div className="w-32 h-16 bg-gray-700 rounded-lg animate-pulse mx-auto"></div>
                                 ) : (
                                     <p className="text-6xl sm:text-7xl font-black tracking-tighter text-[#38bdf8] truncate">{waterLevel}</p>
+                                )}
+                                {manualOverrideActive && overrideLevel && (
+                                    <p className="mt-2 text-xs sm:text-sm font-bold text-amber-400 text-center px-2">
+                                        Manual override active ({overrideLevel}) — gauge shows live sensor reading.
+                                    </p>
                                 )}
                                 <div className={`mt-4 px-2 sm:px-4 py-2 rounded-md border text-center font-black font-mono tracking-wider shadow-lg text-sm sm:text-base truncate ${alertLevelKey === 'red' ? 'bg-red-900/60 border-red-500 text-red-500 shadow-[0_0_15px_rgba(255,0,0,0.5)]' : alertLevelKey === 'orange' ? 'bg-orange-900/60 border-orange-500 text-[#ff8800] shadow-[0_0_15px_rgba(255,136,0,0.4)]' : alertLevelKey === 'yellow' ? 'bg-yellow-900/60 border-yellow-400 text-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.2)]' : 'bg-green-900/40 border-green-500 text-green-400'}`}>
                                     {alertLevelText}

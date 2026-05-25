@@ -126,10 +126,7 @@ public class AlertSmsDispatchService {
                     normalized,
                     waterLevelM != null ? waterLevelM : 0.0);
         }
-        if (reason != null && !reason.isBlank()) {
-            message = message.trim() + " Admin note: " + reason.trim();
-        }
-        return message;
+        return message == null ? "" : message.trim();
     }
 
     public int dispatchManualOverrideMessage(String message, BiConsumer<String, String> gsmPublisher) {
