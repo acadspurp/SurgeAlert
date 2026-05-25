@@ -1,4 +1,4 @@
-"""Priority queue + worker thread for instant GSM OTP delivery over MQTT."""
+"""Priority queue + worker thread for GSM SMS (one CMGS at a time with cooldown)."""
 import queue
 import threading
 
@@ -31,11 +31,11 @@ class GsmOutboundWorker:
     def _run(self):
         while True:
             _priority, _seq, number, text = self._queue.get()
+            fast = _priority == _PRIORITY_OTP
             try:
                 if not self._sms:
                     print("\033[31m [GSM] Worker: no SMS manager — message dropped.\033[0m")
                     continue
-                fast = _priority == _PRIORITY_OTP
                 ok = self._sms.send_gsm_only(number, text, fast=fast)
                 if ok:
                     print(f" [GSM] Worker delivered to {number}")
@@ -44,4 +44,11 @@ class GsmOutboundWorker:
             except Exception as e:
                 print(f"\033[31m [GSM] Worker error: {e}\033[0m")
             finally:
+                if self._sms:
+                    self._sms.cooldown_after_send(fast=fast)
+                    if not self._sms.wait_until_ready():
+                        print(
+                            "\033[33m [GSM] Module still busy after cooldown — "
+                            "next SMS may retry AT again.\033[0m"
+                        )
                 self._queue.task_done()

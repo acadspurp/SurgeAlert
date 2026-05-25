@@ -198,7 +198,11 @@ def _broadcast_gsm_message(sms, phones, message):
     if not sms or not message or not phones:
         return 0
     sent = 0
-    for phone in phones:
+    for i, phone in enumerate(phones):
+        if i > 0:
+            sms.cooldown_after_send(fast=False)
+            if not sms.wait_until_ready():
+                print(" [GSM] Module not ready before next subscriber — retrying send anyway.")
         if sms.send_gsm_only(phone, message):
             sent += 1
     return sent
