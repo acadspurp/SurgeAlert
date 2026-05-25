@@ -5,6 +5,17 @@ import threading
 from system_main.phone_utils import normalize_ph_mobile, format_for_gsm, format_for_gsm_intl
 
 
+# GSM single-SMS limit (7-bit); longer text causes +CMS ERROR: SMS size more than expected
+GSM_SMS_MAX_CHARS = 160
+
+
+def _truncate_gsm_message(message):
+    text = (message or "").strip()
+    if len(text) <= GSM_SMS_MAX_CHARS:
+        return text
+    return text[: GSM_SMS_MAX_CHARS - 3].rstrip() + "..."
+
+
 class SMSManager:
     _lock = threading.Lock()
 
@@ -19,7 +30,7 @@ class SMSManager:
         if not ten:
             print(f" [GSM] CONFIG: invalid phone number for GSM: {phone_number}")
             return False
-        text = (message or "").strip()
+        text = _truncate_gsm_message(message)
         if not text:
             print(" [GSM] CONFIG: empty message")
             return False

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../config.js';
+import { LIVE_DATA_POLL_MS } from '../constants/livePolling.js';
 import { normalizeSensorRow, isSimulatedSensorRow } from '../utils/sensorTimeseries.js';
 
-/** Polls GET /sensor-data/latest every 10s (Pi ingests via MQTT on the backend). */
-export function useLatestSensorPolling() {
+/** Polls GET /sensor-data/latest on a short interval (Pi ingests via MQTT on the backend). */
+export function useLatestSensorPolling(intervalMs = LIVE_DATA_POLL_MS) {
     const [latestSensor, setLatestSensor] = useState(null);
 
     useEffect(() => {
@@ -32,13 +33,13 @@ export function useLatestSensorPolling() {
         };
 
         fetchData();
-        const intervalId = setInterval(fetchData, 10000);
+        const intervalId = setInterval(fetchData, intervalMs);
 
         return () => {
             isMounted = false;
             clearInterval(intervalId);
         };
-    }, []);
+    }, [intervalMs]);
 
     return latestSensor;
 }

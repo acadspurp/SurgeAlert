@@ -27,6 +27,7 @@ import {
     trimRowsThroughContact,
 } from '../../utils/sensorTimeseries.js';
 import { useLatestSensorPolling } from '../../hooks/useLatestSensorPolling.js';
+import { LIVE_DATA_POLL_MS } from '../../constants/livePolling.js';
 import 'chartjs-adapter-date-fns';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import Papa from 'papaparse';
@@ -662,7 +663,7 @@ export default function Admin() {
     useEffect(() => {
         if (!user || (role !== 'ADMIN' && role !== 'HEAD_ADMIN')) return;
 
-        const pollMs = 10000;
+        const pollMs = LIVE_DATA_POLL_MS;
         const id = setInterval(() => {
             loadDashboardData();
             loadCameraFeed();
@@ -704,11 +705,44 @@ export default function Admin() {
 
         if (!window.confirm(`Are you sure you want to broadcast a ${level} alert?`)) return;
 
+        const normalizedLevel = level === 'NORMAL' ? 'GREEN' : level;
+        const statusColor =
+            normalizedLevel === 'RED' ? 'text-red-600 font-black'
+                : normalizedLevel === 'ORANGE' ? 'text-orange-500'
+                    : normalizedLevel === 'YELLOW' ? 'text-yellow-500'
+                        : 'text-green-600';
+
         try {
             const safeReason = reason || 'Admin Manual Action';
+            if (level === 'NORMAL') {
+                setOverrideContext((prev) => ({
+                    active: false,
+                    official: prev.sensor || 'GREEN',
+                    sensor: prev.sensor,
+                }));
+                setDashData((prev) => ({
+                    ...prev,
+                    status: prev.sensor || 'GREEN',
+                    statusColor,
+                }));
+            } else {
+                setOverrideContext((prev) => ({
+                    active: true,
+                    official: level,
+                    sensor: prev.sensor,
+                }));
+                setDashData((prev) => ({
+                    ...prev,
+                    status: level,
+                    statusColor,
+                }));
+            }
+
             const result = await overrideAlert(level, safeReason);
             const n = result?.smsRecipients ?? 0;
-            let msg = `Alert level forcefully overridden to ${level}.`;
+            let msg = level === 'NORMAL'
+                ? 'System returned to AUTO — dashboard follows live Pi readings.'
+                : `Alert level forcefully overridden to ${level}.`;
             if (level !== 'NORMAL' && n > 0) {
                 msg += ` SMS broadcast attempted for ${n} subscriber(s).`;
             } else if (level !== 'NORMAL') {
@@ -718,10 +752,12 @@ export default function Admin() {
                 msg += ` ${result.smsWarning}`;
             }
             alert(msg);
-            loadDashboardData();
-            if (isHeadAdmin) loadAdminUsersData(); // Reload logs
+            await loadDashboardData();
+            loadCameraFeed();
+            if (isHeadAdmin) loadAdminUsersData();
         } catch (e) {
             alert(e?.message || 'Error overriding alert.');
+            await loadDashboardData();
         }
     };
 

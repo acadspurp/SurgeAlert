@@ -48,7 +48,7 @@ public class NotificationService {
 
                     // Prefer curly-brace placeholders when present.
                     boolean hasCurly = template.contains("{");
-                    boolean hasLegacyFormat = template.contains("%s");
+                    // Legacy [%s] / {timestamp} handled without String.format (avoids garbled text).
 
                     String rendered;
                     if (hasCurly) {
@@ -57,14 +57,11 @@ public class NotificationService {
                         vars.put("level", levelText);
                         vars.put("waterLevel", levelText);
                         vars.put("timestamp", timestamp);
-                        // Reserved for future per-recipient personalization (broadcast uses a shared message today).
                         vars.put("name", "");
                         rendered = applyVars(template, vars);
-                    } else if (hasLegacyFormat) {
-                        // Historical DB templates use [%s] to indicate timestamp, but String.format expects %s.
-                        rendered = String.format(template, timestamp);
                     } else {
-                        rendered = template;
+                        // Do not use String.format on free-text templates — unescaped % causes garbled SMS.
+                        rendered = applyLegacyPlaceholders(template, key, levelText, timestamp);
                     }
 
                     // Timestamp integration: ensure alert broadcasts always include a timestamp.
@@ -131,6 +128,18 @@ public class NotificationService {
             String v = e.getValue() == null ? "" : e.getValue();
             out = out.replace("{" + k + "}", v);
         }
+        return out;
+    }
+
+    /** Legacy DB templates use [%s] or {timestamp} — never String.format on the whole body. */
+    private static String applyLegacyPlaceholders(
+            String template, String status, String levelText, String timestamp) {
+        String out = template == null ? "" : template;
+        out = out.replace("[%s]", timestamp);
+        out = out.replace("{timestamp}", timestamp);
+        out = out.replace("{status}", status == null ? "" : status);
+        out = out.replace("{level}", levelText == null ? "" : levelText);
+        out = out.replace("{waterLevel}", levelText == null ? "" : levelText);
         return out;
     }
 }

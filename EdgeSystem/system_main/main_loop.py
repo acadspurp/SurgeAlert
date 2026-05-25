@@ -12,8 +12,11 @@ import time
 import warnings
 from datetime import datetime
 from statistics import median
+from zoneinfo import ZoneInfo
 
 import paho.mqtt.client as mqtt
+
+_MANILA = ZoneInfo("Asia/Manila")
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -146,18 +149,33 @@ def _print_dashboard(reading, cloud_online, ml_stale):
     print("=" * 52 + "\n")
 
 
+def _manila_time_label():
+    """Same style as backend NotificationService (e.g. 2:15 PM)."""
+    label = datetime.now(_MANILA).strftime("%I:%M %p")
+    return label.lstrip("0") if label.startswith("0") else label
+
+
 def _format_offline_sms(template, reading):
     fused = reading.get("fused_flow_rate", reading.get("sensor_flow_rate", 0))
+    ts = _manila_time_label()
+    level = (reading.get("current_alert_level") or "GREEN").upper()
+    wl = f"{reading['water_level']:.2f}"
     if not template:
         return (
-            f"SURGE ALERT {reading['current_alert_level']}: "
-            f"Water {reading['water_level']:.2f}m, rise {reading['rise_rate']:.2f} m/h. "
-            f"Flow {fused:.2f} m/s."
+            f"SURGE ALERT {level}: Water {wl}m, rise {reading['rise_rate']:.2f} m/h. "
+            f"Flow {fused:.2f} m/s. ({ts})"
         )
-    msg = template.replace("{level}", f"{reading['water_level']:.2f}")
-    msg = msg.replace("{alert}", reading["current_alert_level"])
+    msg = template
+    msg = msg.replace("[%s]", ts)
+    msg = msg.replace("{timestamp}", ts)
+    msg = msg.replace("{alert}", level)
+    msg = msg.replace("{status}", level)
+    msg = msg.replace("{level}", wl)
+    msg = msg.replace("{waterLevel}", wl)
     msg = msg.replace("{flow}", f"{fused:.2f}")
     msg = msg.replace("{rise}", f"{reading['rise_rate']:.2f}")
+    if ts not in msg:
+        msg = msg.strip() + f" ({ts})"
     return msg
 
 

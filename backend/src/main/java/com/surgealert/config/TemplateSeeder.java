@@ -20,16 +20,16 @@ public class TemplateSeeder implements CommandLineRunner {
         if (repository.count() == 0) {
             
             repository.save(new AlertTemplate("YELLOW", 
-                "SurgeAlert: YELLOW ALERT (Babala). Mabilis na pagtaas ng tubig sa Tullahan River. Maging handa at subaybayan ang mga anunsyo. [%s] - Marulas BDRRMO"));
+                "SurgeAlert YELLOW: Rising water Tullahan. Be ready. {timestamp} - Marulas BDRRMO"));
             
             repository.save(new AlertTemplate("ORANGE", 
-                "SurgeAlert: ORANGE ALERT (Maghanda sa Paglikas). Kritikal ang antas ng tubig sa Tullahan River. Ang mga nasa mababang lugar ay pinapayuhang lumikas na. [%s] - Marulas BDRRMO"));
+                "SurgeAlert ORANGE: Prepare to evacuate Tullahan. {timestamp} - Marulas BDRRMO"));
             
             repository.save(new AlertTemplate("RED", 
-                "SurgeAlert: RED ALERT (LUMIKAS LAHAT). Mapanganib ang antas ng tubig sa Tullahan River. Mahigpit na ipinag-uutos ang paglikas ng lahat ng residente. Pumunta sa pinakamalapit na evacuation center. [%s] - Marulas BDRRMO"));
+                "SurgeAlert RED: EVACUATE NOW Tullahan. Go to nearest center. {timestamp} - Marulas BDRRMO"));
             
             repository.save(new AlertTemplate("GREEN", 
-                "SurgeAlert: ALL-CLEAR. Bumalik na sa normal ang antas ng tubig sa Tullahan River. Ligtas nang bumalik sa inyong mga tahanan. Manatiling maingat. [%s] - Marulas BDRRMO"));
+                "SurgeAlert ALL-CLEAR: Water normal Tullahan. {timestamp} - Marulas BDRRMO"));
             
             repository.save(new AlertTemplate("OTP", 
                 "Ang iyong SurgeAlert OTP ay: {code}. Huwag itong ibahagi sa iba. Ang code na ito ay valid sa loob ng 10 minuto."));
@@ -54,5 +54,17 @@ public class TemplateSeeder implements CommandLineRunner {
                 System.out.println("SUCCESS: OTP template validity updated to 10 minutes.");
             }
         });
+
+        // Migrate legacy [%s] timestamp placeholders (String.format caused garbled SMS).
+        for (String alertType : new String[] { "YELLOW", "ORANGE", "RED", "GREEN" }) {
+            repository.findByAlertType(alertType).ifPresent(t -> {
+                String text = t.getTemplate();
+                if (text != null && text.contains("[%s]")) {
+                    t.setTemplate(text.replace("[%s]", "{timestamp}"));
+                    repository.save(t);
+                    System.out.println("SUCCESS: Migrated " + alertType + " template [%s] -> {timestamp}.");
+                }
+            });
+        }
     }
 }

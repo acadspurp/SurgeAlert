@@ -6,12 +6,13 @@ import { useLiveManilaClock } from '../hooks/useLiveManilaClock.js';
 import { classifyAlertLevel, gaugeFillPercent, gaugeMarkers } from '../config/alertConfig.js';
 
 import { DISPLAY_TIMEZONE, TIDE_DISPLAY_TIMEZONE, formatSensorAge, formatManilaWallClockFromMs, formatManilaWallDateFromMs } from '../constants/displayTime.js';
+import { LIVE_DATA_POLL_MS } from '../constants/livePolling.js';
 import { normalizeSensorInstant, resolveSensorHeartbeatMs, statusToSensorRow } from '../utils/sensorTimeseries.js';
 
 let CACHED_GUIDE = null;
 
-/** How often to poll GET /public/alerts/status (includes manual override). Keeps all browsers in sync without refresh. */
-const ALERT_STATUS_POLL_MS = 10000;
+/** Polls GET /public/alerts/status (includes manual override). */
+const ALERT_STATUS_POLL_MS = LIVE_DATA_POLL_MS;
 
 function getAlertColors(levelKey) {
     if (levelKey === 'green') return { bg: 'bg-[#1e293b]', border: 'border-green-500', text: 'text-green-400', glow: 'shadow-[0_0_15px_rgba(34,197,94,0.3)]' };
